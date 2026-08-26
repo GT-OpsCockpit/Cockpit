@@ -1,0 +1,37 @@
+name: Deploy to VPS
+
+# Manual for now (per docs/DEVOPS_PLAN.md): trigger by hand from the Actions tab,
+# optionally pinning an image tag. Also fires on a `v*` tag push once that's the
+# preferred release flow. Requires these repo secrets, none of which exist yet:
+#   VPS_HOST, VPS_USERNAME, VPS_SSH_KEY, VPS_PORT (optional, defaults to 22)
+# and the VPS itself needs docker-compose.yml + a populated .env in ~/cockpit
+# (see docs/DEVOPS_PLAN.md) — none of that is provisioned yet either.
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (defaults to latest)'
+        required: false
+        default: 'latest'
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
+            cd ~/cockpit
+            echo "IMAGE_TAG=${{ github.event.inputs.image_tag || 'latest' }}" > .image-tag.env
+            docker compose --env-file .env --env-file .image-tag.env pull
+            docker compose --env-file .env --env-file .image-tag.env up -d
+            docker image prune -f

@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint-build-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: cockpit
+          POSTGRES_PASSWORD: cockpit
+          POSTGRES_DB: cockpit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cockpit -d cockpit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://cockpit:cockpit@localhost:5432/cockpit?schema=public
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/setup@v1
+        with:
+          version: 11
+          runtime: node@22
+          cache: true
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @cockpit/api exec prisma generate
+
+      - name: Lint api
+        run: pnpm --filter @cockpit/api lint
+
+      - name: Lint web
+        run: pnpm --filter @cockpit/web lint
+
+      - name: Typecheck + build api
+        run: pnpm --filter @cockpit/api build
+
+      - name: Typecheck + build web
+        run: pnpm --filter @cockpit/web build
+
+      - name: Test api
+        run: pnpm --filter @cockpit/api test
+
+      - name: Test web
+        run: pnpm --filter @cockpit/web test

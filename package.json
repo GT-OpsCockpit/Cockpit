@@ -1,0 +1,12 @@
+{
+  "name": "cockpit-v2",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.24.0",
+  "scripts": {
+    "dev:api": "pnpm --filter @cockpit/api start:dev",
+    "dev:web": "pnpm --filter @cockpit/web dev"
+  }
+}
