@@ -72,8 +72,8 @@ export class FleetVehiclesService {
         color: dto.color || FLEET_DEFAULT_COLOR,
         acronym: dto.acronym?.trim().slice(0, 6) || null,
         isLocal,
-        countryCode: dto.countryCode || null,
-        area: dto.area?.trim() || null,
+        countryCode: !isLocal ? dto.countryCode || null : null,
+        area: !isLocal ? dto.area?.trim() || null : null,
         partnerCompany: !isLocal ? dto.partnerCompany?.trim() || null : null,
         driverId,
         eventsOnly: !!dto.eventsOnly,
@@ -109,7 +109,7 @@ export class FleetVehiclesService {
     let driverId: string | null | undefined;
     if (!isLocal) {
       if (dto.driverRef !== undefined) {
-        driverId = await this.resolveDriverId(dto.driverRef);
+        driverId = await this.resolveDriverId(dto.driverRef, ref);
       }
     } else {
       driverId = null;
@@ -128,8 +128,8 @@ export class FleetVehiclesService {
         color: dto.color || FLEET_DEFAULT_COLOR,
         acronym: dto.acronym?.trim().slice(0, 6) || null,
         isLocal,
-        countryCode: dto.countryCode || null,
-        area: dto.area?.trim() || null,
+        countryCode: !isLocal ? dto.countryCode || null : null,
+        area: !isLocal ? dto.area?.trim() || null : null,
         partnerCompany: !isLocal ? dto.partnerCompany?.trim() || null : null,
         ...(driverId !== undefined && { driverId }),
         eventsOnly: !!dto.eventsOnly,
@@ -143,8 +143,13 @@ export class FleetVehiclesService {
   }
 
   async delete(ref: string) {
-    await this.findByRefOrThrow(ref);
-    await this.prisma.fleetVehicle.delete({ where: { ref } });
+    const vehicle = await this.findByRefOrThrow(ref);
+    await this.prisma.$transaction([
+      this.prisma.fleetUnavailability.deleteMany({
+        where: { fleetVehicleId: vehicle.id },
+      }),
+      this.prisma.fleetVehicle.delete({ where: { ref } }),
+    ]);
     return { ok: true };
   }
 
@@ -158,8 +163,13 @@ export class FleetVehiclesService {
   }
 
   async setDriver(ref: string, driverRef: string | null | undefined) {
-    await this.findByRefOrThrow(ref);
-    const driverId = await this.resolveDriverId(driverRef ?? undefined);
+    const vehicle = await this.findByRefOrThrow(ref);
+    if (driverRef && vehicle.isLocal) {
+      throw new BadRequestException(
+        'A driver can only be reserved to a non-local (external) vehicle.',
+      );
+    }
+    const driverId = await this.resolveDriverId(driverRef ?? undefined, ref);
     return this.prisma.fleetVehicle.update({
       where: { ref },
       data: { driverId },
@@ -218,6 +228,7 @@ export class FleetVehiclesService {
 
   private async resolveDriverId(
     driverRef: string | undefined,
+    excludeRef?: string,
   ): Promise<string | null> {
     if (!driverRef) return null;
     const driver = await this.prisma.driver.findUnique({
@@ -227,6 +238,14 @@ export class FleetVehiclesService {
       throw new BadRequestException(
         'driverRef does not match an existing driver',
       );
+    const reservedBy = await this.prisma.fleetVehicle.findUnique({
+      where: { driverId: driver.id },
+    });
+    if (reservedBy && reservedBy.ref !== excludeRef) {
+      throw new ConflictException(
+        `Driver ${driverRef} is already reserved to vehicle ${reservedBy.ref}`,
+      );
+    }
     return driver.id;
   }
 

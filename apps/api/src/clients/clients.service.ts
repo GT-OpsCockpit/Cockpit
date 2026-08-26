@@ -56,6 +56,12 @@ export class ClientsService {
     return clients.map(withName);
   }
 
+  // TODO: this type-discriminated required-fields tree is duplicated, each
+  // in its own shape, in DriversService.assertValidDriverFields() and
+  // FleetVehiclesService.assertValid(). Extract a shared "required fields by
+  // discriminant" helper so a fix to one doesn't have to be repeated in the
+  // other two (this is exactly how the create/update event-field bugs
+  // happened here).
   async create(dto: CreateClientDto) {
     const isCompany = dto.clientType === ClientType.COMPANY;
     const isEvent = dto.clientType === ClientType.EVENT;
@@ -132,22 +138,39 @@ export class ClientsService {
   async update(ref: string, dto: UpdateClientDto) {
     const existing = await this.findByRefOrThrow(ref);
 
-    const isCompany = dto.clientType === ClientType.COMPANY;
-    const isEvent = dto.clientType === ClientType.EVENT;
-    if (isCompany && !dto.company) {
+    const clientType = dto.clientType ?? existing.clientType;
+    const isCompany = clientType === ClientType.COMPANY;
+    const isEvent = clientType === ClientType.EVENT;
+    if (isCompany && !(dto.company ?? existing.company)) {
       throw new BadRequestException(
         'Company name is required for a Company-type account.',
       );
     }
-    if (isEvent && !dto.company) {
+    if (isEvent && !(dto.company ?? existing.company)) {
       throw new BadRequestException(
         'Event name is required for an Events-type account.',
       );
     }
     if (
+      isEvent &&
+      !(
+        (dto.eventCountry ?? existing.eventCountry) &&
+        (dto.eventArea ?? existing.eventArea) &&
+        (dto.eventStartDate ?? existing.eventStartDate) &&
+        (dto.eventEndDate ?? existing.eventEndDate)
+      )
+    ) {
+      throw new BadRequestException(
+        'Country, area and date range are required for an Events-type account.',
+      );
+    }
+    if (
       !isCompany &&
       !isEvent &&
-      !(dto.contactFirstName && dto.contactLastName)
+      !(
+        (dto.contactFirstName ?? existing.contactFirstName) &&
+        (dto.contactLastName ?? existing.contactLastName)
+      )
     ) {
       throw new BadRequestException(
         'Contact first name and last name are required for an Individual-type account.',
@@ -171,20 +194,22 @@ export class ClientsService {
       where: { ref },
       data: {
         ...(dto.clientType !== undefined && { clientType: dto.clientType }),
-        ...(dto.eventCountry !== undefined && {
-          eventCountry: dto.eventCountry || null,
-        }),
-        ...(dto.eventArea !== undefined && {
-          eventArea: dto.eventArea || null,
-        }),
-        ...(dto.eventStartDate !== undefined && {
-          eventStartDate: dto.eventStartDate
+        eventCountry: isEvent
+          ? (dto.eventCountry ?? existing.eventCountry) || null
+          : null,
+        eventArea: isEvent
+          ? (dto.eventArea ?? existing.eventArea) || null
+          : null,
+        eventStartDate: isEvent
+          ? dto.eventStartDate
             ? new Date(dto.eventStartDate)
-            : null,
-        }),
-        ...(dto.eventEndDate !== undefined && {
-          eventEndDate: dto.eventEndDate ? new Date(dto.eventEndDate) : null,
-        }),
+            : existing.eventStartDate
+          : null,
+        eventEndDate: isEvent
+          ? dto.eventEndDate
+            ? new Date(dto.eventEndDate)
+            : existing.eventEndDate
+          : null,
         ...(dto.contactFirstName !== undefined && {
           contactFirstName: dto.contactFirstName || null,
         }),
@@ -222,7 +247,16 @@ export class ClientsService {
   }
 
   async delete(ref: string) {
-    await this.findByRefOrThrow(ref);
+    const client = await this.findByRefOrThrow(ref);
+    const [tripCount, invoiceCount] = await Promise.all([
+      this.prisma.trip.count({ where: { clientId: client.id } }),
+      this.prisma.invoice.count({ where: { clientId: client.id } }),
+    ]);
+    if (tripCount > 0 || invoiceCount > 0) {
+      throw new BadRequestException(
+        'This account has trips or invoices on file and cannot be deleted — deactivate it instead.',
+      );
+    }
     await this.prisma.client.delete({ where: { ref } });
     return { ok: true };
   }

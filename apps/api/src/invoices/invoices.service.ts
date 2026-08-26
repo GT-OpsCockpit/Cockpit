@@ -39,31 +39,53 @@ export class InvoicesService {
     });
     // Silently ignores stale refs (already deleted/cancelled) and trips
     // already invoiced elsewhere — matches the legacy's filtering.
-    const included = trips.filter((t) => !t.invoiced);
-    if (included.length === 0) {
+    const candidateIds = trips.filter((t) => !t.invoiced).map((t) => t.id);
+    if (candidateIds.length === 0) {
       throw new BadRequestException(
         'None of the selected trips can be invoiced (already invoiced, or no longer exist).',
       );
     }
 
-    const totalHT = round2(
-      included.reduce(
-        (sum, t) => sum + (t.priceEur ? Number(t.priceEur) : 0),
-        0,
-      ),
-    );
     // vatRate is a real, persisted field (not a hard-coded literal) so a
     // future per-country/per-client rate doesn't require a schema change —
     // v1 still always applies the single configured default (10%).
     const vatRate =
       this.config.get('DEFAULT_VAT_RATE_PERCENT', { infer: true }) / 100;
-    const totalTTC = round2(totalHT * (1 + vatRate));
 
     const seq = await this.refCounter.next('invoice');
     const ref = `INV${seq}`;
 
-    await this.prisma.$transaction([
-      this.prisma.invoice.create({
+    // Interactive transaction: `RETURNING id` reports exactly the rows THIS
+    // UPDATE flipped from false to true — unlike re-reading with a plain
+    // findMany afterwards (which, under READ COMMITTED, would also show
+    // trips a concurrent, already-committed request just claimed, wrongly
+    // treating them as "claimed by us" too and double-billing them). The
+    // `invoiced: false` guard is re-checked under the row lock at write
+    // time, so a concurrent invoice creation racing on the same trip can
+    // only ever claim it once.
+    const invoice = await this.prisma.$transaction(async (tx) => {
+      const claimedRows = await tx.$queryRaw<{ id: string }[]>`
+        UPDATE "Trip" SET invoiced = true
+        WHERE id = ANY(${candidateIds}) AND invoiced = false
+        RETURNING id
+      `;
+      const claimedIds = claimedRows.map((r) => r.id);
+      if (claimedIds.length === 0) {
+        throw new BadRequestException(
+          'None of the selected trips can be invoiced (already invoiced by a concurrent request).',
+        );
+      }
+      const claimed = await tx.trip.findMany({
+        where: { id: { in: claimedIds } },
+      });
+      const totalHT = round2(
+        claimed.reduce(
+          (sum, t) => sum + (t.priceEur ? Number(t.priceEur) : 0),
+          0,
+        ),
+      );
+      const totalTTC = round2(totalHT * (1 + vatRate));
+      return tx.invoice.create({
         data: {
           ref,
           clientId: client.id,
@@ -74,17 +96,13 @@ export class InvoicesService {
           totalHT,
           vatRate,
           totalTTC,
-          trips: { create: included.map((t) => ({ tripId: t.id })) },
+          trips: { create: claimed.map((t) => ({ tripId: t.id })) },
         },
-      }),
-      this.prisma.trip.updateMany({
-        where: { id: { in: included.map((t) => t.id) } },
-        data: { invoiced: true },
-      }),
-    ]);
+      });
+    });
 
     return this.prisma.invoice.findUniqueOrThrow({
-      where: { ref },
+      where: { ref: invoice.ref },
       include: { client: true, trips: { include: { trip: true } } },
     });
   }

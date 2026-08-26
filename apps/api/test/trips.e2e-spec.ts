@@ -178,6 +178,44 @@ describe('Trips (e2e)', () => {
     );
   });
 
+  it('never hands out the same ref to two concurrent creations racing on the same freed sequence', async () => {
+    const client = await createClient();
+    const t1 = await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({ ...BASE_TRIP, clientRef: client.ref })
+      .expect(201);
+    const t2 = await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({ ...BASE_TRIP, clientRef: client.ref })
+      .expect(201);
+    await request(server())
+      .post(`/api/trips/${(t1.body as TripBody).ref}/cancel-assignment`)
+      .set('Cookie', cookie)
+      .send({})
+      .expect(201);
+    await request(server())
+      .post(`/api/trips/${(t2.body as TripBody).ref}/cancel-assignment`)
+      .set('Cookie', cookie)
+      .send({})
+      .expect(201);
+
+    const [a, b] = await Promise.all([
+      request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref }),
+      request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref }),
+    ]);
+    expect(a.status).toBe(201);
+    expect(b.status).toBe(201);
+    expect((a.body as TripBody).ref).not.toBe((b.body as TripBody).ref);
+  });
+
   it('reuses the smallest freed sequence number after a free cancellation', async () => {
     const client = await createClient();
     const t1 = await request(server())
@@ -390,5 +428,156 @@ describe('Trips (e2e)', () => {
       .post(`/api/trips/${trip.ref}/advance-step`)
       .set('Cookie', cookie)
       .expect(400);
+  });
+
+  it('rejects an unresolvable driverRef/partnerRef instead of silently dropping it', async () => {
+    const client = await createClient();
+    await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({ ...BASE_TRIP, clientRef: client.ref, driverRef: 'NOPE' })
+      .expect(400);
+    await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({
+        ...BASE_TRIP,
+        clientRef: client.ref,
+        subContractor: true,
+        partnerRef: 'NOPE',
+      })
+      .expect(400);
+  });
+
+  it('does not reset dispatched on a PUT that edits an unrelated field without reassigning', async () => {
+    const client = await createClient();
+    const driver = await createDriver();
+    const created = await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({ ...BASE_TRIP, clientRef: client.ref, driverRef: driver.ref })
+      .expect(201);
+    const ref = (created.body as TripBody).ref;
+    await request(server())
+      .post(`/api/trips/${ref}/dispatch-driver`)
+      .set('Cookie', cookie)
+      .expect(201);
+
+    const putRes = await request(server())
+      .put(`/api/trips/${ref}`)
+      .set('Cookie', cookie)
+      .send({
+        ...BASE_TRIP,
+        clientRef: client.ref,
+        driverRef: driver.ref,
+        pickupLocation: 'Nice Airport — Terminal 2',
+      })
+      .expect(200);
+    expect((putRes.body as { trip: TripBody }).trip.dispatched).toBe(true);
+  });
+
+  it('clears a stale cancellationFee once the trip is reassigned', async () => {
+    const client = await createClient();
+    const driverA = await createDriver('0622222222');
+    const driverB = await createDriver('0633333333');
+    const created = await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({ ...BASE_TRIP, clientRef: client.ref, driverRef: driverA.ref })
+      .expect(201);
+    const ref = (created.body as TripBody).ref;
+    await request(server())
+      .post(`/api/trips/${ref}/cancel-assignment`)
+      .set('Cookie', cookie)
+      .send({ cancellationFee: 'FIFTY' })
+      .expect(201);
+
+    const putRes = await request(server())
+      .put(`/api/trips/${ref}`)
+      .set('Cookie', cookie)
+      .send({ ...BASE_TRIP, clientRef: client.ref, driverRef: driverB.ref })
+      .expect(200);
+    const updated = (
+      putRes.body as { trip: TripBody & { cancellationFee: string | null } }
+    ).trip;
+    expect(updated.cancellationFee).toBeNull();
+    expect(updated.assignmentCancelled).toBe(false);
+  });
+
+  it('blocks the public /notify endpoint once the trip is cancelled', async () => {
+    const client = await createClient();
+    const driver = await createDriver();
+    const created = await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({ ...BASE_TRIP, clientRef: client.ref, driverRef: driver.ref })
+      .expect(201);
+    const ref = (created.body as TripBody).ref;
+    await request(server())
+      .post(`/api/trips/${ref}/cancel-assignment`)
+      .set('Cookie', cookie)
+      .send({ cancellationFee: 'FIFTY' })
+      .expect(201);
+
+    await request(server())
+      .post(`/api/trips/${ref}/notify`)
+      .send({ step: 'DROPPED' })
+      .expect(400);
+  });
+
+  it('sends the partner name (not "null") on a sub-contracted, partner-assigned trip', async () => {
+    const client = await createClient();
+    const partner = await createDriver('0644444444');
+    const created = await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({
+        ...BASE_TRIP,
+        clientRef: client.ref,
+        subContractor: true,
+        partnerRef: partner.ref,
+      })
+      .expect(201);
+    const ref = (created.body as TripBody).ref;
+
+    await request(server())
+      .post(`/api/trips/${ref}/advance-step`)
+      .set('Cookie', cookie)
+      .expect(201); // transmitted (not locked: a partner is already assigned)
+    await request(server())
+      .post(`/api/trips/${ref}/advance-step`)
+      .set('Cookie', cookie)
+      .expect(201); // received
+    await request(server())
+      .post(`/api/trips/${ref}/advance-step`)
+      .set('Cookie', cookie)
+      .expect(201); // accepted: real WhatsApp send to the POC
+
+    const lastMessage = whatsapp.sent[whatsapp.sent.length - 1];
+    expect(lastMessage.body).not.toContain('null');
+    expect(lastMessage.body).toContain('Bob Driver');
+  });
+
+  it('auto-stamps RECEIVED (and TRANSMITTED if missing) when a partner opens the public tracking link', async () => {
+    const client = await createClient();
+    const partner = await createDriver('0655555555');
+    const created = await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({
+        ...BASE_TRIP,
+        clientRef: client.ref,
+        subContractor: true,
+        partnerRef: partner.ref,
+      })
+      .expect(201);
+    const ref = (created.body as TripBody).ref;
+
+    const publicView = await request(server())
+      .get(`/api/trips/${ref}?viewer=driver`)
+      .expect(200);
+    expect((publicView.body as TripBody).steps.map((s) => s.step)).toEqual(
+      expect.arrayContaining(['TRANSMITTED', 'RECEIVED']),
+    );
   });
 });

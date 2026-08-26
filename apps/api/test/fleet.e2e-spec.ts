@@ -63,6 +63,64 @@ describe('Fleet (e2e)', () => {
         .send({ name: 'Custom Type', maxPax: 2 })
         .expect(409);
     });
+
+    it('supports the full CRUD lifecycle: update, deactivate/reactivate, delete', async () => {
+      const created = await request(server())
+        .post('/api/vehicles')
+        .set('Cookie', cookie)
+        .send({ name: 'Custom Type', maxPax: 4 })
+        .expect(201);
+      const ref = (created.body as { ref: string }).ref;
+
+      const updated = await request(server())
+        .put(`/api/vehicles/${ref}`)
+        .set('Cookie', cookie)
+        .send({ name: 'Custom Type', maxPax: 6 })
+        .expect(200);
+      expect((updated.body as { maxPax: number }).maxPax).toBe(6);
+
+      const deactivated = await request(server())
+        .patch(`/api/vehicles/${ref}/active`)
+        .set('Cookie', cookie)
+        .send({ active: false })
+        .expect(200);
+      expect((deactivated.body as { active: boolean }).active).toBe(false);
+
+      await request(server())
+        .patch(`/api/vehicles/${ref}/active`)
+        .set('Cookie', cookie)
+        .send({ active: true })
+        .expect(200);
+
+      await request(server())
+        .delete(`/api/vehicles/${ref}`)
+        .set('Cookie', cookie)
+        .expect(200);
+      await request(server())
+        .delete(`/api/vehicles/${ref}`)
+        .set('Cookie', cookie)
+        .expect(404);
+    });
+
+    it('refuses to delete a vehicle type that is in use by a fleet vehicle', async () => {
+      const created = await request(server())
+        .post('/api/vehicles')
+        .set('Cookie', cookie)
+        .send({ name: 'Custom Type', maxPax: 4 })
+        .expect(201);
+      const ref = (created.body as { ref: string }).ref;
+
+      await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send({ ...BASE_VEHICLE, category: 'Custom Type' })
+        .expect(201);
+
+      await request(server())
+        .delete(`/api/vehicles/${ref}`)
+        .set('Cookie', cookie)
+        .expect(400);
+    });
   });
 
   describe('fleet vehicles', () => {
@@ -288,6 +346,104 @@ describe('Fleet (e2e)', () => {
       expect((updated.body as FleetVehicleBody).driver?.ref).toBe(
         (driver.body as DriverBody).ref,
       );
+    });
+
+    it('nulls out countryCode/area (like partnerCompany/driverRef) for a local vehicle', async () => {
+      const res = await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send({ ...BASE_VEHICLE, countryCode: 'FR', area: 'Nice' })
+        .expect(201);
+      const body = res.body as FleetVehicleBody & {
+        countryCode: string | null;
+        area: string | null;
+      };
+      expect(body.countryCode).toBeNull();
+      expect(body.area).toBeNull();
+    });
+
+    it('refuses to reserve a driver to a local vehicle via PATCH .../driver', async () => {
+      const driver = await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({ firstName: 'John', lastName: 'Smith', phone: '0611111111' })
+        .expect(201);
+      const local = await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send(BASE_VEHICLE)
+        .expect(201);
+
+      await request(server())
+        .patch(
+          `/api/fleet-vehicles/${(local.body as FleetVehicleBody).ref}/driver`,
+        )
+        .set('Cookie', cookie)
+        .send({ driverRef: (driver.body as DriverBody).ref })
+        .expect(400);
+    });
+
+    it('refuses to reserve a driver who is already reserved to another vehicle', async () => {
+      const driver = await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({ company: 'Uber', email: 'ops@uber.test' })
+        .expect(201);
+      const partnerFields = {
+        isLocal: false,
+        countryCode: 'US-CA',
+        area: 'Los Angeles',
+        partnerCompany: 'Uber',
+      };
+      const vehicleA = await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send({ ...BASE_VEHICLE, ...partnerFields })
+        .expect(201);
+      const vehicleB = await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send({ ...BASE_VEHICLE, ...partnerFields, regNbr: 'ZZ-999-ZZ' })
+        .expect(201);
+
+      await request(server())
+        .patch(
+          `/api/fleet-vehicles/${(vehicleA.body as FleetVehicleBody).ref}/driver`,
+        )
+        .set('Cookie', cookie)
+        .send({ driverRef: (driver.body as DriverBody).ref })
+        .expect(200);
+
+      await request(server())
+        .patch(
+          `/api/fleet-vehicles/${(vehicleB.body as FleetVehicleBody).ref}/driver`,
+        )
+        .set('Cookie', cookie)
+        .send({ driverRef: (driver.body as DriverBody).ref })
+        .expect(409);
+    });
+
+    it('deletes a local vehicle that has an active unavailability window without a raw FK error', async () => {
+      const created = await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send(BASE_VEHICLE)
+        .expect(201);
+      const ref = (created.body as FleetVehicleBody).ref;
+      await request(server())
+        .patch(`/api/fleet-vehicles/${ref}/unavailability`)
+        .set('Cookie', cookie)
+        .send({
+          type: 'REPAIR',
+          startDate: '2026-01-01',
+          endDate: '2026-01-05',
+        })
+        .expect(200);
+
+      await request(server())
+        .delete(`/api/fleet-vehicles/${ref}`)
+        .set('Cookie', cookie)
+        .expect(200);
     });
 
     it('reversibly deactivates and permanently deletes a vehicle', async () => {

@@ -10,6 +10,7 @@ export interface TripForMessage {
   pickupAt: Date;
   vehicleType: { name: string } | null;
   driver: { firstName: string | null; lastName: string | null } | null;
+  partner: { firstName: string | null; lastName: string | null } | null;
 }
 
 // pickupAt is stored as a naive "local wall-clock at the pickup location"
@@ -24,7 +25,10 @@ export function buildTripMessageContext(
   return {
     ref: trip.ref,
     pocName: trip.pocName,
-    driverName: trip.driver ? computeDriverName(trip.driver) : null,
+    driverName:
+      trip.driver || trip.partner
+        ? computeDriverName((trip.driver ?? trip.partner)!)
+        : null,
     passengerName: trip.passengerName,
     pickupLocation: trip.pickupLocation,
     dropoffLocation: trip.dropoffLocation,

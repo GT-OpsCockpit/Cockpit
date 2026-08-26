@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -141,6 +142,20 @@ export class DriversService {
     const existing = await this.findByRefOrThrow(ref);
     assertValidDriverFields(dto);
 
+    if (dto.phone !== undefined && dto.phone) {
+      const normalized = normalizePhone(dto.phone);
+      if (normalized !== existing.phone) {
+        const conflict = await this.prisma.driver.findUnique({
+          where: { phone: normalized },
+        });
+        if (conflict && conflict.ref !== ref) {
+          throw new ConflictException(
+            `Phone ${dto.phone} is already used by driver ${conflict.ref}`,
+          );
+        }
+      }
+    }
+
     const finalEventsOnly = dto.eventsOnly ?? existing.eventsOnly;
     let eventClientId: string | null | undefined;
     if (finalEventsOnly) {
@@ -185,8 +200,13 @@ export class DriversService {
   }
 
   async delete(ref: string) {
-    await this.findByRefOrThrow(ref);
-    await this.prisma.driver.delete({ where: { ref } });
+    const driver = await this.findByRefOrThrow(ref);
+    await this.prisma.$transaction([
+      this.prisma.driverUnavailability.deleteMany({
+        where: { driverId: driver.id },
+      }),
+      this.prisma.driver.delete({ where: { ref } }),
+    ]);
     return { ok: true };
   }
 

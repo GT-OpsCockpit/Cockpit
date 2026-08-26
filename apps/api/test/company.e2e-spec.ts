@@ -56,7 +56,7 @@ describe('Company (e2e)', () => {
       .expect(400);
   });
 
-  it('saves once all fields are provided, then still allows overwriting (no server-side lock)', async () => {
+  it('saves once all fields are provided, then locks further edits server-side', async () => {
     const putRes = await request(server())
       .put('/api/company-info')
       .set('Cookie', adminCookie)
@@ -64,12 +64,17 @@ describe('Company (e2e)', () => {
       .expect(200);
     expect((putRes.body as { saved: boolean }).saved).toBe(true);
 
-    const secondPut = await request(server())
+    await request(server())
       .put('/api/company-info')
       .set('Cookie', adminCookie)
       .send({ ...FULL_PAYLOAD, city: 'Lyon' })
+      .expect(409);
+
+    const getRes = await request(server())
+      .get('/api/company-info')
+      .set('Cookie', adminCookie)
       .expect(200);
-    expect((secondPut.body as { city: string }).city).toBe('Lyon');
+    expect((getRes.body as { city: string }).city).toBe('Paris');
   });
 
   it('forbids a non-admin dispatcher from reading or writing company info', async () => {

@@ -238,6 +238,44 @@ describe('Drivers (e2e)', () => {
     expect((cleared.body as DriverBody).unavailability).toBeNull();
   });
 
+  it("rejects a PUT that reuses another driver's phone number", async () => {
+    await request(server())
+      .post('/api/drivers')
+      .set('Cookie', cookie)
+      .send({ firstName: 'John', lastName: 'Smith', phone: '0612345678' })
+      .expect(201);
+    const second = await request(server())
+      .post('/api/drivers')
+      .set('Cookie', cookie)
+      .send({ firstName: 'Jane', lastName: 'Doe', phone: '0699999999' })
+      .expect(201);
+
+    await request(server())
+      .put(`/api/drivers/${(second.body as DriverBody).ref}`)
+      .set('Cookie', cookie)
+      .send({ firstName: 'Jane', lastName: 'Doe', phone: '0612345678' })
+      .expect(409);
+  });
+
+  it('deletes a driver that has an active unavailability window without a raw FK error', async () => {
+    const created = await request(server())
+      .post('/api/drivers')
+      .set('Cookie', cookie)
+      .send({ firstName: 'John', lastName: 'Smith', phone: '0612345678' })
+      .expect(201);
+    const ref = (created.body as DriverBody).ref;
+    await request(server())
+      .patch(`/api/drivers/${ref}/unavailability`)
+      .set('Cookie', cookie)
+      .send({ type: 'SICK', startDate: '2026-06-01', endDate: '2026-06-10' })
+      .expect(200);
+
+    await request(server())
+      .delete(`/api/drivers/${ref}`)
+      .set('Cookie', cookie)
+      .expect(200);
+  });
+
   it('reversibly deactivates and permanently deletes a driver', async () => {
     const created = await request(server())
       .post('/api/drivers')

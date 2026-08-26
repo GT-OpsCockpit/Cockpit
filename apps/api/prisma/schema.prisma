@@ -175,6 +175,7 @@ model VehicleType {
   ref           String         @unique // V{n}
   name          String         @unique
   maxPax        Int
+  active        Boolean        @default(true)
   createdAt     DateTime       @default(now())
   fleetVehicles FleetVehicle[]
   trips         Trip[]

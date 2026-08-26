@@ -120,6 +120,34 @@ describe('Invoices (e2e)', () => {
       .expect(400);
   });
 
+  it('never double-invoices a trip under two concurrent requests for the same ref', async () => {
+    const client = await createClient();
+    const t1 = await createTrip(client, 100);
+
+    const [a, b] = await Promise.all([
+      request(server())
+        .post('/api/invoices')
+        .set('Cookie', cookie)
+        .send({ tripRefs: [t1.ref], clientRef: client.ref }),
+      request(server())
+        .post('/api/invoices')
+        .set('Cookie', cookie)
+        .send({ tripRefs: [t1.ref], clientRef: client.ref }),
+    ]);
+    const statuses = [a.status, b.status].sort();
+    expect(statuses).toEqual([201, 400]);
+
+    const list = await request(server())
+      .get('/api/invoices')
+      .set('Cookie', cookie)
+      .expect(200);
+    const invoices = list.body as (InvoiceBody & {
+      trips: { trip: TripBody }[];
+    })[];
+    expect(invoices).toHaveLength(1);
+    expect(invoices[0].trips).toHaveLength(1);
+  });
+
   it('requires an existing clientRef or eventRef', async () => {
     await request(server())
       .post('/api/invoices')

@@ -64,19 +64,34 @@ export class TripsService {
 
   async getPublic(ref: string, viewerIsDriver: boolean) {
     const trip = await this.findByRefOrThrow(ref);
+    const assigned = trip.driverId || trip.partnerId;
     if (
       viewerIsDriver &&
-      trip.driverId &&
+      assigned &&
       !trip.steps.some((s) => s.step === TripStepKind.RECEIVED)
     ) {
-      await this.prisma.tripStep.create({
-        data: { tripId: trip.id, step: TripStepKind.RECEIVED },
+      const missingTransmitted = !trip.steps.some(
+        (s) => s.step === TripStepKind.TRANSMITTED,
+      );
+      await this.prisma.tripStep.createMany({
+        data: [
+          ...(missingTransmitted
+            ? [{ tripId: trip.id, step: TripStepKind.TRANSMITTED }]
+            : []),
+          { tripId: trip.id, step: TripStepKind.RECEIVED },
+        ],
       });
+      this.realtime.emitTripChanged(ref);
       return this.findByRefOrThrow(ref);
     }
     return trip;
   }
 
+  // TODO: the vehicleType/client/driver/partner/countryInfo lookups below
+  // (and the equivalent block in update()) are independent of each other
+  // and currently awaited one at a time — 5-6 sequential DB round trips per
+  // call. Batch the independent ones with Promise.all to cut latency on
+  // these hot dispatch-desk paths.
   async create(dto: CreateTripDto) {
     if (dto.service !== Service.ASD && !dto.dropoffLocation) {
       throw new BadRequestException(
@@ -159,12 +174,22 @@ export class TripsService {
     const driver = dto.driverRef
       ? await this.prisma.driver.findUnique({ where: { ref: dto.driverRef } })
       : null;
+    if (dto.driverRef && !driver) {
+      throw new BadRequestException(
+        `driverRef "${dto.driverRef}" does not match an existing driver`,
+      );
+    }
     const partner =
       dto.subContractor && dto.partnerRef
         ? await this.prisma.driver.findUnique({
             where: { ref: dto.partnerRef },
           })
         : null;
+    if (dto.subContractor && dto.partnerRef && !partner) {
+      throw new BadRequestException(
+        `partnerRef "${dto.partnerRef}" does not match an existing driver`,
+      );
+    }
 
     let ref = dto.ref;
     if (ref) {
@@ -277,6 +302,7 @@ export class TripsService {
     let fleetVehicle: Awaited<
       ReturnType<typeof this.resolveFleetVehicle>
     > | null = null;
+    let autoInstructionsNote: string | null = null;
     if (dto.fleetRegNbr?.trim()) {
       fleetVehicle = await this.resolveFleetVehicle(dto.fleetRegNbr);
       if (dto.vehicleType) {
@@ -285,6 +311,12 @@ export class TripsService {
           throw new BadRequestException(
             `Vehicle ${fleetVehicle.regNbr} (${fleetVehicle.category.name}) cannot service a ${dto.vehicleType} trip — compatible categories: ${allowed.join(', ')}`,
           );
+        }
+        if (
+          dto.vehicleType === 'Lugg.' &&
+          fleetVehicle.category.name === 'Van'
+        ) {
+          autoInstructionsNote = 'Need to remove seats';
         }
       }
     }
@@ -307,9 +339,24 @@ export class TripsService {
     const resolvedPocName =
       dto.pocName?.trim() || client.pocName || dto.passengerName;
 
+    let resolvedInstructions = dto.instructions || null;
+    if (autoInstructionsNote) {
+      const base = (dto.instructions ?? '').trim();
+      if (!base.includes(autoInstructionsNote)) {
+        resolvedInstructions = base
+          ? `${base} — ${autoInstructionsNote}`
+          : autoInstructionsNote;
+      }
+    }
+
     const driver = dto.driverRef
       ? await this.prisma.driver.findUnique({ where: { ref: dto.driverRef } })
       : null;
+    if (dto.driverRef && !driver) {
+      throw new BadRequestException(
+        `driverRef "${dto.driverRef}" does not match an existing driver`,
+      );
+    }
     const countryInfo = await this.prisma.country.findUnique({
       where: { code: dto.countryCode },
     });
@@ -331,6 +378,11 @@ export class TripsService {
             where: { ref: dto.partnerRef },
           })
         : null;
+      if (dto.partnerRef && !partner) {
+        throw new BadRequestException(
+          `partnerRef "${dto.partnerRef}" does not match an existing driver`,
+        );
+      }
       partnerId = partner?.id ?? null;
     }
     const finalPartnerId =
@@ -340,6 +392,11 @@ export class TripsService {
     const finalSubContractor =
       dto.subContractor !== undefined ? dto.subContractor : trip.subContractor;
     const locked = finalSubContractor && !finalPartnerId;
+    const dispatchedValue = locked
+      ? true
+      : reassigned
+        ? false
+        : trip.dispatched;
 
     await this.prisma.trip.update({
       where: { id: trip.id },
@@ -353,7 +410,7 @@ export class TripsService {
         dropoffLocation: dto.dropoffLocation || null,
         service: dto.service,
         hours: dto.service === Service.ASD ? dto.hours : null,
-        instructions: dto.instructions || null,
+        instructions: resolvedInstructions,
         clientId: client.id,
         passengerName: dto.passengerName,
         pocName: resolvedPocName,
@@ -376,10 +433,11 @@ export class TripsService {
           subContractor: dto.subContractor,
         }),
         ...(partnerId !== undefined && { partnerId }),
-        dispatched: locked,
+        dispatched: dispatchedValue,
         ...(reassigned && {
           assignmentCancelled: false,
           assignmentCancelledAt: null,
+          cancellationFee: null,
         }),
       },
     });
@@ -417,23 +475,27 @@ export class TripsService {
   async cancelAssignment(ref: string, dto: CancelAssignmentDto) {
     const trip = await this.findByRefOrThrow(ref);
     if (!dto.cancellationFee || dto.cancellationFee === CancellationFee.FREE) {
-      await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
-      await this.prisma.trip.delete({ where: { id: trip.id } });
+      await this.prisma.$transaction([
+        this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } }),
+        this.prisma.trip.delete({ where: { id: trip.id } }),
+      ]);
       await this.tripRef.release(trip.ref);
       this.realtime.emitTripChanged(trip.ref);
       return { ok: true, deleted: true };
     }
 
-    await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
-    await this.prisma.trip.update({
-      where: { id: trip.id },
-      data: {
-        driverId: null,
-        assignmentCancelled: true,
-        assignmentCancelledAt: new Date(),
-        cancellationFee: dto.cancellationFee,
-      },
-    });
+    await this.prisma.$transaction([
+      this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } }),
+      this.prisma.trip.update({
+        where: { id: trip.id },
+        data: {
+          driverId: null,
+          assignmentCancelled: true,
+          assignmentCancelledAt: new Date(),
+          cancellationFee: dto.cancellationFee,
+        },
+      }),
+    ]);
     this.realtime.emitTripChanged(ref);
     return { ok: true, trip: await this.findByRefOrThrow(ref) };
   }
@@ -504,6 +566,11 @@ export class TripsService {
 
   async notify(ref: string, step: (typeof DRIVER_STEP_VALUES)[number]) {
     const trip = await this.findByRefOrThrow(ref);
+    if (trip.assignmentCancelled) {
+      throw new BadRequestException(
+        'This trip is cancelled (Stop status): status updates are no longer accepted.',
+      );
+    }
 
     if (!trip.tracking) {
       await this.stampStep(trip.id, TripStepKind[step]);

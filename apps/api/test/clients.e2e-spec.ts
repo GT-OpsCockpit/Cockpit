@@ -170,6 +170,97 @@ describe('Clients (e2e)', () => {
     expect(reactivatedClient?.active).toBe(true);
   });
 
+  it('PUT without clientType keeps validating against the existing type, not Individual', async () => {
+    const company = await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({ clientType: 'COMPANY', company: 'Acme Corp' })
+      .expect(201);
+    const ref = (company.body as ClientBody).ref;
+
+    // No clientType, no contact names, and no company change: must not be
+    // mis-routed into the Individual branch demanding contact names.
+    const updated = await request(server())
+      .put(`/api/clients/${ref}`)
+      .set('Cookie', cookie)
+      .send({ acronym: 'ACME' })
+      .expect(200);
+    expect((updated.body as ClientBody & { acronym: string }).acronym).toBe(
+      'ACME',
+    );
+  });
+
+  it('PUT on an Events account still requires the full event fields, and clears them once switched away from Event', async () => {
+    const event = await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({
+        clientType: 'EVENT',
+        company: 'Grand Prix',
+        eventCountry: 'MC',
+        eventArea: 'Monaco',
+        eventStartDate: '2026-05-20',
+        eventEndDate: '2026-05-24',
+      })
+      .expect(201);
+    const ref = (event.body as ClientBody).ref;
+
+    await request(server())
+      .put(`/api/clients/${ref}`)
+      .set('Cookie', cookie)
+      .send({ clientType: 'EVENT', company: 'Grand Prix', eventCountry: '' })
+      .expect(400);
+
+    const switched = await request(server())
+      .put(`/api/clients/${ref}`)
+      .set('Cookie', cookie)
+      .send({ clientType: 'COMPANY', company: 'Grand Prix' })
+      .expect(200);
+    const body = switched.body as ClientBody & {
+      eventCountry: string | null;
+      eventArea: string | null;
+      eventStartDate: string | null;
+      eventEndDate: string | null;
+    };
+    expect(body.eventCountry).toBeNull();
+    expect(body.eventArea).toBeNull();
+    expect(body.eventStartDate).toBeNull();
+    expect(body.eventEndDate).toBeNull();
+  });
+
+  it('refuses to delete a client that has trips or invoices on file', async () => {
+    const client = await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({
+        clientType: 'INDIVIDUAL',
+        contactFirstName: 'A',
+        contactLastName: 'A',
+        pocPhone: '0611111111',
+      })
+      .expect(201);
+    const ref = (client.body as ClientBody).ref;
+
+    await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({
+        countryCode: 'FR',
+        pickupAt: '2026-06-01T14:30:00.000Z',
+        pickupLocation: 'Nice Airport',
+        dropoffLocation: 'Cannes',
+        service: 'TSF',
+        passengerName: 'John Passenger',
+        clientRef: ref,
+      })
+      .expect(201);
+
+    await request(server())
+      .delete(`/api/clients/${ref}`)
+      .set('Cookie', cookie)
+      .expect(400);
+  });
+
   it('permanently deletes a client account', async () => {
     const created = await request(server())
       .post('/api/clients')

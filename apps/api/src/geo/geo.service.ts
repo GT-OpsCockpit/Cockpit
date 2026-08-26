@@ -193,6 +193,11 @@ export class GeoService {
     }
   }
 
+  // TODO: this loads the entire client and trip tables into memory on every
+  // call (no WHERE, no take) and filters/dedupes in JS below. It's an
+  // autocomplete endpoint hit on every keystroke, so this should push the
+  // normalizeSearch filtering into SQL (or at least cap with `take`) instead
+  // of scanning unboundedly as the tables grow.
   async pocSearch(q: string, limit: number) {
     const query = normalizeSearch(q).trim();
     const seen = new Set<string>();
