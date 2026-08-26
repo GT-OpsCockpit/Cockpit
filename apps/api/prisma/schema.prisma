@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,4 +8,340 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  DISPATCHER
+}
+
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+  EVENT
+}
+
+enum Billing {
+  ACCOUNT
+  CASH
+  CARD
+}
+
+enum Service {
+  TSF
+  ASD
+  SPEC
+}
+
+enum TripStepKind {
+  TRANSMITTED
+  RECEIVED
+  ACCEPTED
+  ENROUTE
+  ARRIVED
+  ONBOARD
+  DROPPED
+}
+
+enum CancellationFee {
+  FREE
+  FIFTY
+  SEVENTYFIVE
+  HUNDRED
+}
+
+enum DriverUnavailKind {
+  OFF
+  HOLIDAYS
+  SICK
+}
+
+enum FleetUnavailKind {
+  REPAIR
+  SERVICE
+  BODYWORK
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  role          Role
+  firstName     String
+  lastName      String
+  phone         String?
+  active        Boolean   @default(true)
+  deactivatedAt DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  sessions      Session[]
+  otpCodes      OtpCode[]
+}
+
+model Session {
+  id        String   @id @default(cuid()) // = token en cookie httpOnly
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Country {
+  code            String  @id // ex: "FR", "US-NY"
+  name            String
+  dialCode        String?
+  currency        String?
+  defaultTimezone String
+}
+
+model Client {
+  id               String    @id @default(cuid())
+  ref              String    @unique // CI/CC/CE{n}
+  clientType       ClientType
+  contactFirstName String?
+  contactLastName  String?
+  company          String?
+  acronym          String?
+  refPoOther       String?
+  address          String?
+  postalCode       String?
+  city             String?
+  countryCode      String?
+  vatNumber        String?
+  email            String?
+  billing          Billing?
+  pocName          String?
+  pocPhone         String?
+  pocEmail         String?
+  eventCountry     String?
+  eventArea        String?
+  eventStartDate   DateTime?
+  eventEndDate     DateTime?
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  trips            Trip[]
+  invoices         Invoice[]
+  drivers          Driver[]       @relation("EventDrivers")
+  fleetVehicles    FleetVehicle[] @relation("EventFleetVehicles")
+}
+
+model Driver {
+  id             String                @id @default(cuid())
+  ref            String                @unique // D-{scope}-{n}
+  countryCode    String?
+  firstName      String?
+  lastName       String?
+  phone          String?               @unique
+  company        String?
+  email          String?
+  area           String                @default("Local")
+  eventsOnly     Boolean               @default(false)
+  eventCountry   String? // driver's own base country/area for event linking, distinct from the linked event Client's
+  eventArea      String?
+  eventClientId  String?
+  eventClient    Client?               @relation("EventDrivers", fields: [eventClientId], references: [id])
+  active         Boolean               @default(true)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  unavailability DriverUnavailability?
+  trips          Trip[]                @relation("AssignedDriver")
+  partnerTrips   Trip[]                @relation("PartnerDriver")
+  fleetReserved  FleetVehicle?         @relation("ReservedForDriver")
+}
+
+model DriverUnavailability {
+  id        String            @id @default(cuid())
+  driverId  String            @unique
+  driver    Driver            @relation(fields: [driverId], references: [id])
+  type      DriverUnavailKind
+  date      DateTime? // type = OFF
+  startDate DateTime? // type = HOLIDAYS | SICK
+  endDate   DateTime?
+}
+
+model VehicleType {
+  id            String         @id @default(cuid())
+  ref           String         @unique // V{n}
+  name          String         @unique
+  maxPax        Int
+  createdAt     DateTime       @default(now())
+  fleetVehicles FleetVehicle[]
+  trips         Trip[]
+}
+
+model FleetVehicle {
+  id             String                @id @default(cuid())
+  ref            String                @unique // F{n}
+  categoryId     String
+  category       VehicleType           @relation(fields: [categoryId], references: [id])
+  regNbr         String                @unique
+  make           String
+  model          String
+  yearOfBuild    Int
+  fourWD         Boolean
+  nbPax          Int
+  color          String                @default("Metallic Black")
+  acronym        String? // max 6 chars, validé en DTO
+  isLocal        Boolean               @default(true)
+  countryCode    String?
+  area           String?
+  partnerCompany String?
+  driverId       String?               @unique
+  driver         Driver?               @relation("ReservedForDriver", fields: [driverId], references: [id])
+  eventsOnly     Boolean               @default(false)
+  eventCountry   String? // vehicle's own base country/area for event linking, distinct from the linked event Client's
+  eventArea      String?
+  eventClientId  String?
+  eventClient    Client?               @relation("EventFleetVehicles", fields: [eventClientId], references: [id])
+  active         Boolean               @default(true)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  unavailability FleetUnavailability?
+  trips          Trip[]
+}
+
+model FleetUnavailability {
+  id             String           @id @default(cuid())
+  fleetVehicleId String           @unique
+  fleetVehicle   FleetVehicle     @relation(fields: [fleetVehicleId], references: [id])
+  type           FleetUnavailKind
+  startDate      DateTime
+  endDate        DateTime
+}
+
+model Trip {
+  id                    String           @id @default(cuid())
+  ref                   String           @unique // R-{clientRef}-{YY}-{seq}
+  countryCode           String?
+  area                  String?
+  timezone              String?
+  pickupAt              DateTime
+  pickupLocation        String
+  dropoffLocation       String?
+  service               Service
+  hours                 Int?
+  instructions          String?
+  clientId              String
+  client                Client           @relation(fields: [clientId], references: [id])
+  passengerName         String
+  pocName               String?
+  pocPhone              String?
+  pocEmail              String?
+  tracking              Boolean          @default(true)
+  paxCount              Int?
+  vehicleTypeId         String?
+  vehicleType           VehicleType?     @relation(fields: [vehicleTypeId], references: [id])
+  fleetVehicleId        String?
+  fleetVehicle          FleetVehicle?    @relation(fields: [fleetVehicleId], references: [id])
+  priceEur              Decimal?
+  partnerRateEur        Decimal?
+  driverId              String?
+  driver                Driver?          @relation("AssignedDriver", fields: [driverId], references: [id])
+  billing               Billing?
+  flightNumber          String?
+  bufferTime            Int?
+  fboAddress            String?
+  tailNbr               String?
+  nameboardUrl          String? // fichier stocké (volume Docker), plus de base64 en mémoire
+  pickupIata            String?
+  dropoffIata           String?
+  subContractor         Boolean          @default(false)
+  partnerId             String?
+  partner               Driver?          @relation("PartnerDriver", fields: [partnerId], references: [id])
+  dispatched            Boolean          @default(false)
+  invoiced              Boolean          @default(false)
+  assignmentCancelled   Boolean          @default(false)
+  assignmentCancelledAt DateTime?
+  cancellationFee       CancellationFee?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  steps                 TripStep[]
+  invoiceLinks          InvoiceTrip[]
+}
+
+model TripStep {
+  id         String       @id @default(cuid())
+  tripId     String
+  trip       Trip         @relation(fields: [tripId], references: [id])
+  step       TripStepKind
+  occurredAt DateTime     @default(now())
+
+  @@unique([tripId, step])
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  ref         String        @unique // INV{n}
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id])
+  isEvent     Boolean       @default(false)
+  refPo       String?
+  periodStart DateTime?
+  periodEnd   DateTime?
+  totalHT     Decimal
+  vatRate     Decimal       @default(0.10)
+  totalTTC    Decimal
+  createdAt   DateTime      @default(now())
+  trips       InvoiceTrip[]
+}
+
+model InvoiceTrip {
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+  tripId    String
+  trip      Trip    @relation(fields: [tripId], references: [id])
+
+  @@id([invoiceId, tripId])
+}
+
+model CompanyInfo {
+  id           Int      @id @default(1)
+  name         String?
+  legalName    String?
+  street1      String?
+  zipCode      String?
+  city         String?
+  countryCode  String?
+  vatNbr       String?
+  email        String?
+  website      String?
+  ownerSurname String?
+  ownerName    String?
+  mobile       String?
+  ownerEmail   String?
+  saved        Boolean  @default(false)
+}
+
+model FxRateCache {
+  currency   String   @id
+  eurPerUnit Decimal
+  fetchedAt  DateTime
+}
+
+/**
+ * Freed {clientRef}-{YY}-{seq} trip-ref slots, reused (smallest first) before
+ * RefCounter mints a new sequence number — mirrors the legacy's
+ * releasedBookingSeqs Map (see generateBookingRef/releaseBookingRef).
+ */
+model ReleasedTripSeq {
+  key String // "{clientRef}:{YY}"
+  seq Int
+
+  @@id([key, seq])
+}
+
+model RefCounter {
+  scope     String @id // ex: "trip:C00001:26", "invoice", "client:individual"
+  lastValue Int    @default(0)
 }
