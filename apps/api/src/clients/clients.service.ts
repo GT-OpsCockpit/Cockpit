@@ -8,6 +8,8 @@ import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { ClientEntity } from './dto/client.entity';
+import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { ClientType } from '../../generated/prisma/enums';
 import type { Client } from '../../generated/prisma/client';
 
@@ -36,6 +38,8 @@ export function computeClientName(client: {
   return client.company?.trim() || contactFullName || `Account ${client.ref}`;
 }
 
+export type ClientWithName = Client & { name: string };
+
 function withName<T extends Client>(client: T): T & { name: string } {
   return { ...client, name: computeClientName(client) };
 }
@@ -47,7 +51,7 @@ export class ClientsService {
     private readonly refCounter: RefCounterService,
   ) {}
 
-  async list() {
+  async list(): Promise<ClientEntity[]> {
     const clients = await this.prisma.client.findMany();
     clients.sort((a, b) => {
       if (a.active !== b.active) return a.active ? -1 : 1;
@@ -62,7 +66,7 @@ export class ClientsService {
   // discriminant" helper so a fix to one doesn't have to be repeated in the
   // other two (this is exactly how the create/update event-field bugs
   // happened here).
-  async create(dto: CreateClientDto) {
+  async create(dto: CreateClientDto): Promise<ClientEntity> {
     const isCompany = dto.clientType === ClientType.COMPANY;
     const isEvent = dto.clientType === ClientType.EVENT;
     if (isCompany && !dto.company) {
@@ -135,7 +139,7 @@ export class ClientsService {
     return withName(client);
   }
 
-  async update(ref: string, dto: UpdateClientDto) {
+  async update(ref: string, dto: UpdateClientDto): Promise<ClientEntity> {
     const existing = await this.findByRefOrThrow(ref);
 
     const clientType = dto.clientType ?? existing.clientType;
@@ -246,7 +250,7 @@ export class ClientsService {
     return withName(client);
   }
 
-  async delete(ref: string) {
+  async delete(ref: string): Promise<OkResponseEntity> {
     const client = await this.findByRefOrThrow(ref);
     const [tripCount, invoiceCount] = await Promise.all([
       this.prisma.trip.count({ where: { clientId: client.id } }),
@@ -261,7 +265,7 @@ export class ClientsService {
     return { ok: true };
   }
 
-  async setActive(ref: string, active: boolean) {
+  async setActive(ref: string, active: boolean): Promise<ClientEntity> {
     await this.findByRefOrThrow(ref);
     const client = await this.prisma.client.update({
       where: { ref },

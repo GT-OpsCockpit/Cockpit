@@ -1,6 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCompanyInfoDto } from './dto/update-company-info.dto';
+import { CompanyInfoEntity } from './dto/company-info.entity';
 
 const SINGLETON_ID = 1;
 
@@ -8,7 +9,7 @@ const SINGLETON_ID = 1;
 export class CompanyService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async get() {
+  async get(): Promise<CompanyInfoEntity> {
     const info = await this.prisma.companyInfo.findUnique({
       where: { id: SINGLETON_ID },
     });
@@ -18,7 +19,7 @@ export class CompanyService {
   // LEGACY_FEATURES.md §1: "companyInfoSaved (bool) verrouille l'édition
   // après la première sauvegarde" — a real server-side guard, not just a
   // frontend affordance, so PUT must reject once the singleton is saved.
-  async update(dto: UpdateCompanyInfoDto) {
+  async update(dto: UpdateCompanyInfoDto): Promise<CompanyInfoEntity> {
     const existing = await this.prisma.companyInfo.findUnique({
       where: { id: SINGLETON_ID },
     });

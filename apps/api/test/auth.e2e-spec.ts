@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from './utils/test-app';
 import { resetDatabase, TEST_ADMIN } from './utils/reset-db';
+import { loginAs } from './utils/auth';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 interface LoginResponseBody {
@@ -87,6 +88,21 @@ describe('Auth (e2e)', () => {
 
   it('rejects protected routes without a session cookie', async () => {
     await request(server()).get('/api/users').expect(401);
+  });
+
+  it('me returns the current session user, and 401s without a cookie', async () => {
+    await request(server()).get('/api/auth/me').expect(401);
+
+    const cookie = await loginAs(app, TEST_ADMIN.email, TEST_ADMIN.password);
+    const res = await request(server())
+      .get('/api/auth/me')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(res.body).toMatchObject({
+      email: TEST_ADMIN.email,
+      role: 'ADMIN',
+    });
+    expect((res.body as { passwordHash?: unknown }).passwordHash).toBeUndefined();
   });
 
   it('verify-password re-checks the current user password', async () => {

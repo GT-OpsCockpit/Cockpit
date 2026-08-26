@@ -4,8 +4,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { EnvironmentVariables } from '../config/env.validation';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
+import { InvoiceEntity } from './dto/invoice.entity';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+const INVOICE_INCLUDE = {
+  client: true,
+  trips: { include: { trip: true } },
+} as const;
 
 @Injectable()
 export class InvoicesService {
@@ -15,14 +21,14 @@ export class InvoicesService {
     private readonly config: ConfigService<EnvironmentVariables, true>,
   ) {}
 
-  list() {
+  list(): Promise<InvoiceEntity[]> {
     return this.prisma.invoice.findMany({
-      include: { client: true, trips: { include: { trip: true } } },
+      include: INVOICE_INCLUDE,
       orderBy: { createdAt: 'asc' },
     });
   }
 
-  async create(dto: CreateInvoiceDto) {
+  async create(dto: CreateInvoiceDto): Promise<InvoiceEntity> {
     const isEvent = !!dto.eventRef;
     const accountRef = isEvent ? dto.eventRef : dto.clientRef;
     const client = accountRef
@@ -103,7 +109,7 @@ export class InvoicesService {
 
     return this.prisma.invoice.findUniqueOrThrow({
       where: { ref: invoice.ref },
-      include: { client: true, trips: { include: { trip: true } } },
+      include: INVOICE_INCLUDE,
     });
   }
 }

@@ -17,6 +17,8 @@ import {
 } from '../common/constants/fleet';
 import { CreateFleetVehicleDto } from './dto/create-fleet-vehicle.dto';
 import { SetFleetUnavailabilityDto } from './dto/set-fleet-unavailability.dto';
+import { FleetVehicleEntity } from './dto/fleet-vehicle.entity';
+import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { FleetUnavailKind } from '../../generated/prisma/enums';
 
 interface ValidatedFleetVehicle {
@@ -24,6 +26,12 @@ interface ValidatedFleetVehicle {
   isLocal: boolean;
   eventClientId: string | null;
 }
+
+const FLEET_VEHICLE_INCLUDE = {
+  category: true,
+  driver: true,
+  unavailability: true,
+} as const;
 
 @Injectable()
 export class FleetVehiclesService {
@@ -33,9 +41,9 @@ export class FleetVehiclesService {
     private readonly eventLink: EventLinkService,
   ) {}
 
-  async list() {
+  async list(): Promise<FleetVehicleEntity[]> {
     const vehicles = await this.prisma.fleetVehicle.findMany({
-      include: { category: true, driver: true, unavailability: true },
+      include: FLEET_VEHICLE_INCLUDE,
     });
     vehicles.sort((a, b) => {
       if (a.active !== b.active) return a.active ? -1 : 1;
@@ -44,7 +52,7 @@ export class FleetVehiclesService {
     return vehicles;
   }
 
-  async create(dto: CreateFleetVehicleDto) {
+  async create(dto: CreateFleetVehicleDto): Promise<FleetVehicleEntity> {
     const { categoryId, isLocal, eventClientId } = await this.assertValid(dto);
 
     const existing = await this.prisma.fleetVehicle.findFirst({
@@ -81,12 +89,15 @@ export class FleetVehiclesService {
         eventArea: dto.eventsOnly ? dto.eventArea?.trim() || null : null,
         eventClientId,
       },
-      include: { category: true, driver: true, unavailability: true },
+      include: FLEET_VEHICLE_INCLUDE,
     });
     return vehicle;
   }
 
-  async update(ref: string, dto: CreateFleetVehicleDto) {
+  async update(
+    ref: string,
+    dto: CreateFleetVehicleDto,
+  ): Promise<FleetVehicleEntity> {
     await this.findByRefOrThrow(ref);
     const { categoryId, isLocal, eventClientId } = await this.assertValid(dto);
 
@@ -137,12 +148,12 @@ export class FleetVehiclesService {
         eventArea: dto.eventsOnly ? dto.eventArea?.trim() || null : null,
         eventClientId,
       },
-      include: { category: true, driver: true, unavailability: true },
+      include: FLEET_VEHICLE_INCLUDE,
     });
     return vehicle;
   }
 
-  async delete(ref: string) {
+  async delete(ref: string): Promise<OkResponseEntity> {
     const vehicle = await this.findByRefOrThrow(ref);
     await this.prisma.$transaction([
       this.prisma.fleetUnavailability.deleteMany({
@@ -153,16 +164,19 @@ export class FleetVehiclesService {
     return { ok: true };
   }
 
-  async setActive(ref: string, active: boolean) {
+  async setActive(ref: string, active: boolean): Promise<FleetVehicleEntity> {
     await this.findByRefOrThrow(ref);
     return this.prisma.fleetVehicle.update({
       where: { ref },
       data: { active },
-      include: { category: true, driver: true, unavailability: true },
+      include: FLEET_VEHICLE_INCLUDE,
     });
   }
 
-  async setDriver(ref: string, driverRef: string | null | undefined) {
+  async setDriver(
+    ref: string,
+    driverRef: string | null | undefined,
+  ): Promise<FleetVehicleEntity> {
     const vehicle = await this.findByRefOrThrow(ref);
     if (driverRef && vehicle.isLocal) {
       throw new BadRequestException(
@@ -173,11 +187,14 @@ export class FleetVehiclesService {
     return this.prisma.fleetVehicle.update({
       where: { ref },
       data: { driverId },
-      include: { category: true, driver: true, unavailability: true },
+      include: FLEET_VEHICLE_INCLUDE,
     });
   }
 
-  async setUnavailability(ref: string, dto: SetFleetUnavailabilityDto) {
+  async setUnavailability(
+    ref: string,
+    dto: SetFleetUnavailabilityDto,
+  ): Promise<FleetVehicleEntity | null> {
     const vehicle = await this.findByRefOrThrow(ref);
     if (!vehicle.isLocal) {
       throw new BadRequestException(
@@ -214,7 +231,7 @@ export class FleetVehiclesService {
     }
     return this.prisma.fleetVehicle.findUnique({
       where: { ref },
-      include: { category: true, driver: true, unavailability: true },
+      include: FLEET_VEHICLE_INCLUDE,
     });
   }
 

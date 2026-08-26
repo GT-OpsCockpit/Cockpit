@@ -18,6 +18,14 @@ import {
   NominatimResult,
 } from './nominatim.util';
 import { FlightCheckDto } from './dto/flight-check.dto';
+import {
+  GeocodeTzEntity,
+  GeocodeSearchResponseEntity,
+  FboLookupEntity,
+  FlightCheckResponseEntity,
+  PocSearchResponseEntity,
+  FxRateEntity,
+} from './dto/geo-response.entity';
 
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 const FX_API_URL = 'https://open.er-api.com/v6/latest/EUR';
@@ -47,7 +55,7 @@ export class GeoService {
     return res.json() as Promise<NominatimResult[]>;
   }
 
-  async geocodeTz(q: string) {
+  async geocodeTz(q: string): Promise<GeocodeTzEntity> {
     if (!q.trim())
       throw new BadRequestException('Missing q parameter (address).');
     let results: NominatimResult[];
@@ -78,7 +86,10 @@ export class GeoService {
     };
   }
 
-  async geocodeSearch(q: string, limit: number) {
+  async geocodeSearch(
+    q: string,
+    limit: number,
+  ): Promise<GeocodeSearchResponseEntity> {
     if (q.trim().length < 2) return { results: [] };
     try {
       const results = await this.nominatimSearch(
@@ -113,7 +124,7 @@ export class GeoService {
     }
   }
 
-  fboLookup(q: string) {
+  fboLookup(q: string): FboLookupEntity {
     const norm = q.toLowerCase();
     const entry = AIRPORT_FBO_DIRECTORY.find((e) =>
       e.match.some((m) => norm.includes(m)),
@@ -125,7 +136,7 @@ export class GeoService {
     };
   }
 
-  async flightCheck(dto: FlightCheckDto) {
+  async flightCheck(dto: FlightCheckDto): Promise<FlightCheckResponseEntity> {
     const match = dto.flightNumber
       .trim()
       .toUpperCase()
@@ -198,7 +209,7 @@ export class GeoService {
   // autocomplete endpoint hit on every keystroke, so this should push the
   // normalizeSearch filtering into SQL (or at least cap with `take`) instead
   // of scanning unboundedly as the tables grow.
-  async pocSearch(q: string, limit: number) {
+  async pocSearch(q: string, limit: number): Promise<PocSearchResponseEntity> {
     const query = normalizeSearch(q).trim();
     const seen = new Set<string>();
     const results: { name: string; phone: string | null }[] = [];
@@ -224,7 +235,7 @@ export class GeoService {
     return { results: results.slice(0, Math.min(limit || 8, 15)) };
   }
 
-  async fxRate(currencyRaw: string) {
+  async fxRate(currencyRaw: string): Promise<FxRateEntity> {
     const currency = currencyRaw.trim().toUpperCase();
     if (!currency) throw new BadRequestException('Missing currency parameter.');
     const today = new Date().toISOString().slice(0, 10);

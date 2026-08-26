@@ -12,6 +12,11 @@ import { letters } from '../common/utils/letters';
 import { computeDriverName } from '../common/utils/driver-name';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { SetDriverUnavailabilityDto } from './dto/set-unavailability.dto';
+import {
+  DriverEntity,
+  DriverWithUnavailabilityEntity,
+} from './dto/driver.entity';
+import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { DriverUnavailKind } from '../../generated/prisma/enums';
 import type { Driver } from '../../generated/prisma/client';
 
@@ -86,7 +91,7 @@ export class DriversService {
     private readonly eventLink: EventLinkService,
   ) {}
 
-  async list() {
+  async list(): Promise<DriverEntity[]> {
     const drivers = await this.prisma.driver.findMany();
     drivers.sort((a, b) => {
       if (a.active !== b.active) return a.active ? -1 : 1;
@@ -95,7 +100,7 @@ export class DriversService {
     return drivers.map(withName);
   }
 
-  async create(dto: CreateDriverDto) {
+  async create(dto: CreateDriverDto): Promise<DriverEntity> {
     assertValidDriverFields(dto);
 
     if (dto.phone) {
@@ -138,7 +143,7 @@ export class DriversService {
     return withName(driver);
   }
 
-  async update(ref: string, dto: CreateDriverDto) {
+  async update(ref: string, dto: CreateDriverDto): Promise<DriverEntity> {
     const existing = await this.findByRefOrThrow(ref);
     assertValidDriverFields(dto);
 
@@ -199,7 +204,7 @@ export class DriversService {
     return withName(driver);
   }
 
-  async delete(ref: string) {
+  async delete(ref: string): Promise<OkResponseEntity> {
     const driver = await this.findByRefOrThrow(ref);
     await this.prisma.$transaction([
       this.prisma.driverUnavailability.deleteMany({
@@ -210,7 +215,7 @@ export class DriversService {
     return { ok: true };
   }
 
-  async setActive(ref: string, active: boolean) {
+  async setActive(ref: string, active: boolean): Promise<DriverEntity> {
     await this.findByRefOrThrow(ref);
     const driver = await this.prisma.driver.update({
       where: { ref },
@@ -219,7 +224,10 @@ export class DriversService {
     return withName(driver);
   }
 
-  async setUnavailability(ref: string, dto: SetDriverUnavailabilityDto) {
+  async setUnavailability(
+    ref: string,
+    dto: SetDriverUnavailabilityDto,
+  ): Promise<DriverWithUnavailabilityEntity | null> {
     const driver = await this.findByRefOrThrow(ref);
 
     if (dto.type === 'OFF' && !dto.date) {

@@ -8,6 +8,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { CreateVehicleTypeDto } from './dto/create-vehicle-type.dto';
 import { UpdateVehicleTypeDto } from './dto/update-vehicle-type.dto';
+import { VehicleTypeEntity } from './dto/vehicle-type.entity';
+import { OkResponseEntity } from '../common/dto/ok-response.entity';
 
 @Injectable()
 export class VehicleTypesService {
@@ -16,7 +18,7 @@ export class VehicleTypesService {
     private readonly refCounter: RefCounterService,
   ) {}
 
-  async list() {
+  async list(): Promise<VehicleTypeEntity[]> {
     const types = await this.prisma.vehicleType.findMany();
     types.sort((a, b) => {
       if (a.active !== b.active) return a.active ? -1 : 1;
@@ -25,7 +27,7 @@ export class VehicleTypesService {
     return types;
   }
 
-  async create(dto: CreateVehicleTypeDto) {
+  async create(dto: CreateVehicleTypeDto): Promise<VehicleTypeEntity> {
     const existing = await this.prisma.vehicleType.findUnique({
       where: { name: dto.name },
     });
@@ -40,7 +42,10 @@ export class VehicleTypesService {
     });
   }
 
-  async update(ref: string, dto: UpdateVehicleTypeDto) {
+  async update(
+    ref: string,
+    dto: UpdateVehicleTypeDto,
+  ): Promise<VehicleTypeEntity> {
     await this.findByRefOrThrow(ref);
     if (dto.name !== undefined) {
       const conflict = await this.prisma.vehicleType.findUnique({
@@ -61,7 +66,7 @@ export class VehicleTypesService {
     });
   }
 
-  async delete(ref: string) {
+  async delete(ref: string): Promise<OkResponseEntity> {
     const type = await this.findByRefOrThrow(ref);
     const [fleetCount, tripCount] = await Promise.all([
       this.prisma.fleetVehicle.count({ where: { categoryId: type.id } }),
@@ -76,7 +81,7 @@ export class VehicleTypesService {
     return { ok: true };
   }
 
-  async setActive(ref: string, active: boolean) {
+  async setActive(ref: string, active: boolean): Promise<VehicleTypeEntity> {
     await this.findByRefOrThrow(ref);
     return this.prisma.vehicleType.update({
       where: { ref },

@@ -11,6 +11,10 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       target: dev
+    # docker-compose.yml (prod) only forwards DATABASE_URL/PORT — dev needs
+    # the rest of apps/api/.env (ADMIN_EMAIL, AUTH_DEV_OTP, ...) too.
+    env_file:
+      - ./apps/api/.env
     volumes:
       - ./apps/api/src:/app/apps/api/src
       - ./apps/api/prisma:/app/apps/api/prisma

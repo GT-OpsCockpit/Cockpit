@@ -12,12 +12,13 @@ import {
 } from '../common/constants/fleet';
 import { MAJOR_CITIES } from '../common/constants/major-cities';
 import { VEHICLE_COMPATIBILITY } from '../common/constants/vehicle-compatibility';
+import { MetaEntity } from './dto/meta.entity';
 
 @Injectable()
 export class MetaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getMeta() {
+  async getMeta(): Promise<MetaEntity> {
     const vehicleTypes = await this.prisma.vehicleType.findMany();
     vehicleTypes.sort(
       (a, b) =>
@@ -29,7 +30,9 @@ export class MetaService {
     return {
       countries: COUNTRIES,
       vehicleTypes,
-      billingOptions: BILLING_OPTIONS,
+      // Shallow copy: BILLING_OPTIONS is `as const` (readonly tuple), the
+      // response DTO field is a plain array — same data either way.
+      billingOptions: [...BILLING_OPTIONS],
       fleetMakes: FLEET_MAKES,
       fleetModelsByMake: FLEET_MODELS_BY_MAKE,
       fleetMinYear: min,

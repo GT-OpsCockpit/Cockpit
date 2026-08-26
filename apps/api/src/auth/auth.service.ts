@@ -14,6 +14,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EnvironmentVariables } from '../config/env.validation';
 import { OtpMailerService } from './otp-mailer.service';
 import { SESSION_COOKIE_NAME } from '../common/guards/session-auth.guard';
+import { LoginResultEntity } from './dto/auth.entity';
+import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import type { Response } from 'express';
 
 const OTP_LENGTH = 6;
@@ -28,10 +30,6 @@ let dummyHash: Promise<string> | undefined;
 function getDummyHash(): Promise<string> {
   dummyHash ??= argon2.hash(randomInt(0, 2 ** 48 - 1).toString());
   return dummyHash;
-}
-
-export interface LoginResult {
-  devCode?: string;
 }
 
 @Injectable()
@@ -51,7 +49,7 @@ export class AuthService {
     );
   }
 
-  async login(email: string, password: string): Promise<LoginResult> {
+  async login(email: string, password: string): Promise<LoginResultEntity> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     const passwordValid = await argon2.verify(
       user?.passwordHash ?? (await getDummyHash()),
@@ -94,7 +92,7 @@ export class AuthService {
     email: string,
     code: string,
     res: Response,
-  ): Promise<{ ok: true }> {
+  ): Promise<OkResponseEntity> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new UnauthorizedException('Invalid code');
 
@@ -148,7 +146,7 @@ export class AuthService {
   async verifyPassword(
     userId: string,
     password: string,
-  ): Promise<{ ok: true }> {
+  ): Promise<OkResponseEntity> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });

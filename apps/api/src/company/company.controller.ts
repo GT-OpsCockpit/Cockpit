@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Put } from '@nestjs/common';
 import { CompanyService } from './company.service';
 import { UpdateCompanyInfoDto } from './dto/update-company-info.dto';
+import { CompanyInfoEntity } from './dto/company-info.entity';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../../generated/prisma/enums';
 
@@ -12,12 +13,12 @@ export class CompanyController {
   constructor(private readonly companyService: CompanyService) {}
 
   @Get()
-  get() {
+  get(): Promise<CompanyInfoEntity> {
     return this.companyService.get();
   }
 
   @Put()
-  update(@Body() dto: UpdateCompanyInfoDto) {
+  update(@Body() dto: UpdateCompanyInfoDto): Promise<CompanyInfoEntity> {
     return this.companyService.update(dto);
   }
 }

@@ -25,6 +25,12 @@ import {
   Service,
   TripStepKind,
 } from '../../generated/prisma/enums';
+import {
+  TripEntity,
+  UpdateTripResponseEntity,
+  CancelAssignmentResponseEntity,
+  TripActionResponseEntity,
+} from './dto/trip.entity';
 
 const TRIP_INCLUDE = {
   client: true,
@@ -55,14 +61,14 @@ export class TripsService {
     private readonly realtime: RealtimeService,
   ) {}
 
-  list() {
+  list(): Promise<TripEntity[]> {
     return this.prisma.trip.findMany({
       include: TRIP_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async getPublic(ref: string, viewerIsDriver: boolean) {
+  async getPublic(ref: string, viewerIsDriver: boolean): Promise<TripEntity> {
     const trip = await this.findByRefOrThrow(ref);
     const assigned = trip.driverId || trip.partnerId;
     if (
@@ -92,7 +98,7 @@ export class TripsService {
   // and currently awaited one at a time — 5-6 sequential DB round trips per
   // call. Batch the independent ones with Promise.all to cut latency on
   // these hot dispatch-desk paths.
-  async create(dto: CreateTripDto) {
+  async create(dto: CreateTripDto): Promise<TripEntity> {
     if (dto.service !== Service.ASD && !dto.dropoffLocation) {
       throw new BadRequestException(
         'dropoffLocation is required (except for an ASD service)',
@@ -259,7 +265,10 @@ export class TripsService {
     return this.findByRefOrThrow(ref);
   }
 
-  async update(ref: string, dto: UpdateTripDto) {
+  async update(
+    ref: string,
+    dto: UpdateTripDto,
+  ): Promise<UpdateTripResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
 
     if (dto.service !== Service.ASD && !dto.dropoffLocation) {
@@ -472,7 +481,10 @@ export class TripsService {
     };
   }
 
-  async cancelAssignment(ref: string, dto: CancelAssignmentDto) {
+  async cancelAssignment(
+    ref: string,
+    dto: CancelAssignmentDto,
+  ): Promise<CancelAssignmentResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
     if (!dto.cancellationFee || dto.cancellationFee === CancellationFee.FREE) {
       await this.prisma.$transaction([
@@ -500,7 +512,7 @@ export class TripsService {
     return { ok: true, trip: await this.findByRefOrThrow(ref) };
   }
 
-  async advanceStep(ref: string) {
+  async advanceStep(ref: string): Promise<TripActionResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
     if (trip.assignmentCancelled) {
       throw new BadRequestException(
@@ -564,7 +576,10 @@ export class TripsService {
     return { ok: true, trip: await this.findByRefOrThrow(ref) };
   }
 
-  async notify(ref: string, step: (typeof DRIVER_STEP_VALUES)[number]) {
+  async notify(
+    ref: string,
+    step: (typeof DRIVER_STEP_VALUES)[number],
+  ): Promise<TripActionResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
     if (trip.assignmentCancelled) {
       throw new BadRequestException(
@@ -595,7 +610,7 @@ export class TripsService {
     return { ok: true, trip: await this.findByRefOrThrow(ref) };
   }
 
-  async dispatchDriver(ref: string) {
+  async dispatchDriver(ref: string): Promise<TripEntity> {
     const trip = await this.findByRefOrThrow(ref);
     const assignee = trip.driver ?? trip.partner;
     if (!assignee)
@@ -628,7 +643,7 @@ export class TripsService {
     return this.findByRefOrThrow(ref);
   }
 
-  async setNameboard(ref: string, filename: string) {
+  async setNameboard(ref: string, filename: string): Promise<TripEntity> {
     const trip = await this.findByRefOrThrow(ref);
     await this.prisma.trip.update({
       where: { id: trip.id },

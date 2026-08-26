@@ -7,6 +7,7 @@ import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { PublicUserEntity } from './dto/user.entity';
 
 const PUBLIC_SELECT = {
   id: true,
@@ -25,7 +26,7 @@ const PUBLIC_SELECT = {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list() {
+  list(): Promise<PublicUserEntity[]> {
     // Active accounts first, then deactivated ones at the bottom — same
     // convention as clients/drivers/fleet (see docs/LEGACY_FEATURES.md §3).
     return this.prisma.user.findMany({
@@ -34,7 +35,7 @@ export class UsersService {
     });
   }
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto): Promise<PublicUserEntity> {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -54,7 +55,7 @@ export class UsersService {
     });
   }
 
-  async update(id: string, dto: UpdateUserDto) {
+  async update(id: string, dto: UpdateUserDto): Promise<PublicUserEntity> {
     await this.findOrThrow(id);
     if (dto.email) {
       const existing = await this.prisma.user.findUnique({
@@ -79,7 +80,7 @@ export class UsersService {
 
   // Deactivation is one-way, matching the legacy access accounts: no
   // reactivation endpoint exists (asymmetric compared to clients/drivers/fleet).
-  async deactivate(id: string) {
+  async deactivate(id: string): Promise<PublicUserEntity> {
     await this.findOrThrow(id);
     return this.prisma.user.update({
       where: { id },

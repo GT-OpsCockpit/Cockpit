@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
-import { seedBaseline } from './seed-data';
+import { seedBaseline, seedFixtures } from './seed-data';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -19,6 +19,7 @@ async function main() {
     firstName: process.env.ADMIN_FIRST_NAME ?? 'Admin',
     lastName: process.env.ADMIN_LAST_NAME ?? 'User',
   });
+  await seedFixtures(prisma);
   console.log('Seed complete.');
 }
 
