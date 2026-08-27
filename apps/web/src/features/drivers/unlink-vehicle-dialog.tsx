@@ -8,16 +8,7 @@ import {
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { driverDisplayName } from '@/features/bookings/trip-status'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 
 /**
  * Ported from the legacy's unlinkVehicleFromDriver (common.js:3565) — clears
@@ -48,22 +39,17 @@ export function UnlinkVehicleDialog({
   }
 
   return (
-    <AlertDialog open={!!driver} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Unlink this vehicle from the chauffeur?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {driver?.fleetReserved &&
-              `${driver.fleetReserved.regNbr} will no longer be reserved for ${driverDisplayName(driver)} — the vehicle itself is not deleted.`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction disabled={setDriver.isPending} onClick={() => void onConfirm()}>
-            Unlink
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmActionDialog
+      open={!!driver}
+      onOpenChange={onOpenChange}
+      title="Unlink this vehicle from the chauffeur?"
+      description={
+        driver?.fleetReserved &&
+        `${driver.fleetReserved.regNbr} will no longer be reserved for ${driverDisplayName(driver)} — the vehicle itself is not deleted.`
+      }
+      confirmLabel="Unlink"
+      pending={setDriver.isPending}
+      onConfirm={onConfirm}
+    />
   )
 }

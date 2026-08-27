@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import type { TripEntity, UpdateTripDto } from '@cockpit/shared/api'
+import type { TripEntity } from '@cockpit/shared/api'
 import { getTripsControllerListQueryKey, useTripsControllerUpdate } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
@@ -9,46 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePermission } from '@/features/auth/use-permission'
+import { PermissionWarning } from '@/components/permission-warning'
 import { TripFormFields } from './trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
-import { toPickupAt, tripToFormValues } from './trip-form-mapping'
-
-function toUpdateTripDto(values: TripFormValues, { notifyDriver }: { notifyDriver: boolean }): UpdateTripDto {
-  return {
-    countryCode: values.countryCode,
-    area: values.area,
-    pickupAt: toPickupAt(values),
-    pickupLocation: values.pickupLocation,
-    dropoffLocation: values.dropoffLocation || undefined,
-    service: values.service,
-    hours: values.service === 'ASD' ? values.hours : undefined,
-    instructions: values.instructions || undefined,
-    clientRef: values.clientRef,
-    passengerName: values.passengerName,
-    pocName: values.pocName || undefined,
-    pocPhone: values.pocPhone || undefined,
-    tracking: values.tracking,
-    paxCount: values.paxCount,
-    vehicleType: values.vehicleType,
-    priceEur: values.priceEur,
-    billing: values.billing,
-    flightNumber: values.flightNumber || undefined,
-    bufferTime: values.bufferTime,
-    fboAddress: values.fboAddress || undefined,
-    tailNbr: values.tailNbr || undefined,
-    pickupIata: values.pickupIata || undefined,
-    dropoffIata: values.dropoffIata || undefined,
-    // Unlike the creation bar, the edit dialog is also where driver/vehicle/partner
-    // reassignment happens (the legacy's per-cell quick-popups were deliberately not
-    // ported — see the handoff doc) — so these are always sent, never gated.
-    driverRef: values.driverRef || undefined,
-    fleetRegNbr: values.fleetRegNbr || undefined,
-    subContractor: values.subContractor,
-    partnerRef: values.subContractor ? values.partnerRef || undefined : undefined,
-    partnerRateEur: values.subContractor ? values.partnerRateEur : undefined,
-    notifyDriver,
-  }
-}
+import { toUpdateTripDto, tripToFormValues } from './trip-form-mapping'
 
 export function BookingEditDialog({
   trip,
@@ -103,9 +67,9 @@ export function BookingEditDialog({
         <Form {...form}>
           <form className="grid gap-4" onSubmit={onSubmit}>
             {pastLockout && (
-              <p className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm">
+              <PermissionWarning>
                 This booking's pickup is already in the past — only an Admin can edit it.
-              </p>
+              </PermissionWarning>
             )}
             <TripFormFields
               form={form}

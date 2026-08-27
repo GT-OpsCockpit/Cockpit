@@ -3,16 +3,7 @@ import type { TripEntity } from '@cockpit/shared/api'
 import { getTripsControllerListQueryKey, useTripsControllerDispatchDriver } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 
 export function DispatchConfirmDialog({
   trip,
@@ -37,21 +28,15 @@ export function DispatchConfirmDialog({
   }
 
   return (
-    <AlertDialog open={!!trip} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Dispatch to the driver?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {trip && `Trip ${trip.ref} will be sent to the assigned driver via WhatsApp.`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>No</AlertDialogCancel>
-          <AlertDialogAction disabled={dispatchDriver.isPending} onClick={() => void confirm()}>
-            Yes
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmActionDialog
+      open={!!trip}
+      onOpenChange={onOpenChange}
+      title="Dispatch to the driver?"
+      description={trip && `Trip ${trip.ref} will be sent to the assigned driver via WhatsApp.`}
+      cancelLabel="No"
+      confirmLabel="Yes"
+      pending={dispatchDriver.isPending}
+      onConfirm={confirm}
+    />
   )
 }

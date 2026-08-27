@@ -3,16 +3,7 @@ import type { TripEntity } from '@cockpit/shared/api'
 import { getTripsControllerListQueryKey, useTripsControllerAdvanceStep } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 
 export function AdvanceStepConfirmDialog({
   trip,
@@ -37,21 +28,14 @@ export function AdvanceStepConfirmDialog({
   }
 
   return (
-    <AlertDialog open={!!trip} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Valid step?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {trip && `Trip ${trip.ref} will be moved to its next step.`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction disabled={advanceStep.isPending} onClick={() => void confirm()}>
-            Valid step
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmActionDialog
+      open={!!trip}
+      onOpenChange={onOpenChange}
+      title="Valid step?"
+      description={trip && `Trip ${trip.ref} will be moved to its next step.`}
+      confirmLabel="Valid step"
+      pending={advanceStep.isPending}
+      onConfirm={confirm}
+    />
   )
 }

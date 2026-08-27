@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePermission } from '@/features/auth/use-permission'
+import { PermissionWarning } from '@/components/permission-warning'
 import { clientAccountLabel, displayPickup, itineraryLabel, tripDriverName } from './trip-status'
 
 const FEE_OPTIONS: { value: CancelAssignmentDtoCancellationFee; label: string }[] = [
@@ -68,11 +69,7 @@ export function BookingCancelDialog({
         </DialogHeader>
         {trip && (
           <div className="grid gap-4">
-            {!canCancel && (
-              <p className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm">
-                Cancelling a booking requires the Admin role.
-              </p>
-            )}
+            {!canCancel && <PermissionWarning>Cancelling a booking requires the Admin role.</PermissionWarning>}
             <div className="text-muted-foreground grid gap-1 text-sm">
               <div>
                 {account?.primary}

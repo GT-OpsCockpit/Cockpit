@@ -11,16 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 import { LinkVehicleToPartnerDialog } from '@/features/fleet/link-vehicle-to-partner-dialog'
 import { driverDisplayName } from '@/features/bookings/trip-status'
 import { DriverFormFields } from './driver-form-fields'
@@ -113,27 +104,18 @@ export function DriverCreateDialog() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!offerLinkTarget} onOpenChange={(open) => !open && setOfferLinkTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Link a vehicle to this partner?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {offerLinkTarget && `Do you wish to link ${driverDisplayName(offerLinkTarget)} to a vehicle now?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>No</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setLinkTarget(offerLinkTarget)
-                setOfferLinkTarget(null)
-              }}
-            >
-              Yes
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmActionDialog
+        open={!!offerLinkTarget}
+        onOpenChange={(open) => !open && setOfferLinkTarget(null)}
+        title="Link a vehicle to this partner?"
+        description={offerLinkTarget && `Do you wish to link ${driverDisplayName(offerLinkTarget)} to a vehicle now?`}
+        cancelLabel="No"
+        confirmLabel="Yes"
+        onConfirm={() => {
+          setLinkTarget(offerLinkTarget)
+          setOfferLinkTarget(null)
+        }}
+      />
 
       <LinkVehicleToPartnerDialog driver={linkTarget} onOpenChange={(open) => !open && setLinkTarget(null)} />
     </>

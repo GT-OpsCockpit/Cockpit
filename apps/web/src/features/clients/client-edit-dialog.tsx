@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePermission } from '@/features/auth/use-permission'
+import { PermissionWarning } from '@/components/permission-warning'
 import { ClientFormFields } from './client-form-fields'
 import { clientFormDefaults, clientFormSchema, type ClientFormValues } from './client-form-schema'
 import { clientToFormValues, toUpdateClientDto } from './client-form-mapping'
@@ -52,11 +53,7 @@ export function ClientEditDialog({
         </DialogHeader>
         <Form {...form}>
           <form className="grid gap-4" onSubmit={onSubmit}>
-            {!canEdit && (
-              <p className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm">
-                Editing an account requires the Admin role.
-              </p>
-            )}
+            {!canEdit && <PermissionWarning>Editing an account requires the Admin role.</PermissionWarning>}
             <ClientFormFields form={form} disabled={!canEdit} />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

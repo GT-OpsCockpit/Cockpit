@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { TripEntityBilling, type TripEntity } from '@cockpit/shared/api'
+import { TripEntityBilling, type CreateTripDto, type TripEntity, type UpdateTripDto } from '@cockpit/shared/api'
 import { pickupLocalInstant } from './trip-status'
 import type { TripFormValues } from './trip-form-schema'
 
@@ -45,5 +45,74 @@ export function tripToFormValues(trip: TripEntity): TripFormValues {
     dropoffIata: trip.dropoffIata ?? '',
     pickupTimezone: trip.timezone ?? '',
     notifyDriver: false,
+  }
+}
+
+/**
+ * Shared by create and update — the API accepts the same field set for both
+ * (UpdateTripDto is CreateTripDto minus pocEmail/ref, neither of which the form
+ * collects). Driver/vehicle/partner assignment is what actually differs between
+ * the two callers, so it's layered on by `toCreateTripDto`/`toUpdateTripDto`
+ * rather than duplicated here.
+ */
+function toTripDto(values: TripFormValues): CreateTripDto {
+  return {
+    countryCode: values.countryCode,
+    area: values.area,
+    pickupAt: toPickupAt(values),
+    pickupLocation: values.pickupLocation,
+    dropoffLocation: values.dropoffLocation || undefined,
+    service: values.service,
+    hours: values.service === 'ASD' ? values.hours : undefined,
+    instructions: values.instructions || undefined,
+    clientRef: values.clientRef,
+    passengerName: values.passengerName,
+    pocName: values.pocName || undefined,
+    pocPhone: values.pocPhone || undefined,
+    tracking: values.tracking,
+    paxCount: values.paxCount,
+    vehicleType: values.vehicleType,
+    priceEur: values.priceEur,
+    billing: values.billing,
+    flightNumber: values.flightNumber || undefined,
+    bufferTime: values.bufferTime,
+    fboAddress: values.fboAddress || undefined,
+    tailNbr: values.tailNbr || undefined,
+    pickupIata: values.pickupIata || undefined,
+    dropoffIata: values.dropoffIata || undefined,
+  }
+}
+
+export function toCreateTripDto(values: TripFormValues, { dispatch }: { dispatch: boolean }): CreateTripDto {
+  const dto = toTripDto(values)
+
+  // Plain "Create" never wires up an internal driver/vehicle — that's reserved for
+  // "Create & Dispatch". A Sub-C assignment is kept either way: the booking is
+  // farmed out from the moment it's created, dispatch or not.
+  if (dispatch) {
+    dto.driverRef = values.driverRef || undefined
+    dto.fleetRegNbr = values.fleetRegNbr || undefined
+  }
+  if (values.subContractor) {
+    dto.subContractor = true
+    dto.partnerRef = values.partnerRef || undefined
+    dto.partnerRateEur = values.partnerRateEur
+  }
+
+  return dto
+}
+
+export function toUpdateTripDto(values: TripFormValues, { notifyDriver }: { notifyDriver: boolean }): UpdateTripDto {
+  return {
+    ...toTripDto(values),
+    // Unlike the creation bar, the edit dialog is also where driver/vehicle/partner
+    // reassignment happens (the legacy's per-cell quick-popups were deliberately not
+    // ported — see the handoff doc) — so these are always sent, never gated.
+    driverRef: values.driverRef || undefined,
+    fleetRegNbr: values.fleetRegNbr || undefined,
+    subContractor: values.subContractor,
+    partnerRef: values.subContractor ? values.partnerRef || undefined : undefined,
+    partnerRateEur: values.subContractor ? values.partnerRateEur : undefined,
+    notifyDriver,
   }
 }

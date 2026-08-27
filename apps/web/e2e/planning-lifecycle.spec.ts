@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 import { API_BASE_URL } from './config'
 
 /**
@@ -29,12 +29,32 @@ interface TripBody {
 }
 
 interface DriverBody {
+  id: string
   ref: string
   firstName: string
 }
 
 function toast(page: Page, textOrPattern: string | RegExp) {
   return page.getByText(textOrPattern).first()
+}
+
+/**
+ * Reads a trip's assignment state back from the API.
+ *
+ * Deliberately NOT `GET /api/trips/:ref` — that route is @Public() and returns
+ * a PublicTripEntity, which carries neither driverId nor fleetVehicleId (it's
+ * reachable from the driver/track links without a session, so it exposes only
+ * what those pages need). Asserting on those fields there yields `undefined`,
+ * which makes `.toBeNull()` fail and — worse — makes `.not.toBeNull()` pass
+ * while checking nothing. The authenticated list route returns full TripEntity
+ * rows, so assignment state is read from there instead.
+ */
+async function fetchAssignmentState(request: APIRequestContext, ref: string): Promise<TripBody> {
+  const res = await request.get(`${API_BASE_URL}/api/trips?period=all`)
+  expect(res.ok()).toBe(true)
+  const trip = ((await res.json()) as TripBody[]).find((t) => t.ref === ref)
+  expect(trip, `trip ${ref} missing from GET /api/trips`).toBeDefined()
+  return trip!
 }
 
 /**
@@ -127,8 +147,7 @@ test.describe('Planning — lifecycle (ADMIN)', () => {
       // of the pile card, since a trip is never both at once.
       await expect(card).toBeVisible()
 
-      const afterAssign = await request.get(`${API_BASE_URL}/api/trips/${trip.ref}`)
-      expect(((await afterAssign.json()) as TripBody).driverId).not.toBeNull()
+      expect((await fetchAssignmentState(request, trip.ref)).driverId).toBe(julien.id)
 
       // --- The 🫥 icon reuses the exact same dialog the /drivers vertical built. ---
       await julienRow.locator('..').getByTitle('Day off / Holidays / Sickness leave').click()
@@ -140,8 +159,7 @@ test.describe('Planning — lifecycle (ADMIN)', () => {
       await dragAndWaitForAssign(page, card, pile)
       await expect(card).toBeVisible()
 
-      const afterUnassign = await request.get(`${API_BASE_URL}/api/trips/${trip.ref}`)
-      expect(((await afterUnassign.json()) as TripBody).driverId).toBeNull()
+      expect((await fetchAssignmentState(request, trip.ref)).driverId).toBeNull()
     } finally {
       await request.post(`${API_BASE_URL}/api/trips/${trip.ref}/cancel-assignment`, { data: { cancellationFee: 'FREE' } })
     }
@@ -183,8 +201,7 @@ test.describe('Planning — lifecycle (ADMIN)', () => {
       await expect(rejectionToast).toBeVisible()
       await expect(card).toBeVisible() // still the pile card — the drop never reached the API
 
-      const afterRejectedDrop = await request.get(`${API_BASE_URL}/api/trips/${trip.ref}`)
-      expect(((await afterRejectedDrop.json()) as TripBody).fleetVehicleId).toBeNull()
+      expect((await fetchAssignmentState(request, trip.ref)).fleetVehicleId).toBeNull()
 
       // Let the error toast clear — Sonner renders it as an overlay that can
       // otherwise intercept the next drag's pointer events.
@@ -195,8 +212,7 @@ test.describe('Planning — lifecycle (ADMIN)', () => {
       await dragAndWaitForAssign(page, card, businessRow)
       await expect(card).toBeVisible() // now the assigned block
 
-      const afterAssign = await request.get(`${API_BASE_URL}/api/trips/${trip.ref}`)
-      expect(((await afterAssign.json()) as TripBody).fleetVehicleId).not.toBeNull()
+      expect((await fetchAssignmentState(request, trip.ref)).fleetVehicleId).not.toBeNull()
 
       // --- The 🔧 icon (Internal vehicles only) reuses the /vehicles vertical's dialog. ---
       await businessRow.locator('..').getByTitle('Repair shop / Manufacturer service / Bodywork').click()

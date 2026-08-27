@@ -3,16 +3,7 @@ import type { TripEntity } from '@cockpit/shared/api'
 import { getInvoicesControllerListQueryKey, getTripsControllerListQueryKey, useInvoicesControllerCreate } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 
 /**
  * "Invoice" button confirm step — snapshots the Pending trips currently on
@@ -61,21 +52,15 @@ export function InvoiceCreateDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure you want to invoice these rides?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {pendingTrips.length} trip(s) will be grouped into one invoice and marked as invoiced. This cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>No</AlertDialogCancel>
-          <AlertDialogAction disabled={createInvoice.isPending} onClick={() => void confirm()}>
-            Yes
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmActionDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Are you sure you want to invoice these rides?"
+      description={`${pendingTrips.length} trip(s) will be grouped into one invoice and marked as invoiced. This cannot be undone.`}
+      cancelLabel="No"
+      confirmLabel="Yes"
+      pending={createInvoice.isPending}
+      onConfirm={confirm}
+    />
   )
 }

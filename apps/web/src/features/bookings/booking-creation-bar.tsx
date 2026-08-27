@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import type { CreateTripDto } from '@cockpit/shared/api'
 import {
   getTripsControllerListQueryKey,
   useTripsControllerCreate,
@@ -15,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
 import { TripFormFields } from './trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
-import { toPickupAt } from './trip-form-mapping'
+import { toCreateTripDto } from './trip-form-mapping'
 
 const DRAFT_KEY = 'newBookingDraft'
 
@@ -43,49 +42,6 @@ function clearDraft() {
   } catch {
     // ignore
   }
-}
-
-function toCreateTripDto(values: TripFormValues, { dispatch }: { dispatch: boolean }): CreateTripDto {
-  const dto: CreateTripDto = {
-    countryCode: values.countryCode,
-    area: values.area,
-    pickupAt: toPickupAt(values),
-    pickupLocation: values.pickupLocation,
-    dropoffLocation: values.dropoffLocation || undefined,
-    service: values.service,
-    hours: values.service === 'ASD' ? values.hours : undefined,
-    instructions: values.instructions || undefined,
-    clientRef: values.clientRef,
-    passengerName: values.passengerName,
-    pocName: values.pocName || undefined,
-    pocPhone: values.pocPhone || undefined,
-    tracking: values.tracking,
-    paxCount: values.paxCount,
-    vehicleType: values.vehicleType,
-    priceEur: values.priceEur,
-    billing: values.billing,
-    flightNumber: values.flightNumber || undefined,
-    bufferTime: values.bufferTime,
-    fboAddress: values.fboAddress || undefined,
-    tailNbr: values.tailNbr || undefined,
-    pickupIata: values.pickupIata || undefined,
-    dropoffIata: values.dropoffIata || undefined,
-  }
-
-  // Plain "Create" never wires up an internal driver/vehicle — that's reserved for
-  // "Create & Dispatch". A Sub-C assignment is kept either way: the booking is
-  // farmed out from the moment it's created, dispatch or not.
-  if (dispatch) {
-    dto.driverRef = values.driverRef || undefined
-    dto.fleetRegNbr = values.fleetRegNbr || undefined
-  }
-  if (values.subContractor) {
-    dto.subContractor = true
-    dto.partnerRef = values.partnerRef || undefined
-    dto.partnerRateEur = values.partnerRateEur
-  }
-
-  return dto
 }
 
 export function BookingCreationBar() {

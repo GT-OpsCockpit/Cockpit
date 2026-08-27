@@ -54,6 +54,12 @@ const TRIP_INCLUDE = {
   steps: true,
 } as const;
 
+const FLEET_VEHICLE_INCLUDE = { category: true } as const;
+
+type FleetVehicleWithCategory = Prisma.FleetVehicleGetPayload<{
+  include: typeof FLEET_VEHICLE_INCLUDE;
+}>;
+
 // Single source of truth for "what's in view" on the Bookings board — this
 // used to be recomputed client-side (isPastDay/periodMatches/baseVisibility
 // in apps/web's trip-status.ts) against a full, ever-growing, unfiltered
@@ -169,98 +175,9 @@ export class TripsService {
     return toPublicTrip(trip, viewerIsDriver);
   }
 
-  // TODO: the vehicleType/client/driver/partner/countryInfo lookups below
-  // (and the equivalent block in update()) are independent of each other
-  // and currently awaited one at a time — 5-6 sequential DB round trips per
-  // call. Batch the independent ones with Promise.all to cut latency on
-  // these hot dispatch-desk paths.
   async create(dto: CreateTripDto): Promise<TripEntity> {
-    if (dto.service !== Service.ASD && !dto.dropoffLocation) {
-      throw new BadRequestException(
-        'dropoffLocation is required (except for an ASD service)',
-      );
-    }
-    if (dto.service === Service.ASD) {
-      if (dto.hours === undefined || dto.hours < 2 || dto.hours > 48) {
-        throw new BadRequestException(
-          'hours (Nb H) is required for an ASD service, between 2 and 48',
-        );
-      }
-    }
-    if (dto.service === Service.SPEC && !dto.instructions?.trim()) {
-      throw new BadRequestException(
-        'instructions is required for a SPEC service',
-      );
-    }
+    const { data, client, driverId } = await this.resolveTripInputs(dto);
 
-    const vehicleType = dto.vehicleType
-      ? await this.prisma.vehicleType.findUnique({
-          where: { name: dto.vehicleType },
-        })
-      : null;
-    // Unlike the legacy (which stored any free-text vehicleType string with
-    // no existence check), vehicleTypeId is a real FK here: an unresolvable
-    // name must be rejected rather than silently dropped.
-    if (dto.vehicleType && !vehicleType) {
-      throw new BadRequestException(
-        `vehicleType "${dto.vehicleType}" does not match an existing vehicle type`,
-      );
-    }
-    if (vehicleType && dto.paxCount && dto.paxCount > vehicleType.maxPax) {
-      throw new BadRequestException(
-        `${dto.vehicleType} accepts a maximum of ${vehicleType.maxPax} passengers.`,
-      );
-    }
-
-    let fleetVehicle: Awaited<
-      ReturnType<typeof this.resolveFleetVehicle>
-    > | null = null;
-    let autoInstructionsNote: string | null = null;
-    if (dto.fleetRegNbr?.trim()) {
-      fleetVehicle = await this.resolveFleetVehicle(dto.fleetRegNbr);
-      if (dto.vehicleType) {
-        const allowed = compatibleFleetCategories(dto.vehicleType);
-        if (!allowed.includes(fleetVehicle.category.name)) {
-          throw new BadRequestException(
-            `Vehicle ${fleetVehicle.regNbr} (${fleetVehicle.category.name}) cannot service a ${dto.vehicleType} trip — compatible categories: ${allowed.join(', ')}`,
-          );
-        }
-        if (
-          dto.vehicleType === 'Lugg.' &&
-          fleetVehicle.category.name === 'Van'
-        ) {
-          autoInstructionsNote = 'Need to remove seats';
-        }
-      }
-    }
-
-    const client = await this.prisma.client.findUnique({
-      where: { ref: dto.clientRef },
-    });
-    if (!client) {
-      throw new BadRequestException(
-        'clientRef is required and must match an existing client account',
-      );
-    }
-
-    const resolvedPocPhone = normalizePhone(dto.pocPhone) || client.pocPhone;
-    if (!resolvedPocPhone) {
-      throw new BadRequestException(
-        'No POC phone: set it on the client account or for this trip.',
-      );
-    }
-    const resolvedPocName =
-      dto.pocName?.trim() || client.pocName || dto.passengerName;
-    const resolvedPocEmail = dto.pocEmail || client.pocEmail || null;
-
-    const driver = dto.driverRef
-      ? await this.prisma.driver.findUnique({ where: { ref: dto.driverRef } })
-      : null;
-    if (dto.driverRef && !driver) {
-      throw new BadRequestException(
-        `driverRef "${dto.driverRef}" does not match an existing driver`,
-      );
-    }
     const partner =
       dto.subContractor && dto.partnerRef
         ? await this.prisma.driver.findUnique({
@@ -282,53 +199,16 @@ export class TripsService {
       ref = await this.tripRef.generate(client.ref);
     }
 
-    const countryInfo = await this.prisma.country.findUnique({
-      where: { code: dto.countryCode },
-    });
-
-    let resolvedInstructions = dto.instructions || null;
-    if (autoInstructionsNote) {
-      const base = (dto.instructions ?? '').trim();
-      if (!base.includes(autoInstructionsNote)) {
-        resolvedInstructions = base
-          ? `${base} — ${autoInstructionsNote}`
-          : autoInstructionsNote;
-      }
-    }
-
     const locked = !!dto.subContractor && !partner;
 
     await this.prisma.trip.create({
       data: {
+        ...data,
         ref,
-        countryCode: dto.countryCode,
-        area: dto.area?.trim() || 'Local',
-        timezone: countryInfo?.defaultTimezone ?? null,
-        pickupAt: new Date(dto.pickupAt),
-        pickupLocation: dto.pickupLocation,
-        dropoffLocation: dto.dropoffLocation || null,
-        service: dto.service,
-        hours: dto.service === Service.ASD ? dto.hours : null,
-        instructions: resolvedInstructions,
-        clientId: client.id,
-        passengerName: dto.passengerName,
-        pocName: resolvedPocName,
-        pocPhone: resolvedPocPhone,
-        pocEmail: resolvedPocEmail,
-        tracking: dto.tracking !== false,
-        paxCount: dto.paxCount ?? null,
-        vehicleTypeId: vehicleType?.id ?? null,
-        fleetVehicleId: fleetVehicle?.id ?? null,
-        priceEur: dto.priceEur ?? null,
-        partnerRateEur: dto.partnerRateEur ?? null,
-        driverId: driver?.id ?? null,
-        billing: dto.billing ?? client.billing ?? null,
-        flightNumber: dto.flightNumber || null,
-        bufferTime: dto.bufferTime ?? null,
-        fboAddress: dto.fboAddress || null,
-        tailNbr: dto.tailNbr || null,
-        pickupIata: dto.pickupIata || null,
-        dropoffIata: dto.dropoffIata || null,
+        // Only create() takes a pocEmail — the legacy's edit popup has no such
+        // field, so UpdateTripDto omits it (see update-trip.dto.ts).
+        pocEmail: dto.pocEmail || client.pocEmail || null,
+        driverId,
         subContractor: !!dto.subContractor,
         partnerId: partner?.id ?? null,
         dispatched: locked,
@@ -371,107 +251,9 @@ export class TripsService {
       );
     }
 
-    if (dto.service !== Service.ASD && !dto.dropoffLocation) {
-      throw new BadRequestException(
-        'dropoffLocation is required (except for an ASD service)',
-      );
-    }
-    if (dto.service === Service.ASD) {
-      if (dto.hours === undefined || dto.hours < 2 || dto.hours > 48) {
-        throw new BadRequestException(
-          'hours (Nb H) is required for an ASD service, between 2 and 48',
-        );
-      }
-    }
-    if (dto.service === Service.SPEC && !dto.instructions?.trim()) {
-      throw new BadRequestException(
-        'instructions is required for a SPEC service',
-      );
-    }
-
-    const vehicleType = dto.vehicleType
-      ? await this.prisma.vehicleType.findUnique({
-          where: { name: dto.vehicleType },
-        })
-      : null;
-    // Unlike the legacy (which stored any free-text vehicleType string with
-    // no existence check), vehicleTypeId is a real FK here: an unresolvable
-    // name must be rejected rather than silently dropped.
-    if (dto.vehicleType && !vehicleType) {
-      throw new BadRequestException(
-        `vehicleType "${dto.vehicleType}" does not match an existing vehicle type`,
-      );
-    }
-    if (vehicleType && dto.paxCount && dto.paxCount > vehicleType.maxPax) {
-      throw new BadRequestException(
-        `${dto.vehicleType} accepts a maximum of ${vehicleType.maxPax} passengers.`,
-      );
-    }
-
-    let fleetVehicle: Awaited<
-      ReturnType<typeof this.resolveFleetVehicle>
-    > | null = null;
-    let autoInstructionsNote: string | null = null;
-    if (dto.fleetRegNbr?.trim()) {
-      fleetVehicle = await this.resolveFleetVehicle(dto.fleetRegNbr);
-      if (dto.vehicleType) {
-        const allowed = compatibleFleetCategories(dto.vehicleType);
-        if (!allowed.includes(fleetVehicle.category.name)) {
-          throw new BadRequestException(
-            `Vehicle ${fleetVehicle.regNbr} (${fleetVehicle.category.name}) cannot service a ${dto.vehicleType} trip — compatible categories: ${allowed.join(', ')}`,
-          );
-        }
-        if (
-          dto.vehicleType === 'Lugg.' &&
-          fleetVehicle.category.name === 'Van'
-        ) {
-          autoInstructionsNote = 'Need to remove seats';
-        }
-      }
-    }
-
-    const client = await this.prisma.client.findUnique({
-      where: { ref: dto.clientRef },
-    });
-    if (!client) {
-      throw new BadRequestException(
-        'clientRef is required and must match an existing client account',
-      );
-    }
-
-    const resolvedPocPhone = normalizePhone(dto.pocPhone) || client.pocPhone;
-    if (!resolvedPocPhone) {
-      throw new BadRequestException(
-        'No POC phone: set it on the client account or for this trip.',
-      );
-    }
-    const resolvedPocName =
-      dto.pocName?.trim() || client.pocName || dto.passengerName;
-
-    let resolvedInstructions = dto.instructions || null;
-    if (autoInstructionsNote) {
-      const base = (dto.instructions ?? '').trim();
-      if (!base.includes(autoInstructionsNote)) {
-        resolvedInstructions = base
-          ? `${base} — ${autoInstructionsNote}`
-          : autoInstructionsNote;
-      }
-    }
-
-    const driver = dto.driverRef
-      ? await this.prisma.driver.findUnique({ where: { ref: dto.driverRef } })
-      : null;
-    if (dto.driverRef && !driver) {
-      throw new BadRequestException(
-        `driverRef "${dto.driverRef}" does not match an existing driver`,
-      );
-    }
-    const countryInfo = await this.prisma.country.findUnique({
-      where: { code: dto.countryCode },
-    });
+    const { data, client, driverId } = await this.resolveTripInputs(dto);
 
     const previousDriverId = trip.driverId;
-    const newDriverId = driver?.id ?? null;
     const previousPartnerId = trip.partnerId;
 
     let newRef = trip.ref;
@@ -497,7 +279,7 @@ export class TripsService {
     const finalPartnerId =
       partnerId !== undefined ? partnerId : previousPartnerId;
     const reassigned =
-      newDriverId !== previousDriverId || finalPartnerId !== previousPartnerId;
+      driverId !== previousDriverId || finalPartnerId !== previousPartnerId;
     const finalSubContractor =
       dto.subContractor !== undefined ? dto.subContractor : trip.subContractor;
     const locked = finalSubContractor && !finalPartnerId;
@@ -510,34 +292,9 @@ export class TripsService {
     await this.prisma.trip.update({
       where: { id: trip.id },
       data: {
+        ...data,
         ref: newRef,
-        countryCode: dto.countryCode,
-        area: dto.area?.trim() || 'Local',
-        timezone: countryInfo?.defaultTimezone ?? null,
-        pickupAt: new Date(dto.pickupAt),
-        pickupLocation: dto.pickupLocation,
-        dropoffLocation: dto.dropoffLocation || null,
-        service: dto.service,
-        hours: dto.service === Service.ASD ? dto.hours : null,
-        instructions: resolvedInstructions,
-        clientId: client.id,
-        passengerName: dto.passengerName,
-        pocName: resolvedPocName,
-        pocPhone: resolvedPocPhone,
-        tracking: dto.tracking !== false,
-        paxCount: dto.paxCount ?? null,
-        vehicleTypeId: vehicleType?.id ?? null,
-        fleetVehicleId: fleetVehicle?.id ?? null,
-        priceEur: dto.priceEur ?? null,
-        partnerRateEur: dto.partnerRateEur ?? null,
-        driverId: newDriverId,
-        billing: dto.billing ?? client.billing ?? null,
-        flightNumber: dto.flightNumber || null,
-        bufferTime: dto.bufferTime ?? null,
-        fboAddress: dto.fboAddress || null,
-        tailNbr: dto.tailNbr || null,
-        pickupIata: dto.pickupIata || null,
-        dropoffIata: dto.dropoffIata || null,
+        driverId,
         ...(dto.subContractor !== undefined && {
           subContractor: dto.subContractor,
         }),
@@ -561,7 +318,7 @@ export class TripsService {
     }
 
     let notifyWarning: string | null = null;
-    if (dto.notifyDriver && newDriverId && dto.tracking !== false) {
+    if (dto.notifyDriver && driverId && dto.tracking !== false) {
       const full = await this.findByRefOrThrow(newRef);
       try {
         await this.notifications.send(
@@ -627,12 +384,7 @@ export class TripsService {
         ? await this.resolveFleetVehicle(dto.fleetRegNbr)
         : null;
       if (fleetVehicle && trip.vehicleType) {
-        const allowed = compatibleFleetCategories(trip.vehicleType.name);
-        if (!allowed.includes(fleetVehicle.category.name)) {
-          throw new BadRequestException(
-            `Vehicle ${fleetVehicle.regNbr} (${fleetVehicle.category.name}) cannot service a ${trip.vehicleType.name} trip — compatible categories: ${allowed.join(', ')}`,
-          );
-        }
+        this.assertFleetCompatible(trip.vehicleType.name, fleetVehicle);
       }
       data.fleetVehicle = fleetVehicle
         ? { connect: { id: fleetVehicle.id } }
@@ -827,11 +579,176 @@ export class TripsService {
     return this.findByRefOrThrow(ref);
   }
 
-  private async resolveFleetVehicle(regNbr: string) {
-    const fleetVehicle = await this.prisma.fleetVehicle.findFirst({
+  /**
+   * Validation + FK resolution + the column payload shared by create() and
+   * update(). Both accept the same field set (UpdateTripDto is CreateTripDto
+   * minus pocEmail/ref), so the rules live here once rather than being mirrored
+   * — a new vehicle-compatibility or POC rule is written in one place, and the
+   * ~26 columns the two write identically can't drift apart.
+   *
+   * Callers keep what genuinely differs between them: ref allocation, pocEmail,
+   * partner/sub-contractor handling, and the dispatch/reassignment bookkeeping.
+   *
+   * The independent lookups are batched — this is on the hot dispatch-desk path
+   * and used to cost 5-6 sequential round trips. The checks below still run in
+   * their original order, so a doubly-invalid dto reports the same error it did
+   * when each lookup was awaited in turn.
+   */
+  private async resolveTripInputs(dto: CreateTripDto | UpdateTripDto) {
+    if (dto.service !== Service.ASD && !dto.dropoffLocation) {
+      throw new BadRequestException(
+        'dropoffLocation is required (except for an ASD service)',
+      );
+    }
+    if (dto.service === Service.ASD) {
+      if (dto.hours === undefined || dto.hours < 2 || dto.hours > 48) {
+        throw new BadRequestException(
+          'hours (Nb H) is required for an ASD service, between 2 and 48',
+        );
+      }
+    }
+    if (dto.service === Service.SPEC && !dto.instructions?.trim()) {
+      throw new BadRequestException(
+        'instructions is required for a SPEC service',
+      );
+    }
+
+    const [vehicleType, fleetVehicle, client, driver, countryInfo] =
+      await Promise.all([
+        dto.vehicleType
+          ? this.prisma.vehicleType.findUnique({
+              where: { name: dto.vehicleType },
+            })
+          : null,
+        dto.fleetRegNbr?.trim() ? this.findFleetVehicle(dto.fleetRegNbr) : null,
+        this.prisma.client.findUnique({ where: { ref: dto.clientRef } }),
+        dto.driverRef
+          ? this.prisma.driver.findUnique({ where: { ref: dto.driverRef } })
+          : null,
+        this.prisma.country.findUnique({ where: { code: dto.countryCode } }),
+      ]);
+
+    // Unlike the legacy (which stored any free-text vehicleType string with
+    // no existence check), vehicleTypeId is a real FK here: an unresolvable
+    // name must be rejected rather than silently dropped.
+    if (dto.vehicleType && !vehicleType) {
+      throw new BadRequestException(
+        `vehicleType "${dto.vehicleType}" does not match an existing vehicle type`,
+      );
+    }
+    if (vehicleType && dto.paxCount && dto.paxCount > vehicleType.maxPax) {
+      throw new BadRequestException(
+        `${dto.vehicleType} accepts a maximum of ${vehicleType.maxPax} passengers.`,
+      );
+    }
+
+    let autoInstructionsNote: string | null = null;
+    if (dto.fleetRegNbr?.trim()) {
+      if (!fleetVehicle) {
+        throw new BadRequestException(
+          `No Fleet vehicle with registration "${dto.fleetRegNbr}"`,
+        );
+      }
+      if (dto.vehicleType) {
+        this.assertFleetCompatible(dto.vehicleType, fleetVehicle);
+        if (
+          dto.vehicleType === 'Lugg.' &&
+          fleetVehicle.category.name === 'Van'
+        ) {
+          autoInstructionsNote = 'Need to remove seats';
+        }
+      }
+    }
+
+    if (!client) {
+      throw new BadRequestException(
+        'clientRef is required and must match an existing client account',
+      );
+    }
+
+    const resolvedPocPhone = normalizePhone(dto.pocPhone) || client.pocPhone;
+    if (!resolvedPocPhone) {
+      throw new BadRequestException(
+        'No POC phone: set it on the client account or for this trip.',
+      );
+    }
+
+    if (dto.driverRef && !driver) {
+      throw new BadRequestException(
+        `driverRef "${dto.driverRef}" does not match an existing driver`,
+      );
+    }
+
+    let resolvedInstructions = dto.instructions || null;
+    if (autoInstructionsNote) {
+      const base = (dto.instructions ?? '').trim();
+      if (!base.includes(autoInstructionsNote)) {
+        resolvedInstructions = base
+          ? `${base} — ${autoInstructionsNote}`
+          : autoInstructionsNote;
+      }
+    }
+
+    return {
+      client,
+      driverId: driver?.id ?? null,
+      data: {
+        countryCode: dto.countryCode,
+        area: dto.area?.trim() || 'Local',
+        timezone: countryInfo?.defaultTimezone ?? null,
+        pickupAt: new Date(dto.pickupAt),
+        pickupLocation: dto.pickupLocation,
+        dropoffLocation: dto.dropoffLocation || null,
+        service: dto.service,
+        hours: dto.service === Service.ASD ? (dto.hours ?? null) : null,
+        instructions: resolvedInstructions,
+        clientId: client.id,
+        passengerName: dto.passengerName,
+        pocName: dto.pocName?.trim() || client.pocName || dto.passengerName,
+        pocPhone: resolvedPocPhone,
+        tracking: dto.tracking !== false,
+        paxCount: dto.paxCount ?? null,
+        vehicleTypeId: vehicleType?.id ?? null,
+        fleetVehicleId: fleetVehicle?.id ?? null,
+        priceEur: dto.priceEur ?? null,
+        partnerRateEur: dto.partnerRateEur ?? null,
+        billing: dto.billing ?? client.billing ?? null,
+        flightNumber: dto.flightNumber || null,
+        bufferTime: dto.bufferTime ?? null,
+        fboAddress: dto.fboAddress || null,
+        tailNbr: dto.tailNbr || null,
+        pickupIata: dto.pickupIata || null,
+        dropoffIata: dto.dropoffIata || null,
+      },
+    };
+  }
+
+  /** Fleet category ↔ vehicle type rule — same check on create, update and assign. */
+  private assertFleetCompatible(
+    vehicleTypeName: string,
+    fleetVehicle: FleetVehicleWithCategory,
+  ): void {
+    const allowed = compatibleFleetCategories(vehicleTypeName);
+    if (!allowed.includes(fleetVehicle.category.name)) {
+      throw new BadRequestException(
+        `Vehicle ${fleetVehicle.regNbr} (${fleetVehicle.category.name}) cannot service a ${vehicleTypeName} trip — compatible categories: ${allowed.join(', ')}`,
+      );
+    }
+  }
+
+  private findFleetVehicle(
+    regNbr: string,
+  ): Promise<FleetVehicleWithCategory | null> {
+    return this.prisma.fleetVehicle.findFirst({
       where: { regNbr: { equals: regNbr.trim(), mode: 'insensitive' } },
-      include: { category: true },
+      include: FLEET_VEHICLE_INCLUDE,
     });
+  }
+
+  private async resolveFleetVehicle(
+    regNbr: string,
+  ): Promise<FleetVehicleWithCategory> {
+    const fleetVehicle = await this.findFleetVehicle(regNbr);
     if (!fleetVehicle) {
       throw new BadRequestException(
         `No Fleet vehicle with registration "${regNbr}"`,

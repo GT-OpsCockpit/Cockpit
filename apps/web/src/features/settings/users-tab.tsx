@@ -6,16 +6,7 @@ import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { usePermission } from '@/features/auth/use-permission'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 import { UserCreateDialog } from './user-create-dialog'
 import { UserEditDialog } from './user-edit-dialog'
 import { UsersTable } from './users-table'
@@ -67,21 +58,18 @@ export function UsersTab() {
 
       <UserEditDialog user={editTarget} onOpenChange={(open) => !open && setEditTarget(null)} />
 
-      <AlertDialog open={!!deactivateTarget} onOpenChange={(open) => !open && setDeactivateTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate this user?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deactivateTarget &&
-                `${deactivateTarget.firstName} ${deactivateTarget.lastName} (${deactivateTarget.email}) will no longer be able to log in. There is no way to reactivate a user account — this can't be undone.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDeactivate()}>Deactivate</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmActionDialog
+        open={!!deactivateTarget}
+        onOpenChange={(open) => !open && setDeactivateTarget(null)}
+        title="Deactivate this user?"
+        description={
+          deactivateTarget &&
+          `${deactivateTarget.firstName} ${deactivateTarget.lastName} (${deactivateTarget.email}) will no longer be able to log in. There is no way to reactivate a user account — this can't be undone.`
+        }
+        confirmLabel="Deactivate"
+        pending={deactivateUser.isPending}
+        onConfirm={handleDeactivate}
+      />
     </div>
   )
 }
