@@ -1,0 +1,69 @@
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from 'sonner'
+import { Plus } from 'lucide-react'
+import { getClientsControllerListQueryKey, useClientsControllerCreate } from '@cockpit/shared/api'
+import { queryClient } from '@/lib/query-client'
+import { getApiErrorMessage } from '@/lib/api-error'
+import { Button } from '@/components/ui/button'
+import { Form } from '@/components/ui/form'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { ClientFormFields } from './client-form-fields'
+import { clientFormDefaults, clientFormSchema, type ClientFormValues } from './client-form-schema'
+import { toCreateClientDto } from './client-form-mapping'
+
+export function ClientCreateDialog() {
+  const [open, setOpen] = useState(false)
+  const form = useForm<ClientFormValues>({
+    resolver: zodResolver(clientFormSchema),
+    defaultValues: clientFormDefaults(),
+  })
+
+  const createClient = useClientsControllerCreate()
+
+  const onOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) form.reset(clientFormDefaults())
+  }
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    try {
+      const client = await createClient.mutateAsync({ data: toCreateClientDto(values) })
+      toast.success(`Account ${client.ref} created.`)
+      onOpenChange(false)
+      void queryClient.invalidateQueries({ queryKey: getClientsControllerListQueryKey() })
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Error creating account.'))
+    }
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="size-4" />
+          New account
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>New account</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form className="grid gap-4" onSubmit={onSubmit}>
+            <ClientFormFields form={form} />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createClient.isPending}>
+                Create
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  )
+}

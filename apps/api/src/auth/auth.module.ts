@@ -4,7 +4,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpMailerService } from './otp-mailer.service';
 import { SessionAuthGuard } from '../common/guards/session-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 
 @Module({
   controllers: [AuthController],
@@ -12,7 +12,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
     AuthService,
     OtpMailerService,
     { provide: APP_GUARD, useClass: SessionAuthGuard },
-    { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
   exports: [AuthService],
 })

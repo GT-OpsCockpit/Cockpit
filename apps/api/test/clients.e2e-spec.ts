@@ -13,6 +13,13 @@ interface ClientBody {
   pocName: string | null;
 }
 
+interface ClientListBody {
+  data: ClientBody[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 describe('Clients (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -134,11 +141,13 @@ describe('Clients (e2e)', () => {
       .send({ active: false })
       .expect(200);
 
+    // includeInactive=true — `a` was just deactivated, and the default list
+    // (active-only) would drop it out entirely rather than order it last.
     const list = await request(server())
-      .get('/api/clients')
+      .get('/api/clients?includeInactive=true')
       .set('Cookie', cookie)
       .expect(200);
-    const refs = (list.body as ClientBody[]).map((c) => c.ref);
+    const refs = (list.body as ClientListBody).data.map((c) => c.ref);
     expect(refs.indexOf((b.body as ClientBody).ref)).toBeLessThan(
       refs.indexOf((a.body as ClientBody).ref),
     );
@@ -164,7 +173,7 @@ describe('Clients (e2e)', () => {
       .get('/api/clients')
       .set('Cookie', cookie)
       .expect(200);
-    const reactivatedClient = (reactivated.body as ClientBody[]).find(
+    const reactivatedClient = (reactivated.body as ClientListBody).data.find(
       (c) => c.ref === (a.body as ClientBody).ref,
     );
     expect(reactivatedClient?.active).toBe(true);
@@ -286,5 +295,170 @@ describe('Clients (e2e)', () => {
         contactLastName: 'A',
       })
       .expect(404);
+  });
+
+  it('rejects a malformed email on create, for both the account email and the POC email', async () => {
+    await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({
+        clientType: 'INDIVIDUAL',
+        contactFirstName: 'A',
+        contactLastName: 'A',
+        email: 'not-an-email',
+      })
+      .expect(400);
+
+    await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({
+        clientType: 'INDIVIDUAL',
+        contactFirstName: 'A',
+        contactLastName: 'A',
+        pocEmail: 'not-an-email',
+      })
+      .expect(400);
+  });
+
+  it('normalizes email casing/whitespace and rejects a duplicate — on create and on update, case-insensitively', async () => {
+    const first = await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({
+        clientType: 'INDIVIDUAL',
+        contactFirstName: 'A',
+        contactLastName: 'A',
+        email: '  Jane.Doe@Example.com  ',
+      })
+      .expect(201);
+    expect((first.body as ClientBody & { email: string }).email).toBe(
+      'jane.doe@example.com',
+    );
+
+    // Same address, different casing/whitespace — must still collide.
+    await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({
+        clientType: 'INDIVIDUAL',
+        contactFirstName: 'B',
+        contactLastName: 'B',
+        email: 'jane.doe@EXAMPLE.com',
+      })
+      .expect(409);
+
+    // A second, distinct account can update into the same address just as little.
+    const second = await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({
+        clientType: 'INDIVIDUAL',
+        contactFirstName: 'C',
+        contactLastName: 'C',
+        email: 'other@example.com',
+      })
+      .expect(201);
+    await request(server())
+      .put(`/api/clients/${(second.body as ClientBody).ref}`)
+      .set('Cookie', cookie)
+      .send({ email: 'JANE.DOE@example.com' })
+      .expect(409);
+
+    // But updating a record with its own (unchanged) email must not self-conflict.
+    await request(server())
+      .put(`/api/clients/${(first.body as ClientBody).ref}`)
+      .set('Cookie', cookie)
+      .send({ acronym: 'JD' })
+      .expect(200);
+    await request(server())
+      .put(`/api/clients/${(first.body as ClientBody).ref}`)
+      .set('Cookie', cookie)
+      .send({ email: 'Jane.Doe@example.com' })
+      .expect(200);
+  });
+
+  it('filters, searches and paginates the list server-side', async () => {
+    for (let i = 1; i <= 3; i++) {
+      await request(server())
+        .post('/api/clients')
+        .set('Cookie', cookie)
+        .send({ clientType: 'COMPANY', company: `Riviera Transfers ${i}` })
+        .expect(201);
+    }
+    const other = await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({
+        clientType: 'INDIVIDUAL',
+        contactFirstName: 'Someone',
+        contactLastName: 'Else',
+      })
+      .expect(201);
+    await request(server())
+      .patch(`/api/clients/${(other.body as ClientBody).ref}/active`)
+      .set('Cookie', cookie)
+      .send({ active: false })
+      .expect(200);
+
+    // search — matches the company name, case-insensitively, substring.
+    const searched = await request(server())
+      .get('/api/clients?search=riviera')
+      .set('Cookie', cookie)
+      .expect(200);
+    const searchedBody = searched.body as ClientListBody;
+    expect(searchedBody.total).toBe(3);
+    expect(searchedBody.data).toHaveLength(3);
+
+    // type — exact match only.
+    const typed = await request(server())
+      .get('/api/clients?type=COMPANY')
+      .set('Cookie', cookie)
+      .expect(200);
+    const typedBody = typed.body as Omit<ClientListBody, 'data'> & {
+      data: (ClientBody & { clientType: string })[];
+    };
+    expect(typedBody.total).toBeGreaterThanOrEqual(3);
+    expect(typedBody.data.every((c) => c.clientType === 'COMPANY')).toBe(true);
+
+    // includeInactive — deactivated accounts are excluded by default.
+    const defaultList = await request(server())
+      .get('/api/clients?search=else')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect((defaultList.body as ClientListBody).total).toBe(0);
+    const withInactive = await request(server())
+      .get('/api/clients?search=else&includeInactive=true')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect((withInactive.body as ClientListBody).total).toBe(1);
+
+    // pagination — page/limit slice the (search-filtered) result set.
+    const page1 = await request(server())
+      .get('/api/clients?search=riviera&limit=2&page=1')
+      .set('Cookie', cookie)
+      .expect(200);
+    const page1Body = page1.body as ClientListBody;
+    expect(page1Body.data).toHaveLength(2);
+    expect(page1Body.total).toBe(3);
+    expect(page1Body.page).toBe(1);
+    expect(page1Body.limit).toBe(2);
+
+    const page2 = await request(server())
+      .get('/api/clients?search=riviera&limit=2&page=2')
+      .set('Cookie', cookie)
+      .expect(200);
+    const page2Body = page2.body as ClientListBody;
+    expect(page2Body.data).toHaveLength(1);
+    expect(page1Body.data.map((c) => c.ref)).not.toEqual(
+      expect.arrayContaining(page2Body.data.map((c) => c.ref)),
+    );
+  });
+
+  it('rejects a limit above 100 (there is no "everything" mode)', async () => {
+    await request(server())
+      .get('/api/clients?limit=101')
+      .set('Cookie', cookie)
+      .expect(400);
   });
 });

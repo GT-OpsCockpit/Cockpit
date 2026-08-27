@@ -5,9 +5,18 @@
  * Cockpit v2 dispatch/booking API
  * OpenAPI spec version: 1.0
  */
+import type { ClientBaseEntity } from './clientBaseEntity';
+import type { DriverUnavailabilityEntity } from './driverUnavailabilityEntity';
+import type { FleetVehicleBaseEntity } from './fleetVehicleBaseEntity';
 
 export interface DriverEntity {
   name: string;
+  /** @nullable */
+  eventClient: ClientBaseEntity | null;
+  /** @nullable */
+  unavailability: DriverUnavailabilityEntity | null;
+  /** @nullable */
+  fleetReserved: FleetVehicleBaseEntity | null;
   id: string;
   ref: string;
   /** @nullable */

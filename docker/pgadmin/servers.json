@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Cockpit (local)",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "cockpit",
+      "Username": "cockpit",
+      "SSLMode": "prefer"
+    }
+  }
+}

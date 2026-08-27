@@ -25,13 +25,17 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AssignTripDto,
   CancelAssignmentDto,
   CancelAssignmentResponseEntity,
   CreateTripDto,
   NotifyStepDto,
+  PublicTripActionResponseEntity,
+  PublicTripEntity,
   TripActionResponseEntity,
   TripEntity,
   TripsControllerGetPublicParams,
+  TripsControllerListParams,
   UpdateTripDto,
   UpdateTripResponseEntity
 } from '../../model';
@@ -58,17 +62,24 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export const getTripsControllerListUrl = () => {
+export const getTripsControllerListUrl = (params?: TripsControllerListParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/trips`
+  return stringifiedParams.length > 0 ? `/api/trips?${stringifiedParams}` : `/api/trips`
 }
 
-export const tripsControllerList = async ( options?: Parameters<typeof fetcher>[1]): Promise<TripEntity[]> => {
+export const tripsControllerList = async (params?: TripsControllerListParams, options?: Parameters<typeof fetcher>[1]): Promise<TripEntity[]> => {
 
-  return fetcher<TripEntity[]>(getTripsControllerListUrl(),
+  return fetcher<TripEntity[]>(getTripsControllerListUrl(params),
   {
     ...options,
     method: 'GET'
@@ -81,23 +92,23 @@ export const tripsControllerList = async ( options?: Parameters<typeof fetcher>[
 
 
 
-export const getTripsControllerListQueryKey = () => {
+export const getTripsControllerListQueryKey = (params?: TripsControllerListParams,) => {
     return [
-    `/api/trips`
+    `/api/trips`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getTripsControllerListQueryOptions = <TData = Awaited<ReturnType<typeof tripsControllerList>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+export const getTripsControllerListQueryOptions = <TData = Awaited<ReturnType<typeof tripsControllerList>>, TError = unknown>(params?: TripsControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getTripsControllerListQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getTripsControllerListQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof tripsControllerList>>> = ({ signal }) => tripsControllerList({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof tripsControllerList>>> = ({ signal }) => tripsControllerList(params, { signal, ...requestOptions });
 
 
 
@@ -111,7 +122,7 @@ export type TripsControllerListQueryError = unknown
 
 
 export function useTripsControllerList<TData = Awaited<ReturnType<typeof tripsControllerList>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerList>>, TError, TData>> & Pick<
+ params: undefined |  TripsControllerListParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerList>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof tripsControllerList>>,
           TError,
@@ -121,7 +132,7 @@ export function useTripsControllerList<TData = Awaited<ReturnType<typeof tripsCo
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useTripsControllerList<TData = Awaited<ReturnType<typeof tripsControllerList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerList>>, TError, TData>> & Pick<
+ params?: TripsControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerList>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof tripsControllerList>>,
           TError,
@@ -131,16 +142,16 @@ export function useTripsControllerList<TData = Awaited<ReturnType<typeof tripsCo
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useTripsControllerList<TData = Awaited<ReturnType<typeof tripsControllerList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ params?: TripsControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 
 export function useTripsControllerList<TData = Awaited<ReturnType<typeof tripsControllerList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ params?: TripsControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getTripsControllerListQueryOptions(options)
+  const queryOptions = getTripsControllerListQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -240,9 +251,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 }
 
 export const tripsControllerGetPublic = async (ref: string,
-    params?: TripsControllerGetPublicParams, options?: Parameters<typeof fetcher>[1]): Promise<TripEntity> => {
+    params?: TripsControllerGetPublicParams, options?: Parameters<typeof fetcher>[1]): Promise<PublicTripEntity> => {
 
-  return fetcher<TripEntity>(getTripsControllerGetPublicUrl(ref,params),
+  return fetcher<PublicTripEntity>(getTripsControllerGetPublicUrl(ref,params),
   {
     ...options,
     method: 'GET'
@@ -404,6 +415,78 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getTripsControllerUpdateMutationOptions(options), queryClient);
     }
+    export const getTripsControllerAssignUrl = (ref: string,) => {
+
+
+
+
+  return `/api/trips/${ref}/assign`
+}
+
+export const tripsControllerAssign = async (ref: string,
+    assignTripDto: AssignTripDto, options?: Parameters<typeof fetcher>[1]): Promise<TripActionResponseEntity> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+return fetcher<TripActionResponseEntity>(getTripsControllerAssignUrl(ref),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(assignTripDto)
+  }
+);}
+
+
+
+
+
+export const getTripsControllerAssignMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tripsControllerAssign>>, TError,TripsControllerAssignMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof tripsControllerAssign>>, TError,TripsControllerAssignMutationVariables, TContext> => {
+
+const mutationKey = ['tripsControllerAssign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tripsControllerAssign>>, TripsControllerAssignMutationVariables> = (props) => {
+          const {ref,data} = props ?? {};
+
+          return  tripsControllerAssign(ref,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TripsControllerAssignMutationResult = NonNullable<Awaited<ReturnType<typeof tripsControllerAssign>>>
+    export type TripsControllerAssignMutationBody = AssignTripDto
+    export type TripsControllerAssignMutationError = unknown
+    export type TripsControllerAssignMutationVariables = {ref: string;data: AssignTripDto}
+
+    export const useTripsControllerAssign = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tripsControllerAssign>>, TError,TripsControllerAssignMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof tripsControllerAssign>>,
+        TError,
+        TripsControllerAssignMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTripsControllerAssignMutationOptions(options), queryClient);
+    }
     export const getTripsControllerCancelAssignmentUrl = (ref: string,) => {
 
 
@@ -550,7 +633,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 }
 
 export const tripsControllerNotify = async (ref: string,
-    notifyStepDto: NotifyStepDto, options?: Parameters<typeof fetcher>[1]): Promise<TripActionResponseEntity> => {
+    notifyStepDto: NotifyStepDto, options?: Parameters<typeof fetcher>[1]): Promise<PublicTripActionResponseEntity> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -558,7 +641,7 @@ export const tripsControllerNotify = async (ref: string,
     if (Array.isArray(h)) return Object.fromEntries(h);
     return h;
   };
-return fetcher<TripActionResponseEntity>(getTripsControllerNotifyUrl(ref),
+return fetcher<PublicTripActionResponseEntity>(getTripsControllerNotifyUrl(ref),
   {
     ...options,
     method: 'POST',

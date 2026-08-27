@@ -10,6 +10,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/shared/package.json packages/shared/package.json
+COPY patches patches
 RUN pnpm install --frozen-lockfile
 
 COPY apps/api apps/api
@@ -38,6 +39,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/shared/package.json packages/shared/package.json
+COPY patches patches
 RUN pnpm install --frozen-lockfile --prod --filter @cockpit/api...
 
 COPY apps/api/prisma apps/api/prisma

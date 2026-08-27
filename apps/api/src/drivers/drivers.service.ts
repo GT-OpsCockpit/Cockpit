@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,15 +11,34 @@ import { EventLinkService } from '../common/event-link/event-link.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { letters } from '../common/utils/letters';
 import { computeDriverName } from '../common/utils/driver-name';
+import { can } from '../common/permissions/permissions';
+import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { SetDriverUnavailabilityDto } from './dto/set-unavailability.dto';
+import { ListDriversQueryDto } from './dto/list-drivers-query.dto';
 import {
   DriverEntity,
   DriverWithUnavailabilityEntity,
 } from './dto/driver.entity';
+import { DriverListEntity } from './dto/driver-list.entity';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { DriverUnavailKind } from '../../generated/prisma/enums';
-import type { Driver } from '../../generated/prisma/client';
+import type {
+  Client,
+  Driver,
+  DriverUnavailability,
+  FleetVehicle,
+  Prisma,
+} from '../../generated/prisma/client';
+
+const DRIVER_INCLUDE = {
+  eventClient: true,
+  unavailability: true,
+  fleetReserved: true,
+} satisfies Prisma.DriverInclude;
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
 
 /** Same required-fields tree as the legacy's validateDriverFields(), shared by create and update. */
 function assertValidDriverFields(dto: CreateDriverDto): void {
@@ -79,7 +99,13 @@ function driverRefPrefix(
   return `D-${countryPart}-${areaPart}-${companyPart}`;
 }
 
-function withName<T extends Driver>(driver: T): T & { name: string } {
+function withName<
+  T extends Driver & {
+    eventClient: Client | null;
+    unavailability: DriverUnavailability | null;
+    fleetReserved: FleetVehicle | null;
+  },
+>(driver: T): T & { name: string } {
   return { ...driver, name: computeDriverName(driver) };
 }
 
@@ -91,13 +117,37 @@ export class DriversService {
     private readonly eventLink: EventLinkService,
   ) {}
 
-  async list(): Promise<DriverEntity[]> {
-    const drivers = await this.prisma.driver.findMany();
-    drivers.sort((a, b) => {
-      if (a.active !== b.active) return a.active ? -1 : 1;
-      return a.ref.localeCompare(b.ref);
-    });
-    return drivers.map(withName);
+  async list(query: ListDriversQueryDto): Promise<DriverListEntity> {
+    const where: Prisma.DriverWhereInput = {};
+    if (!query.includeInactive) where.active = true;
+
+    const search = query.search?.trim();
+    if (search) {
+      // `name` is derived (computeDriverName), not a column — search the
+      // fields it's derived from instead, plus ref/email/phone.
+      where.OR = [
+        { ref: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { company: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const page = query.page ?? DEFAULT_PAGE;
+    const limit = query.limit ?? DEFAULT_LIMIT;
+    const [drivers, total] = await Promise.all([
+      this.prisma.driver.findMany({
+        where,
+        include: DRIVER_INCLUDE,
+        orderBy: [{ active: 'desc' }, { ref: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.driver.count({ where }),
+    ]);
+    return { data: drivers.map(withName), total, page, limit };
   }
 
   async create(dto: CreateDriverDto): Promise<DriverEntity> {
@@ -106,6 +156,7 @@ export class DriversService {
     if (dto.phone) {
       const existing = await this.prisma.driver.findUnique({
         where: { phone: normalizePhone(dto.phone) },
+        include: DRIVER_INCLUDE,
       });
       if (existing) return withName(existing);
     }
@@ -139,6 +190,7 @@ export class DriversService {
         eventArea: dto.eventsOnly ? dto.eventArea?.trim() || null : null,
         eventClientId,
       },
+      include: DRIVER_INCLUDE,
     });
     return withName(driver);
   }
@@ -200,6 +252,7 @@ export class DriversService {
             ? { eventCountry: null, eventArea: null, eventClientId: null }
             : {}),
       },
+      include: DRIVER_INCLUDE,
     });
     return withName(driver);
   }
@@ -215,11 +268,26 @@ export class DriversService {
     return { ok: true };
   }
 
-  async setActive(ref: string, active: boolean): Promise<DriverEntity> {
-    await this.findByRefOrThrow(ref);
+  async setActive(
+    ref: string,
+    active: boolean,
+    user: AuthenticatedUser,
+  ): Promise<DriverEntity> {
+    const existing = await this.findByRefOrThrow(ref);
+
+    // Ported from the legacy's reactivation gate (common.js:3596) — only
+    // turning a deactivated driver/partner back on needs driver:reactivate;
+    // deactivating is ungated, same as ClientsService.setActive.
+    if (active && !existing.active && !can(user, 'driver:reactivate')) {
+      throw new ForbiddenException(
+        'Reactivating a driver requires the Admin role.',
+      );
+    }
+
     const driver = await this.prisma.driver.update({
       where: { ref },
       data: { active },
+      include: DRIVER_INCLUDE,
     });
     return withName(driver);
   }

@@ -3,11 +3,10 @@ import { UsersService } from './users.service';
 import { PublicUserEntity } from './dto/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '../../generated/prisma/enums';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 
 @Controller('users')
-@Roles(Role.ADMIN)
+@RequirePermission('user:manage')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

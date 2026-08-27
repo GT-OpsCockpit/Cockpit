@@ -1,17 +1,31 @@
 import {
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { DateTime } from 'luxon';
+import { isValidEmail, normalizeEmail } from '@cockpit/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
+import { can } from '../common/permissions/permissions';
+import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { ListClientsQueryDto } from './dto/list-clients-query.dto';
 import { ClientEntity } from './dto/client.entity';
+import { ClientListEntity } from './dto/client-list.entity';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { ClientType } from '../../generated/prisma/enums';
-import type { Client } from '../../generated/prisma/client';
+import type { Client, Prisma } from '../../generated/prisma/client';
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
+
+// Same reference zone as TripsService's urgency/period-window logic.
+const PARIS_ZONE = 'Europe/Paris';
 
 const REF_PREFIX: Record<ClientType, string> = {
   [ClientType.INDIVIDUAL]: 'CI',
@@ -51,13 +65,41 @@ export class ClientsService {
     private readonly refCounter: RefCounterService,
   ) {}
 
-  async list(): Promise<ClientEntity[]> {
-    const clients = await this.prisma.client.findMany();
-    clients.sort((a, b) => {
-      if (a.active !== b.active) return a.active ? -1 : 1;
-      return a.ref.localeCompare(b.ref);
-    });
-    return clients.map(withName);
+  async list(query: ListClientsQueryDto): Promise<ClientListEntity> {
+    const where: Prisma.ClientWhereInput = {};
+    if (!query.includeInactive) where.active = true;
+    if (query.type) where.clientType = query.type;
+
+    const search = query.search?.trim();
+    if (search) {
+      // `name` is derived (computeClientName), not a column — search the
+      // fields it's derived from instead, plus ref/email/acronym.
+      where.OR = [
+        { ref: { contains: search, mode: 'insensitive' } },
+        { company: { contains: search, mode: 'insensitive' } },
+        { contactFirstName: { contains: search, mode: 'insensitive' } },
+        { contactLastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { acronym: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Always bounded — no "give me everything" mode. Bookings' client
+    // combobox (and anything else that used to want the full roster) now
+    // does request-on-demand search against this same endpoint with a small
+    // `limit`, same shape as the Clients management table's pagination.
+    const page = query.page ?? DEFAULT_PAGE;
+    const limit = query.limit ?? DEFAULT_LIMIT;
+    const [clients, total] = await Promise.all([
+      this.prisma.client.findMany({
+        where,
+        orderBy: [{ active: 'desc' }, { ref: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.client.count({ where }),
+    ]);
+    return { data: clients.map(withName), total, page, limit };
   }
 
   // TODO: this type-discriminated required-fields tree is duplicated, each
@@ -66,7 +108,10 @@ export class ClientsService {
   // discriminant" helper so a fix to one doesn't have to be repeated in the
   // other two (this is exactly how the create/update event-field bugs
   // happened here).
-  async create(dto: CreateClientDto): Promise<ClientEntity> {
+  async create(
+    dto: CreateClientDto,
+    user: AuthenticatedUser,
+  ): Promise<ClientEntity> {
     const isCompany = dto.clientType === ClientType.COMPANY;
     const isEvent = dto.clientType === ClientType.EVENT;
     if (isCompany && !dto.company) {
@@ -92,6 +137,19 @@ export class ClientsService {
         'Country, area and date range are required for an Events-type account.',
       );
     }
+    // Ported from the legacy's separate OWNER_PASSWORD gate on creating an
+    // event in the past (events.html:437-444) — see docs/agents/permissions.md.
+    if (isEvent && dto.eventStartDate) {
+      const todayParis = DateTime.now().setZone(PARIS_ZONE).toISODate();
+      if (
+        dto.eventStartDate < todayParis! &&
+        !can(user, 'client:create-past-event')
+      ) {
+        throw new ForbiddenException(
+          'Creating an event with a past start date requires the Admin role.',
+        );
+      }
+    }
     if (
       !isCompany &&
       !isEvent &&
@@ -101,6 +159,14 @@ export class ClientsService {
         'Contact first name and last name are required for an Individual-type account.',
       );
     }
+
+    const email = dto.email?.trim() ? normalizeEmail(dto.email) : null;
+    if (email) {
+      this.assertValidEmailFormat(email, 'email address');
+      await this.assertEmailAvailable(email);
+    }
+    const pocEmail = dto.pocEmail?.trim() ? normalizeEmail(dto.pocEmail) : null;
+    if (pocEmail) this.assertValidEmailFormat(pocEmail, 'POC email address');
 
     const seq = await this.refCounter.next(REF_SCOPE[dto.clientType]);
     const ref = `${REF_PREFIX[dto.clientType]}${seq}`;
@@ -123,11 +189,11 @@ export class ClientsService {
         city: dto.city || null,
         countryCode: dto.countryCode || null,
         vatNumber: dto.vatNumber || null,
-        email: dto.email || null,
+        email,
         billing: dto.billing,
         pocName: dto.pocName?.trim() || contactFullName || null,
         pocPhone: normalizePhone(dto.pocPhone),
-        pocEmail: dto.pocEmail || null,
+        pocEmail,
         eventCountry: isEvent ? dto.eventCountry || null : null,
         eventArea: isEvent ? dto.eventArea || null : null,
         eventStartDate:
@@ -194,6 +260,23 @@ export class ClientsService {
       .join(' ')
       .trim();
 
+    // `undefined` means "the caller isn't touching this field" (mirrors the
+    // ...(dto.x !== undefined && {...}) spreads below) — distinct from `null`,
+    // which means "the caller is clearing it".
+    let email: string | null | undefined;
+    if (dto.email !== undefined) {
+      email = dto.email?.trim() ? normalizeEmail(dto.email) : null;
+      if (email) {
+        this.assertValidEmailFormat(email, 'email address');
+        await this.assertEmailAvailable(email, existing.id);
+      }
+    }
+    let pocEmail: string | null | undefined;
+    if (dto.pocEmail !== undefined) {
+      pocEmail = dto.pocEmail?.trim() ? normalizeEmail(dto.pocEmail) : null;
+      if (pocEmail) this.assertValidEmailFormat(pocEmail, 'POC email address');
+    }
+
     const client = await this.prisma.client.update({
       where: { ref },
       data: {
@@ -236,7 +319,7 @@ export class ClientsService {
         ...(dto.vatNumber !== undefined && {
           vatNumber: dto.vatNumber || null,
         }),
-        ...(dto.email !== undefined && { email: dto.email || null }),
+        ...(email !== undefined && { email }),
         ...(dto.billing !== undefined && { billing: dto.billing }),
         ...(dto.pocName !== undefined && {
           pocName: dto.pocName.trim() || contactFullName || null,
@@ -244,7 +327,7 @@ export class ClientsService {
         ...(dto.pocPhone !== undefined && {
           pocPhone: normalizePhone(dto.pocPhone),
         }),
-        ...(dto.pocEmail !== undefined && { pocEmail: dto.pocEmail || null }),
+        ...(pocEmail !== undefined && { pocEmail }),
       },
     });
     return withName(client);
@@ -278,5 +361,22 @@ export class ClientsService {
     const client = await this.prisma.client.findUnique({ where: { ref } });
     if (!client) throw new NotFoundException('Account not found');
     return client;
+  }
+
+  private assertValidEmailFormat(email: string, fieldLabel: string): void {
+    if (!isValidEmail(email)) {
+      throw new BadRequestException(`Please enter a valid ${fieldLabel}.`);
+    }
+  }
+
+  /** `excludeId` lets update() ignore the record it's editing when checking for a conflict. */
+  private async assertEmailAvailable(
+    email: string,
+    excludeId?: string,
+  ): Promise<void> {
+    const existing = await this.prisma.client.findUnique({ where: { email } });
+    if (existing && existing.id !== excludeId) {
+      throw new ConflictException('An account with this email already exists.');
+    }
   }
 }

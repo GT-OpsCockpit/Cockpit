@@ -11,6 +11,28 @@ interface DriverBody {
   phone: string;
   active: boolean;
   unavailability: { type: string } | null;
+  fleetReserved: { ref: string; regNbr: string } | null;
+}
+
+interface FleetVehicleBody {
+  ref: string;
+}
+
+const BASE_VEHICLE = {
+  category: 'Business',
+  regNbr: 'AB-123-CD',
+  make: 'Mercedes-Benz',
+  model: 'E-Class',
+  yearOfBuild: new Date().getFullYear() - 1,
+  fourWD: false,
+  nbPax: 3,
+};
+
+interface DriverListBody {
+  data: DriverBody[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 interface ClientBody {
@@ -77,7 +99,7 @@ describe('Drivers (e2e)', () => {
       .get('/api/drivers')
       .set('Cookie', cookie)
       .expect(200);
-    expect(list.body as DriverBody[]).toHaveLength(1);
+    expect((list.body as DriverListBody).data).toHaveLength(1);
   });
 
   it('requires only email for a partner company (no contact name)', async () => {
@@ -305,5 +327,111 @@ describe('Drivers (e2e)', () => {
       .delete(`/api/drivers/${ref}`)
       .set('Cookie', cookie)
       .expect(404);
+  });
+
+  it('surfaces the reserved fleet vehicle on the driver, kept in sync via PATCH /fleet-vehicles/:ref/driver', async () => {
+    const driver = await request(server())
+      .post('/api/drivers')
+      .set('Cookie', cookie)
+      .send({ company: 'Uber', email: 'ops@uber.test' })
+      .expect(201);
+    const ref = (driver.body as DriverBody).ref;
+    expect((driver.body as DriverBody).fleetReserved).toBeNull();
+
+    const vehicle = await request(server())
+      .post('/api/fleet-vehicles')
+      .set('Cookie', cookie)
+      .send({
+        ...BASE_VEHICLE,
+        isLocal: false,
+        countryCode: 'US-CA',
+        area: 'Los Angeles',
+        partnerCompany: 'Uber',
+        driverRef: ref,
+      })
+      .expect(201);
+    const vehicleRef = (vehicle.body as FleetVehicleBody).ref;
+
+    const listed = await request(server())
+      .get('/api/drivers')
+      .set('Cookie', cookie)
+      .expect(200);
+    const found = (listed.body as DriverListBody).data.find((d) => d.ref === ref)!;
+    expect(found.fleetReserved).toEqual(
+      expect.objectContaining({ ref: vehicleRef, regNbr: BASE_VEHICLE.regNbr }),
+    );
+
+    await request(server())
+      .patch(`/api/fleet-vehicles/${vehicleRef}/driver`)
+      .set('Cookie', cookie)
+      .send({})
+      .expect(200);
+
+    const relisted = await request(server())
+      .get('/api/drivers')
+      .set('Cookie', cookie)
+      .expect(200);
+    const foundAfter = (relisted.body as DriverListBody).data.find(
+      (d) => d.ref === ref,
+    )!;
+    expect(foundAfter.fleetReserved).toBeNull();
+  });
+
+  it('filters, searches and paginates the list server-side, always bounded (never "everything")', async () => {
+    for (let i = 1; i <= 3; i++) {
+      await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({ firstName: 'Riviera', lastName: `Driver${i}`, phone: `061111000${i}` })
+        .expect(201);
+    }
+    const other = await request(server())
+      .post('/api/drivers')
+      .set('Cookie', cookie)
+      .send({ firstName: 'Someone', lastName: 'Else', phone: '0622220000' })
+      .expect(201);
+    await request(server())
+      .patch(`/api/drivers/${(other.body as DriverBody).ref}/active`)
+      .set('Cookie', cookie)
+      .send({ active: false })
+      .expect(200);
+
+    const searched = await request(server())
+      .get('/api/drivers?search=riviera')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect((searched.body as DriverListBody).total).toBe(3);
+
+    const defaultList = await request(server())
+      .get('/api/drivers?search=else')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect((defaultList.body as DriverListBody).total).toBe(0);
+    const withInactive = await request(server())
+      .get('/api/drivers?search=else&includeInactive=true')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect((withInactive.body as DriverListBody).total).toBe(1);
+
+    const page1 = await request(server())
+      .get('/api/drivers?search=riviera&limit=2&page=1')
+      .set('Cookie', cookie)
+      .expect(200);
+    const page1Body = page1.body as DriverListBody;
+    expect(page1Body.data).toHaveLength(2);
+    expect(page1Body.total).toBe(3);
+
+    const page2 = await request(server())
+      .get('/api/drivers?search=riviera&limit=2&page=2')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect((page2.body as DriverListBody).data).toHaveLength(1);
+  });
+
+  it('rejects a limit above 100 (there is no "everything" mode)', async () => {
+    await request(server())
+      .get('/api/drivers?limit=101')
+      .set('Cookie', cookie)
+      .expect(400);
   });
 });

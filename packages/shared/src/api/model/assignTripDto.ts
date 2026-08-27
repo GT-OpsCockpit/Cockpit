@@ -6,7 +6,7 @@
  * OpenAPI spec version: 1.0
  */
 
-export interface VerifyPasswordDto {
-  /** @minLength 1 */
-  password: string;
+export interface AssignTripDto {
+  driverRef?: string;
+  fleetRegNbr?: string;
 }

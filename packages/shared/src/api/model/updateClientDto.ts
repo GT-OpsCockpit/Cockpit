@@ -5,5 +5,28 @@
  * Cockpit v2 dispatch/booking API
  * OpenAPI spec version: 1.0
  */
+import type { UpdateClientDtoBilling } from './updateClientDtoBilling';
+import type { UpdateClientDtoClientType } from './updateClientDtoClientType';
 
-export interface UpdateClientDto { [key: string]: unknown }
+export interface UpdateClientDto {
+  clientType?: UpdateClientDtoClientType;
+  contactFirstName?: string;
+  contactLastName?: string;
+  company?: string;
+  acronym?: string;
+  refPoOther?: string;
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  countryCode?: string;
+  vatNumber?: string;
+  email?: string;
+  billing?: UpdateClientDtoBilling;
+  pocName?: string;
+  pocPhone?: string;
+  pocEmail?: string;
+  eventCountry?: string;
+  eventArea?: string;
+  eventStartDate?: string;
+  eventEndDate?: string;
+}

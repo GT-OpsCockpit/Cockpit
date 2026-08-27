@@ -1,12 +1,15 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { EventLinkService } from '../common/event-link/event-link.service';
+import { can } from '../common/permissions/permissions';
+import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import {
   FLEET_MAKES,
   FLEET_MODELS_BY_MAKE,
@@ -17,9 +20,12 @@ import {
 } from '../common/constants/fleet';
 import { CreateFleetVehicleDto } from './dto/create-fleet-vehicle.dto';
 import { SetFleetUnavailabilityDto } from './dto/set-fleet-unavailability.dto';
+import { ListFleetVehiclesQueryDto } from './dto/list-fleet-vehicles-query.dto';
 import { FleetVehicleEntity } from './dto/fleet-vehicle.entity';
+import { FleetVehicleListEntity } from './dto/fleet-vehicle-list.entity';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { FleetUnavailKind } from '../../generated/prisma/enums';
+import type { Prisma } from '../../generated/prisma/client';
 
 interface ValidatedFleetVehicle {
   categoryId: string;
@@ -31,7 +37,11 @@ const FLEET_VEHICLE_INCLUDE = {
   category: true,
   driver: true,
   unavailability: true,
+  eventClient: true,
 } as const;
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
 
 @Injectable()
 export class FleetVehiclesService {
@@ -41,15 +51,34 @@ export class FleetVehiclesService {
     private readonly eventLink: EventLinkService,
   ) {}
 
-  async list(): Promise<FleetVehicleEntity[]> {
-    const vehicles = await this.prisma.fleetVehicle.findMany({
-      include: FLEET_VEHICLE_INCLUDE,
-    });
-    vehicles.sort((a, b) => {
-      if (a.active !== b.active) return a.active ? -1 : 1;
-      return a.ref.localeCompare(b.ref);
-    });
-    return vehicles;
+  async list(query: ListFleetVehiclesQueryDto): Promise<FleetVehicleListEntity> {
+    const where: Prisma.FleetVehicleWhereInput = {};
+    if (!query.includeInactive) where.active = true;
+
+    const search = query.search?.trim();
+    if (search) {
+      where.OR = [
+        { ref: { contains: search, mode: 'insensitive' } },
+        { regNbr: { contains: search, mode: 'insensitive' } },
+        { make: { contains: search, mode: 'insensitive' } },
+        { model: { contains: search, mode: 'insensitive' } },
+        { acronym: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const page = query.page ?? DEFAULT_PAGE;
+    const limit = query.limit ?? DEFAULT_LIMIT;
+    const [vehicles, total] = await Promise.all([
+      this.prisma.fleetVehicle.findMany({
+        where,
+        include: FLEET_VEHICLE_INCLUDE,
+        orderBy: [{ active: 'desc' }, { ref: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.fleetVehicle.count({ where }),
+    ]);
+    return { data: vehicles, total, page, limit };
   }
 
   async create(dto: CreateFleetVehicleDto): Promise<FleetVehicleEntity> {
@@ -164,8 +193,22 @@ export class FleetVehiclesService {
     return { ok: true };
   }
 
-  async setActive(ref: string, active: boolean): Promise<FleetVehicleEntity> {
-    await this.findByRefOrThrow(ref);
+  async setActive(
+    ref: string,
+    active: boolean,
+    user: AuthenticatedUser,
+  ): Promise<FleetVehicleEntity> {
+    const existing = await this.findByRefOrThrow(ref);
+
+    // Ported from the legacy's reactivation gate (vehicles.html:574) — only
+    // turning a deactivated vehicle back on needs vehicle:reactivate;
+    // deactivating is ungated, same as DriversService.setActive.
+    if (active && !existing.active && !can(user, 'vehicle:reactivate')) {
+      throw new ForbiddenException(
+        'Reactivating a vehicle requires the Admin role.',
+      );
+    }
+
     return this.prisma.fleetVehicle.update({
       where: { ref },
       data: { active },

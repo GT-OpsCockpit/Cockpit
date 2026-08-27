@@ -93,8 +93,12 @@ describe('Invoices (e2e)', () => {
     expect(Number(invoice.vatRate)).toBeCloseTo(0.1);
     expect(Number(invoice.totalTTC)).toBeCloseTo(165.55);
 
+    // period=all: BASE_TRIP's fixed pickupAt is unrelated to "is this trip
+    // recent" — the default (period=upcoming) would drop it out of view
+    // once that date is in the past, which isn't what this assertion cares
+    // about (it's checking `invoiced`, not date-window visibility).
     const listRes = await request(server())
-      .get('/api/trips')
+      .get('/api/trips?period=all')
       .set('Cookie', cookie)
       .expect(200);
     const trips = listRes.body as TripBody[];

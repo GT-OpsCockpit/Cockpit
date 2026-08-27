@@ -102,36 +102,23 @@ describe('Auth (e2e)', () => {
       email: TEST_ADMIN.email,
       role: 'ADMIN',
     });
-    expect((res.body as { passwordHash?: unknown }).passwordHash).toBeUndefined();
-  });
-
-  it('verify-password re-checks the current user password', async () => {
-    const loginRes = await request(server())
-      .post('/api/auth/login')
-      .send({ email: TEST_ADMIN.email, password: TEST_ADMIN.password })
-      .expect(201);
-    const verifyRes = await request(server())
-      .post('/api/auth/verify')
-      .send({
-        email: TEST_ADMIN.email,
-        code: (loginRes.body as LoginResponseBody).devCode,
-      })
-      .expect(201);
-    const cookie = (
-      verifyRes.headers['set-cookie'] as unknown as string[]
-    )[0].split(';')[0];
-
-    await request(server())
-      .post('/api/auth/verify-password')
-      .set('Cookie', cookie)
-      .send({ password: TEST_ADMIN.password })
-      .expect(201);
-
-    await request(server())
-      .post('/api/auth/verify-password')
-      .set('Cookie', cookie)
-      .send({ password: 'nope' })
-      .expect(401);
+    expect(
+      (res.body as { passwordHash?: unknown }).passwordHash,
+    ).toBeUndefined();
+    // The ADMIN role's full resolved permission list — see
+    // apps/api/src/common/permissions/permissions.ts and
+    // docs/agents/permissions.md. Role-vs-permission behavior itself
+    // (a DISPATCHER being blocked from these) is covered end-to-end in
+    // permissions.e2e-spec.ts.
+    expect((res.body as { permissions: string[] }).permissions).toEqual(
+      expect.arrayContaining([
+        'trip:cancel',
+        'trip:edit-past',
+        'trip:edit-price',
+        'company:edit',
+        'user:manage',
+      ]),
+    );
   });
 
   it('logout clears the session so the cookie no longer authenticates', async () => {

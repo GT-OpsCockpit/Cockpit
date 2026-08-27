@@ -1,0 +1,23 @@
+diff --git a/dist/plugin/utils/plugin-utils.js b/dist/plugin/utils/plugin-utils.js
+index 7bc7c6cc13a11ce7ad1ea962c8ea2df6b27d89ce..fa201a2ec7f5ed8e4992e64b874ed7e1706a5230 100644
+--- a/dist/plugin/utils/plugin-utils.js
++++ b/dist/plugin/utils/plugin-utils.js
+@@ -399,6 +399,18 @@ function convertPath(windowsPath) {
+         .replace(/\/\/+/g, '/');
+ }
+ function safeDecodeURIComponent(path) {
++    // TypeScript serializes `import("...")` literal-type strings with non-ASCII
++    // characters escaped as `\uXXXX` (JS/JSON string-escape syntax), not as
++    // percent-encoding — decodeURIComponent alone leaves those escapes intact,
++    // so a path containing e.g. "é" never matches options.rootDir's plain
++    // string byte-for-byte in replaceImportPath()'s startsWith() check below,
++    // and the plugin silently falls back to embedding the raw *source* path
++    // in the compiled require()/import() call instead of relativizing it —
++    // MODULE_NOT_FOUND at runtime for any project whose absolute path has a
++    // non-ASCII character. Un-escape those first so the comparison sees the
++    // same string on both sides. (Upstream bug in @nestjs/swagger's CLI
++    // plugin — see the patch file for cockpit-v2's regenerate instructions.)
++    path = path.replace(/\\u([0-9a-fA-F]{4})/g, (_match, hex) => String.fromCharCode(parseInt(hex, 16)));
+     try {
+         return decodeURIComponent(path);
+     }

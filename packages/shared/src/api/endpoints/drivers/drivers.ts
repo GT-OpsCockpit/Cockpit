@@ -27,7 +27,9 @@ import type {
 import type {
   CreateDriverDto,
   DriverEntity,
+  DriverListEntity,
   DriverWithUnavailabilityEntity,
+  DriversControllerListParams,
   OkResponseEntity,
   SetActiveDto,
   SetDriverUnavailabilityDto
@@ -55,17 +57,24 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export const getDriversControllerListUrl = () => {
+export const getDriversControllerListUrl = (params?: DriversControllerListParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/drivers`
+  return stringifiedParams.length > 0 ? `/api/drivers?${stringifiedParams}` : `/api/drivers`
 }
 
-export const driversControllerList = async ( options?: Parameters<typeof fetcher>[1]): Promise<DriverEntity[]> => {
+export const driversControllerList = async (params?: DriversControllerListParams, options?: Parameters<typeof fetcher>[1]): Promise<DriverListEntity> => {
 
-  return fetcher<DriverEntity[]>(getDriversControllerListUrl(),
+  return fetcher<DriverListEntity>(getDriversControllerListUrl(params),
   {
     ...options,
     method: 'GET'
@@ -78,23 +87,23 @@ export const driversControllerList = async ( options?: Parameters<typeof fetcher
 
 
 
-export const getDriversControllerListQueryKey = () => {
+export const getDriversControllerListQueryKey = (params?: DriversControllerListParams,) => {
     return [
-    `/api/drivers`
+    `/api/drivers`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getDriversControllerListQueryOptions = <TData = Awaited<ReturnType<typeof driversControllerList>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof driversControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+export const getDriversControllerListQueryOptions = <TData = Awaited<ReturnType<typeof driversControllerList>>, TError = unknown>(params?: DriversControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof driversControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getDriversControllerListQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getDriversControllerListQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof driversControllerList>>> = ({ signal }) => driversControllerList({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof driversControllerList>>> = ({ signal }) => driversControllerList(params, { signal, ...requestOptions });
 
 
 
@@ -108,7 +117,7 @@ export type DriversControllerListQueryError = unknown
 
 
 export function useDriversControllerList<TData = Awaited<ReturnType<typeof driversControllerList>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof driversControllerList>>, TError, TData>> & Pick<
+ params: undefined |  DriversControllerListParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof driversControllerList>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof driversControllerList>>,
           TError,
@@ -118,7 +127,7 @@ export function useDriversControllerList<TData = Awaited<ReturnType<typeof drive
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useDriversControllerList<TData = Awaited<ReturnType<typeof driversControllerList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof driversControllerList>>, TError, TData>> & Pick<
+ params?: DriversControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof driversControllerList>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof driversControllerList>>,
           TError,
@@ -128,16 +137,16 @@ export function useDriversControllerList<TData = Awaited<ReturnType<typeof drive
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useDriversControllerList<TData = Awaited<ReturnType<typeof driversControllerList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof driversControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ params?: DriversControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof driversControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 
 export function useDriversControllerList<TData = Awaited<ReturnType<typeof driversControllerList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof driversControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ params?: DriversControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof driversControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getDriversControllerListQueryOptions(options)
+  const queryOptions = getDriversControllerListQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

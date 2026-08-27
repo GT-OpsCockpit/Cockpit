@@ -7,23 +7,28 @@ import {
   Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { ApiOkResponse } from '@nestjs/swagger';
 import { FleetVehiclesService } from './fleet-vehicles.service';
 import { CreateFleetVehicleDto } from './dto/create-fleet-vehicle.dto';
 import { SetFleetUnavailabilityDto } from './dto/set-fleet-unavailability.dto';
 import { SetFleetDriverDto } from './dto/set-fleet-driver.dto';
+import { ListFleetVehiclesQueryDto } from './dto/list-fleet-vehicles-query.dto';
 import { SetActiveDto } from '../common/dto/set-active.dto';
 import { FleetVehicleEntity } from './dto/fleet-vehicle.entity';
+import { FleetVehicleListEntity } from './dto/fleet-vehicle-list.entity';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 
 @Controller('fleet-vehicles')
 export class FleetVehiclesController {
   constructor(private readonly fleetVehiclesService: FleetVehiclesService) {}
 
   @Get()
-  list(): Promise<FleetVehicleEntity[]> {
-    return this.fleetVehiclesService.list();
+  list(@Query() query: ListFleetVehiclesQueryDto): Promise<FleetVehicleListEntity> {
+    return this.fleetVehiclesService.list(query);
   }
 
   @Post()
@@ -44,12 +49,17 @@ export class FleetVehiclesController {
     return this.fleetVehiclesService.delete(ref);
   }
 
+  // Deactivation is ungated (matches DriversController.setActive); only the
+  // false→true reactivation transition needs vehicle:reactivate, checked
+  // inside the service since it depends on the vehicle's current state. See
+  // docs/agents/permissions.md.
   @Patch(':ref/active')
   setActive(
     @Param('ref') ref: string,
     @Body() dto: SetActiveDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<FleetVehicleEntity> {
-    return this.fleetVehiclesService.setActive(ref, dto.active);
+    return this.fleetVehiclesService.setActive(ref, dto.active, user);
   }
 
   @Patch(':ref/driver')

@@ -1,11 +1,16 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { DateTime } from 'luxon';
 import { PrismaService } from '../prisma/prisma.service';
+import type { Prisma } from '../../generated/prisma/client';
+import { can } from '../common/permissions/permissions';
+import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { TripRefService } from './trip-ref.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -16,12 +21,16 @@ import { compatibleFleetCategories } from '../common/constants/vehicle-compatibi
 import { MESSAGES } from '../common/constants/messages';
 import { FULL_STEP_ORDER } from '../common/constants/step-order';
 import { buildTripMessageContext } from './trip-message.util';
+import { toPublicTrip } from './public-trip.mapper';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
+import { AssignTripDto } from './dto/assign-trip.dto';
 import { CancelAssignmentDto } from './dto/cancel-assignment.dto';
 import { DRIVER_STEP_VALUES } from './dto/notify-step.dto';
+import { ListTripsQueryDto, type TripPeriod } from './dto/list-trips-query.dto';
 import {
   CancellationFee,
+  ClientType,
   Service,
   TripStepKind,
 } from '../../generated/prisma/enums';
@@ -31,6 +40,10 @@ import {
   CancelAssignmentResponseEntity,
   TripActionResponseEntity,
 } from './dto/trip.entity';
+import {
+  PublicTripEntity,
+  PublicTripActionResponseEntity,
+} from './dto/public-trip.entity';
 
 const TRIP_INCLUDE = {
   client: true,
@@ -40,6 +53,35 @@ const TRIP_INCLUDE = {
   fleetVehicle: { include: { category: true } },
   steps: true,
 } as const;
+
+// Single source of truth for "what's in view" on the Bookings board — this
+// used to be recomputed client-side (isPastDay/periodMatches/baseVisibility
+// in apps/web's trip-status.ts) against a full, ever-growing, unfiltered
+// fetch. Same reference zone as the legacy header / the urgency highlight.
+const PARIS_ZONE = 'Europe/Paris';
+
+/** Date range for the user-facing period filter — `null` means "no bound" (period 'all'). */
+function periodDateRange(
+  period: TripPeriod,
+  nowParis: DateTime,
+): Prisma.DateTimeFilter | null {
+  switch (period) {
+    case 'all':
+      return null;
+    case 'today': {
+      const start = nowParis.startOf('day');
+      return { gte: start.toJSDate(), lt: start.plus({ days: 1 }).toJSDate() };
+    }
+    case 'week': {
+      const start = nowParis.startOf('week');
+      return { gte: start.toJSDate(), lt: start.plus({ weeks: 1 }).toJSDate() };
+    }
+    case 'upcoming':
+      return { gte: nowParis.toJSDate() };
+    case 'past':
+      return { lt: nowParis.toJSDate() };
+  }
+}
 
 const STEP_MESSAGE_KEY: Record<
   (typeof DRIVER_STEP_VALUES)[number],
@@ -61,14 +103,40 @@ export class TripsService {
     private readonly realtime: RealtimeService,
   ) {}
 
-  list(): Promise<TripEntity[]> {
+  list(query: ListTripsQueryDto): Promise<TripEntity[]> {
+    const period = query.period ?? 'upcoming';
+    const category = query.category ?? 'daily';
+    const nowParis = DateTime.now().setZone(PARIS_ZONE);
+
+    // Unconditional (independent of `period`): a trip whose pickup was
+    // before *today* (Paris) drops out of view once it still has no driver
+    // — it's an unresolved needs-attention case, not clutter. Same rule the
+    // legacy showed by never letting a booking scroll off the live board.
+    const where: Prisma.TripWhereInput = {
+      OR: [
+        { pickupAt: { gte: nowParis.startOf('day').toJSDate() } },
+        { driverId: null },
+      ],
+    };
+    if (category === 'daily') {
+      where.client = { clientType: { not: ClientType.EVENT } };
+    } else if (category === 'event') {
+      where.client = { clientType: ClientType.EVENT };
+    }
+    const periodRange = periodDateRange(period, nowParis);
+    if (periodRange) where.pickupAt = periodRange;
+
     return this.prisma.trip.findMany({
+      where,
       include: TRIP_INCLUDE,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { pickupAt: 'asc' },
     });
   }
 
-  async getPublic(ref: string, viewerIsDriver: boolean): Promise<TripEntity> {
+  async getPublic(
+    ref: string,
+    viewerIsDriver: boolean,
+  ): Promise<PublicTripEntity> {
     const trip = await this.findByRefOrThrow(ref);
     const assigned = trip.driverId || trip.partnerId;
     if (
@@ -79,6 +147,13 @@ export class TripsService {
       const missingTransmitted = !trip.steps.some(
         (s) => s.step === TripStepKind.TRANSMITTED,
       );
+      // skipDuplicates: two near-simultaneous opens of the driver link (React
+      // StrictMode's double effect-invoke in dev reliably triggers this, and
+      // nothing stops it happening for real with a flaky connection) can both
+      // read "RECEIVED not yet present" and race to insert it — @@unique on
+      // (tripId, step) then throws P2002 for the loser instead of the 200 it
+      // should still get, since the desired end state (stamped) holds either
+      // way.
       await this.prisma.tripStep.createMany({
         data: [
           ...(missingTransmitted
@@ -86,11 +161,12 @@ export class TripsService {
             : []),
           { tripId: trip.id, step: TripStepKind.RECEIVED },
         ],
+        skipDuplicates: true,
       });
       this.realtime.emitTripChanged(ref);
-      return this.findByRefOrThrow(ref);
+      return toPublicTrip(await this.findByRefOrThrow(ref), viewerIsDriver);
     }
-    return trip;
+    return toPublicTrip(trip, viewerIsDriver);
   }
 
   // TODO: the vehicleType/client/driver/partner/countryInfo lookups below
@@ -268,8 +344,32 @@ export class TripsService {
   async update(
     ref: string,
     dto: UpdateTripDto,
+    user: AuthenticatedUser,
   ): Promise<UpdateTripResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
+
+    // Ported from the legacy's openEditTripModal gate (common.js): editing a
+    // booking whose pickup has already passed, or changing the Retail net /
+    // Partner rate net, both need trip:edit-past / trip:edit-price — unlike
+    // trip:cancel these are conditional, so they're checked here rather than
+    // via @RequirePermission() on the route. See docs/agents/permissions.md.
+    const isPast = trip.pickupAt < new Date();
+    if (isPast && !can(user, 'trip:edit-past')) {
+      throw new ForbiddenException(
+        'Editing a booking whose pickup is already in the past requires the Admin role.',
+      );
+    }
+    const priceChanged =
+      (dto.priceEur ?? null) !==
+      (trip.priceEur ? trip.priceEur.toNumber() : null);
+    const partnerRateChanged =
+      (dto.partnerRateEur ?? null) !==
+      (trip.partnerRateEur ? trip.partnerRateEur.toNumber() : null);
+    if ((priceChanged || partnerRateChanged) && !can(user, 'trip:edit-price')) {
+      throw new ForbiddenException(
+        'Changing the Retail net / Partner rate net requires the Admin role.',
+      );
+    }
 
     if (dto.service !== Service.ASD && !dto.dropoffLocation) {
       throw new BadRequestException(
@@ -481,6 +581,77 @@ export class TripsService {
     };
   }
 
+  // Lightweight counterpart to update() for the Planning Gantt's drag&drop:
+  // patches only driverRef and/or fleetRegNbr, deliberately kept independent
+  // from update()'s much larger flow (client/price/ref regeneration, etc.)
+  // rather than extracted from it — see docs/handoff for the Planning session.
+  async assign(
+    ref: string,
+    dto: AssignTripDto,
+    user: AuthenticatedUser,
+  ): Promise<TripActionResponseEntity> {
+    const trip = await this.findByRefOrThrow(ref);
+
+    const isPast = trip.pickupAt < new Date();
+    if (isPast && !can(user, 'trip:edit-past')) {
+      throw new ForbiddenException(
+        'Reassigning a booking whose pickup is already in the past requires the Admin role.',
+      );
+    }
+
+    const data: Prisma.TripUpdateInput = {};
+
+    if (dto.driverRef !== undefined) {
+      const driver = dto.driverRef
+        ? await this.prisma.driver.findUnique({ where: { ref: dto.driverRef } })
+        : null;
+      if (dto.driverRef && !driver) {
+        throw new BadRequestException(
+          `driverRef "${dto.driverRef}" does not match an existing driver`,
+        );
+      }
+      const newDriverId = driver?.id ?? null;
+      if (newDriverId !== trip.driverId) {
+        data.driver = newDriverId
+          ? { connect: { id: newDriverId } }
+          : { disconnect: true };
+        data.dispatched = false;
+        data.assignmentCancelled = false;
+        data.assignmentCancelledAt = null;
+        data.cancellationFee = null;
+      }
+    }
+
+    if (dto.fleetRegNbr !== undefined) {
+      const fleetVehicle = dto.fleetRegNbr
+        ? await this.resolveFleetVehicle(dto.fleetRegNbr)
+        : null;
+      if (fleetVehicle && trip.vehicleType) {
+        const allowed = compatibleFleetCategories(trip.vehicleType.name);
+        if (!allowed.includes(fleetVehicle.category.name)) {
+          throw new BadRequestException(
+            `Vehicle ${fleetVehicle.regNbr} (${fleetVehicle.category.name}) cannot service a ${trip.vehicleType.name} trip — compatible categories: ${allowed.join(', ')}`,
+          );
+        }
+      }
+      data.fleetVehicle = fleetVehicle
+        ? { connect: { id: fleetVehicle.id } }
+        : { disconnect: true };
+    }
+
+    if (Object.keys(data).length === 0) {
+      return { ok: true, trip };
+    }
+
+    await this.prisma.trip.update({ where: { id: trip.id }, data });
+    if (data.dispatched === false) {
+      await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
+    }
+
+    this.realtime.emitTripChanged(ref);
+    return { ok: true, trip: await this.findByRefOrThrow(ref) };
+  }
+
   async cancelAssignment(
     ref: string,
     dto: CancelAssignmentDto,
@@ -579,7 +750,7 @@ export class TripsService {
   async notify(
     ref: string,
     step: (typeof DRIVER_STEP_VALUES)[number],
-  ): Promise<TripActionResponseEntity> {
+  ): Promise<PublicTripActionResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
     if (trip.assignmentCancelled) {
       throw new BadRequestException(
@@ -592,7 +763,7 @@ export class TripsService {
       this.realtime.emitTripChanged(ref);
       return {
         ok: true,
-        trip: await this.findByRefOrThrow(ref),
+        trip: toPublicTrip(await this.findByRefOrThrow(ref), true),
         skipped: true,
       };
     }
@@ -607,7 +778,10 @@ export class TripsService {
     }
     await this.stampStep(trip.id, TripStepKind[step]);
     this.realtime.emitTripChanged(ref);
-    return { ok: true, trip: await this.findByRefOrThrow(ref) };
+    return {
+      ok: true,
+      trip: toPublicTrip(await this.findByRefOrThrow(ref), true),
+    };
   }
 
   async dispatchDriver(ref: string): Promise<TripEntity> {

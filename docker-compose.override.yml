@@ -39,3 +39,18 @@ services:
       - ./apps/web/tsconfig.json:/app/apps/web/tsconfig.json
       - ./apps/web/tsconfig.app.json:/app/apps/web/tsconfig.app.json
       - ./packages/shared/src:/app/packages/shared/src
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: dev@cockpit.dev
+      PGADMIN_DEFAULT_PASSWORD: cockpit
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - '5050:80'
+    volumes:
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json
+    depends_on:
+      postgres:
+        condition: service_healthy

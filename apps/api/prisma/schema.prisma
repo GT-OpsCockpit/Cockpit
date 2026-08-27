@@ -118,7 +118,7 @@ model Client {
   city             String?
   countryCode      String?
   vatNumber        String?
-  email            String?
+  email            String?   @unique // normalized (trimmed+lowercased) by ClientsService before write
   billing          Billing?
   pocName          String?
   pocPhone         String?

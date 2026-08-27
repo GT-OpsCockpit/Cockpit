@@ -471,4 +471,71 @@ describe('Fleet (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('GET /api/fleet-vehicles — server-side filtering/pagination', () => {
+    interface FleetVehicleListBody {
+      data: FleetVehicleBody[];
+      total: number;
+      page: number;
+      limit: number;
+    }
+
+    it('filters, searches and paginates the list server-side, always bounded (never "everything")', async () => {
+      for (let i = 1; i <= 3; i++) {
+        await request(server())
+          .post('/api/fleet-vehicles')
+          .set('Cookie', cookie)
+          .send({ ...BASE_VEHICLE, regNbr: `RV-00${i}-AA` })
+          .expect(201);
+      }
+      const other = await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send({ ...BASE_VEHICLE, regNbr: 'ZZ-999-ZZ' })
+        .expect(201);
+      await request(server())
+        .patch(`/api/fleet-vehicles/${(other.body as FleetVehicleBody).ref}/active`)
+        .set('Cookie', cookie)
+        .send({ active: false })
+        .expect(200);
+
+      const searched = await request(server())
+        .get('/api/fleet-vehicles?search=RV-00')
+        .set('Cookie', cookie)
+        .expect(200);
+      expect((searched.body as FleetVehicleListBody).total).toBe(3);
+
+      const defaultList = await request(server())
+        .get('/api/fleet-vehicles?search=ZZ-999')
+        .set('Cookie', cookie)
+        .expect(200);
+      expect((defaultList.body as FleetVehicleListBody).total).toBe(0);
+      const withInactive = await request(server())
+        .get('/api/fleet-vehicles?search=ZZ-999&includeInactive=true')
+        .set('Cookie', cookie)
+        .expect(200);
+      expect((withInactive.body as FleetVehicleListBody).total).toBe(1);
+
+      const page1 = await request(server())
+        .get('/api/fleet-vehicles?search=RV-00&limit=2&page=1')
+        .set('Cookie', cookie)
+        .expect(200);
+      const page1Body = page1.body as FleetVehicleListBody;
+      expect(page1Body.data).toHaveLength(2);
+      expect(page1Body.total).toBe(3);
+
+      const page2 = await request(server())
+        .get('/api/fleet-vehicles?search=RV-00&limit=2&page=2')
+        .set('Cookie', cookie)
+        .expect(200);
+      expect((page2.body as FleetVehicleListBody).data).toHaveLength(1);
+    });
+
+    it('rejects a limit above 100 (there is no "everything" mode)', async () => {
+      await request(server())
+        .get('/api/fleet-vehicles?limit=101')
+        .set('Cookie', cookie)
+        .expect(400);
+    });
+  });
 });

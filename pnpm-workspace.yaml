@@ -5,6 +5,9 @@ allowBuilds:
   '@prisma/engines': true
   '@scarf/scarf': false
   argon2: true
+  core-js: false
   esbuild: true
   prisma: true
   unrs-resolver: true
+patchedDependencies:
+  '@nestjs/swagger@11.4.7': patches/@nestjs__swagger@11.4.7.patch

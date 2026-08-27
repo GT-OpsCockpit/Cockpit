@@ -5,9 +5,11 @@
  * Cockpit v2 dispatch/booking API
  * OpenAPI spec version: 1.0
  */
+import type { AuthMeEntityPermissionsItem } from './authMeEntityPermissionsItem';
 import type { AuthMeEntityRole } from './authMeEntityRole';
 
 export interface AuthMeEntity {
+  permissions: AuthMeEntityPermissionsItem[];
   id: string;
   email: string;
   role: AuthMeEntityRole;

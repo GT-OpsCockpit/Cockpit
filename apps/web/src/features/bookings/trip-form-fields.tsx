@@ -11,7 +11,10 @@ import {
   useFleetVehiclesControllerList,
   useMetaControllerGetMeta,
 } from '@cockpit/shared/api'
+import type { TripEntity } from '@cockpit/shared/api'
 import { getApiErrorMessage } from '@/lib/api-error'
+import { useDebouncedValue } from '@/lib/use-debounced-value'
+import { useOptionMemory } from '@/lib/use-option-memory'
 import { SearchCombobox } from '@/components/search-combobox'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -32,14 +35,62 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import type { TripFormValues } from './trip-form-schema'
+import { clientDisplayName, driverDisplayName } from './trip-status'
 
 const HOURS_OPTIONS = Array.from({ length: 47 }, (_, i) => i + 2) // 2..48
+const PICKER_LIMIT = 20
+const PICKER_DEBOUNCE_MS = 300
 
-export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }) {
+export function TripFormFields({
+  form,
+  trip,
+  disabled = false,
+  priceDisabled = false,
+  priceDisabledReason,
+  clientFieldDisabled = false,
+  clientSeedOption = null,
+}: {
+  form: UseFormReturn<TripFormValues>
+  /**
+   * The trip being edited, if any (omit when creating a new booking). Seeds
+   * the Customer/Driver/Partner/Reg Nbr comboboxes so the current selection's
+   * label survives a fresh remote search that no longer includes it — these
+   * are request-on-demand now (limit 20/query), not preloaded with the full
+   * roster, see useOptionMemory.
+   */
+  trip?: TripEntity | null
+  /** Locks every field (edit dialog only — see docs/agents/permissions.md, trip:edit-past). */
+  disabled?: boolean
+  /** Locks just the price fields (edit dialog only — trip:edit-price). Redundant once `disabled` is set. */
+  priceDisabled?: boolean
+  priceDisabledReason?: string
+  /** Locks just the Customer field (Events creation bar, once an event is confirmed — see event-select-panel.tsx). */
+  clientFieldDisabled?: boolean
+  /**
+   * Seeds the Customer combobox with an option outside the normal (non-Event)
+   * client search — the Events creation bar's confirmed event is an
+   * Events-type client, deliberately excluded from that search. Ignored once
+   * `trip` is set (the edit dialog's own seed takes priority).
+   */
+  clientSeedOption?: { value: string; label: string } | null
+}) {
   const meta = useMetaControllerGetMeta()
-  const clients = useClientsControllerList()
-  const drivers = useDriversControllerList()
-  const fleetVehicles = useFleetVehiclesControllerList()
+
+  const [clientSearch, setClientSearch] = useState('')
+  const debouncedClientSearch = useDebouncedValue(clientSearch, PICKER_DEBOUNCE_MS)
+  const clients = useClientsControllerList({ search: debouncedClientSearch || undefined, limit: PICKER_LIMIT })
+
+  const [driverSearch, setDriverSearch] = useState('')
+  const debouncedDriverSearch = useDebouncedValue(driverSearch, PICKER_DEBOUNCE_MS)
+  const drivers = useDriversControllerList({ search: debouncedDriverSearch || undefined, limit: PICKER_LIMIT })
+
+  const [partnerSearch, setPartnerSearch] = useState('')
+  const debouncedPartnerSearch = useDebouncedValue(partnerSearch, PICKER_DEBOUNCE_MS)
+  const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT })
+
+  const [regNbrSearch, setRegNbrSearch] = useState('')
+  const debouncedRegNbrSearch = useDebouncedValue(regNbrSearch, PICKER_DEBOUNCE_MS)
+  const fleetVehicles = useFleetVehiclesControllerList({ search: debouncedRegNbrSearch || undefined, limit: PICKER_LIMIT })
 
   const service = form.watch('service')
   const subContractor = form.watch('subContractor')
@@ -54,28 +105,52 @@ export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }
   }))
   const selectedCountry = meta.data?.countries.find((c) => c.code === countryCode)
 
-  const clientOptions = (clients.data ?? [])
+  const clientResults = (clients.data?.data ?? [])
     .filter((c) => c.active && c.clientType !== 'EVENT')
     .map((c) => ({ value: c.ref, label: `${c.name} (${c.ref})` }))
+  const clientOptions = useOptionMemory(
+    clientResults,
+    trip?.client
+      ? { value: trip.client.ref, label: `${clientDisplayName(trip.client)} (${trip.client.ref})` }
+      : clientSeedOption,
+  )
 
-  const driverOptions = (drivers.data ?? [])
+  const driverResults = (drivers.data?.data ?? [])
     .filter((d) => d.active)
     .map((d) => ({ value: d.ref, label: `${d.name} (${d.ref})` }))
-  const partnerOptions = (drivers.data ?? [])
+  const driverOptions = useOptionMemory(
+    driverResults,
+    trip?.driver ? { value: trip.driver.ref, label: `${driverDisplayName(trip.driver)} (${trip.driver.ref})` } : null,
+  )
+
+  const partnerResults = (partners.data?.data ?? [])
     .filter((d) => d.active && d.company)
     .map((d) => ({ value: d.ref, label: `${d.name} — ${d.company}` }))
+  const partnerOptions = useOptionMemory(
+    partnerResults,
+    trip?.partner
+      ? { value: trip.partner.ref, label: `${driverDisplayName(trip.partner)} — ${trip.partner.company ?? ''}` }
+      : null,
+  )
 
   const selectedVehicleType = meta.data?.vehicleTypes.find((v) => v.name === vehicleType)
   const compatibleCategories = vehicleType
     ? (meta.data?.vehicleCompatibility[vehicleType] ?? [vehicleType])
     : []
-  const regNbrOptions = (fleetVehicles.data ?? [])
+  const regNbrResults = (fleetVehicles.data?.data ?? [])
     .filter((v) => v.active && v.isLocal && (!vehicleType || compatibleCategories.includes(v.category.name)))
     .map((v) => ({ value: v.regNbr, label: `${v.regNbr} — ${v.category.name}` }))
+  const regNbrOptions = useOptionMemory(
+    regNbrResults,
+    trip?.fleetVehicle
+      ? { value: trip.fleetVehicle.regNbr, label: `${trip.fleetVehicle.regNbr} — ${trip.fleetVehicle.category.name}` }
+      : null,
+  )
 
   const showAirportInfo = !!pickupIata || !!dropoffIata
 
   return (
+    <fieldset disabled={disabled} className="contents">
     <div className="grid gap-4">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
         <FormField
@@ -84,17 +159,19 @@ export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }
           render={({ field }) => (
             <FormItem className="col-span-2">
               <FormLabel>Country</FormLabel>
-              <SearchCombobox
-                value={field.value}
-                onChange={(value) => {
-                  field.onChange(value)
-                  const country = meta.data?.countries.find((c) => c.code === value)
-                  if (country) form.setValue('pickupTimezone', country.tz)
-                }}
-                options={countryOptions}
-                placeholder="Country…"
-                searchPlaceholder="Search country…"
-              />
+              <FormControl>
+                <SearchCombobox
+                  value={field.value}
+                  onChange={(value) => {
+                    field.onChange(value)
+                    const country = meta.data?.countries.find((c) => c.code === value)
+                    if (country) form.setValue('pickupTimezone', country.tz)
+                  }}
+                  options={countryOptions}
+                  placeholder="Country…"
+                  searchPlaceholder="Search country…"
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -227,7 +304,14 @@ export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }
             <FormItem>
               <FormLabel>Pax nb</FormLabel>
               <FormControl>
-                <Input type="number" min={1} max={selectedVehicleType?.maxPax ?? 50} {...field} />
+                <Input
+                  type="number"
+                  min={1}
+                  max={selectedVehicleType?.maxPax ?? 50}
+                  {...field}
+                  value={field.value ?? ''}
+                  onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -239,13 +323,18 @@ export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }
           render={({ field }) => (
             <FormItem className="col-span-2">
               <FormLabel>Customer</FormLabel>
-              <SearchCombobox
-                value={field.value}
-                onChange={field.onChange}
-                options={clientOptions}
-                placeholder="Ind. or Company…"
-                searchPlaceholder="Search customer…"
-              />
+              <FormControl>
+                <SearchCombobox
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={clientOptions}
+                  placeholder="Ind. or Company…"
+                  searchPlaceholder="Search customer…"
+                  searchValue={clientSearch}
+                  onSearchChange={setClientSearch}
+                  disabled={clientFieldDisabled}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -343,13 +432,17 @@ export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }
           render={({ field }) => (
             <FormItem>
               <FormLabel>Driver</FormLabel>
-              <SearchCombobox
-                value={field.value ?? ''}
-                onChange={field.onChange}
-                options={driverOptions}
-                placeholder="Driver…"
-                searchPlaceholder="Search driver…"
-              />
+              <FormControl>
+                <SearchCombobox
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  options={driverOptions}
+                  placeholder="Driver…"
+                  searchPlaceholder="Search driver…"
+                  searchValue={driverSearch}
+                  onSearchChange={setDriverSearch}
+                />
+              </FormControl>
             </FormItem>
           )}
         />
@@ -359,21 +452,17 @@ export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }
           render={({ field }) => (
             <FormItem>
               <FormLabel>Reg Nbr</FormLabel>
-              <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="__none__">—</SelectItem>
-                  {regNbrOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <SearchCombobox
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  options={regNbrOptions}
+                  placeholder="—"
+                  searchPlaceholder="Search reg nbr…"
+                  searchValue={regNbrSearch}
+                  onSearchChange={setRegNbrSearch}
+                />
+              </FormControl>
             </FormItem>
           )}
         />
@@ -396,13 +485,17 @@ export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Partner</FormLabel>
-                <SearchCombobox
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  options={partnerOptions}
-                  placeholder="Partner company…"
-                  searchPlaceholder="Search partner…"
-                />
+                <FormControl>
+                  <SearchCombobox
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    options={partnerOptions}
+                    placeholder="Partner company…"
+                    searchPlaceholder="Search partner…"
+                    searchValue={partnerSearch}
+                    onSearchChange={setPartnerSearch}
+                  />
+                </FormControl>
               </FormItem>
             )}
           />
@@ -415,6 +508,8 @@ export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }
           name="priceEur"
           label="Retail net"
           currency={selectedCountry?.currency}
+          disabled={priceDisabled}
+          disabledReason={priceDisabledReason}
         />
         {subContractor && (
           <PriceField
@@ -422,6 +517,8 @@ export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }
             name="partnerRateEur"
             label="Partner rate net"
             currency={selectedCountry?.currency}
+            disabled={priceDisabled}
+            disabledReason={priceDisabledReason}
           />
         )}
         <FormField
@@ -438,6 +535,7 @@ export function TripFormFields({ form }: { form: UseFormReturn<TripFormValues> }
         />
       </div>
     </div>
+    </fieldset>
   )
 }
 
@@ -554,7 +652,13 @@ function FlightInfoFields({ form }: { form: UseFormReturn<TripFormValues> }) {
           <FormItem>
             <FormLabel>Buffer (min)</FormLabel>
             <FormControl>
-              <Input type="number" min={0} {...field} />
+              <Input
+                type="number"
+                min={0}
+                {...field}
+                value={field.value ?? ''}
+                onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
+              />
             </FormControl>
           </FormItem>
         )}
@@ -593,11 +697,15 @@ function PriceField({
   name,
   label,
   currency,
+  disabled = false,
+  disabledReason,
 }: {
   form: UseFormReturn<TripFormValues>
   name: 'priceEur' | 'partnerRateEur'
   label: string
   currency?: string
+  disabled?: boolean
+  disabledReason?: string
 }) {
   const [hint, setHint] = useState<string | null>(null)
 
@@ -631,7 +739,11 @@ function PriceField({
                 min={0}
                 step="0.01"
                 placeholder="150"
+                disabled={disabled}
+                title={disabled ? disabledReason : undefined}
                 {...field}
+                value={field.value ?? ''}
+                onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
                 onBlur={() => {
                   field.onBlur()
                   void showFxHint()
@@ -640,7 +752,11 @@ function PriceField({
             </FormControl>
             <span className="text-muted-foreground text-sm">€</span>
           </div>
-          {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
+          {disabled && disabledReason ? (
+            <p className="text-muted-foreground text-xs">{disabledReason}</p>
+          ) : (
+            hint && <p className="text-muted-foreground text-xs">{hint}</p>
+          )}
         </FormItem>
       )}
     />

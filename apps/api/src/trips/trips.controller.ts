@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -18,11 +19,20 @@ import {
   CancelAssignmentResponseEntity,
   TripActionResponseEntity,
 } from './dto/trip.entity';
+import {
+  PublicTripEntity,
+  PublicTripActionResponseEntity,
+} from './dto/public-trip.entity';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
+import { AssignTripDto } from './dto/assign-trip.dto';
 import { CancelAssignmentDto } from './dto/cancel-assignment.dto';
 import { NotifyStepDto } from './dto/notify-step.dto';
+import { ListTripsQueryDto } from './dto/list-trips-query.dto';
 import { Public } from '../common/decorators/public.decorator';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { nameboardMulterOptions } from './nameboard-upload.config';
 
 interface UploadedNameboard {
@@ -34,8 +44,8 @@ export class TripsController {
   constructor(private readonly tripsService: TripsService) {}
 
   @Get()
-  list(): Promise<TripEntity[]> {
-    return this.tripsService.list();
+  list(@Query() query: ListTripsQueryDto): Promise<TripEntity[]> {
+    return this.tripsService.list(query);
   }
 
   @Public()
@@ -43,7 +53,7 @@ export class TripsController {
   getPublic(
     @Param('ref') ref: string,
     @Query('viewer') viewer?: string,
-  ): Promise<TripEntity> {
+  ): Promise<PublicTripEntity> {
     return this.tripsService.getPublic(ref, viewer === 'driver');
   }
 
@@ -56,10 +66,26 @@ export class TripsController {
   update(
     @Param('ref') ref: string,
     @Body() dto: UpdateTripDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<UpdateTripResponseEntity> {
-    return this.tripsService.update(ref, dto);
+    return this.tripsService.update(ref, dto, user);
   }
 
+  // Lightweight counterpart to update() (PUT) above — the Planning Gantt's
+  // drag&drop patches only driverRef/fleetRegNbr, not the whole booking form.
+  @Patch(':ref/assign')
+  assign(
+    @Param('ref') ref: string,
+    @Body() dto: AssignTripDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TripActionResponseEntity> {
+    return this.tripsService.assign(ref, dto, user);
+  }
+
+  // Unlike update() above, cancellation is gated unconditionally — every
+  // caller needs trip:cancel, no business-rule exception (see
+  // docs/agents/permissions.md).
+  @RequirePermission('trip:cancel')
   @Post(':ref/cancel-assignment')
   cancelAssignment(
     @Param('ref') ref: string,
@@ -78,7 +104,7 @@ export class TripsController {
   notify(
     @Param('ref') ref: string,
     @Body() dto: NotifyStepDto,
-  ): Promise<TripActionResponseEntity> {
+  ): Promise<PublicTripActionResponseEntity> {
     return this.tripsService.notify(ref, dto.step);
   }
 

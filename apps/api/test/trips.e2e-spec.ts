@@ -300,6 +300,25 @@ describe('Trips (e2e)', () => {
     ]);
   });
 
+  it('the public /notify response never leaks price or the raw client record either', async () => {
+    const client = await createClient();
+    const created = await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({ ...BASE_TRIP, clientRef: client.ref, priceEur: 250 })
+      .expect(201);
+    const ref = (created.body as TripBody).ref;
+
+    const res = await request(server())
+      .post(`/api/trips/${ref}/notify`)
+      .send({ step: 'ACCEPTED' })
+      .expect(201);
+    const trip = (res.body as { trip: { priceEur?: string; client?: unknown } })
+      .trip;
+    expect(trip.priceEur).toBeUndefined();
+    expect(trip.client).toBeUndefined();
+  });
+
   it('skips the WhatsApp send (but still records the step) when tracking is disabled', async () => {
     const client = await createClient();
     const created = await request(server())
@@ -579,5 +598,384 @@ describe('Trips (e2e)', () => {
     expect((publicView.body as TripBody).steps.map((s) => s.step)).toEqual(
       expect.arrayContaining(['TRANSMITTED', 'RECEIVED']),
     );
+  });
+
+  describe('GET /api/trips/:ref — public projection (used by /driver and /track)', () => {
+    interface PublicTripBody {
+      ref: string;
+      clientName: string;
+      pocName: string | null;
+      pocPhone: string | null;
+      instructions: string | null;
+      priceEur?: string;
+      partnerRateEur?: string;
+      client?: unknown;
+      driver?: unknown;
+    }
+
+    async function createTrackedTrip() {
+      const client = await createClient('0699999999');
+      const driver = await createDriver();
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          service: 'SPEC',
+          instructions: 'Handle with care',
+          clientRef: client.ref,
+          driverRef: driver.ref,
+          priceEur: 250,
+          partnerRateEur: 100,
+        })
+        .expect(201);
+      return (created.body as TripBody).ref;
+    }
+
+    it('never leaks price, partner rate, or the raw client/driver records — track or driver view', async () => {
+      const ref = await createTrackedTrip();
+
+      for (const url of [`/api/trips/${ref}`, `/api/trips/${ref}?viewer=driver`]) {
+        const res = await request(server()).get(url).expect(200);
+        const body = res.body as PublicTripBody;
+        expect(body.priceEur).toBeUndefined();
+        expect(body.partnerRateEur).toBeUndefined();
+        expect(body.client).toBeUndefined();
+        expect(body.driver).toBeUndefined();
+      }
+    });
+
+    it('withholds the POC contact and instructions on the track view, but includes them on the driver view', async () => {
+      const ref = await createTrackedTrip();
+
+      const trackView = (
+        await request(server()).get(`/api/trips/${ref}`).expect(200)
+      ).body as PublicTripBody;
+      expect(trackView.pocName).toBeNull();
+      expect(trackView.pocPhone).toBeNull();
+      expect(trackView.instructions).toBeNull();
+
+      const driverView = (
+        await request(server())
+          .get(`/api/trips/${ref}?viewer=driver`)
+          .expect(200)
+      ).body as PublicTripBody;
+      expect(driverView.pocPhone).toBe('0699999999');
+      expect(driverView.instructions).toBe('Handle with care');
+    });
+
+    // Regression test for a real race hit manually against the dev stack:
+    // React StrictMode's double effect-invoke fires two near-simultaneous
+    // GET ?viewer=driver requests on first mount; both see RECEIVED absent
+    // and race to insert it, and @@unique([tripId, step]) on TripStep threw
+    // P2002 for the loser (a bare 500) before skipDuplicates was added to
+    // the createMany in getPublic().
+    it('two concurrent opens of the driver link both succeed and stamp RECEIVED exactly once', async () => {
+      const client = await createClient();
+      const driver = await createDriver();
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, driverRef: driver.ref })
+        .expect(201);
+      const ref = (created.body as TripBody).ref;
+
+      const [first, second] = await Promise.all([
+        request(server()).get(`/api/trips/${ref}?viewer=driver`),
+        request(server()).get(`/api/trips/${ref}?viewer=driver`),
+      ]);
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+
+      const finalSteps = (
+        await request(server()).get(`/api/trips/${ref}?viewer=driver`).expect(200)
+      ).body as TripBody;
+      expect(finalSteps.steps.filter((s) => s.step === 'RECEIVED')).toHaveLength(1);
+      expect(finalSteps.steps.filter((s) => s.step === 'TRANSMITTED')).toHaveLength(1);
+    });
+  });
+
+  describe('GET /api/trips — server-side date-window filtering', () => {
+    // Single source of truth for "what's on the Bookings board" moved from
+    // apps/web's trip-status.ts (isPastDay/periodMatches/baseVisibility,
+    // recomputed client-side against a full unfiltered fetch) into
+    // TripsService.list() — see docs/handoff for the 2026-08-27 session.
+    function isoOffsetDays(days: number): string {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString();
+    }
+
+    it('defaults to period=upcoming: hides a past-pickup trip, keeps a future one', async () => {
+      const client = await createClient();
+      const past = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt: isoOffsetDays(-2) })
+        .expect(201);
+      const future = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt: isoOffsetDays(2) })
+        .expect(201);
+
+      const list = await request(server()).get('/api/trips').set('Cookie', cookie).expect(200);
+      const refs = (list.body as TripBody[]).map((t) => t.ref);
+      expect(refs).toContain((future.body as TripBody).ref);
+      expect(refs).not.toContain((past.body as TripBody).ref);
+    });
+
+    it('period=all still hides a past+assigned trip, but keeps a past+unassigned one (needs-attention backlog)', async () => {
+      const client = await createClient();
+      const driver = await createDriver();
+      const pastAssigned = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt: isoOffsetDays(-2), driverRef: driver.ref })
+        .expect(201);
+      const pastUnassigned = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt: isoOffsetDays(-2) })
+        .expect(201);
+
+      const list = await request(server()).get('/api/trips?period=all').set('Cookie', cookie).expect(200);
+      const refs = (list.body as TripBody[]).map((t) => t.ref);
+      expect(refs).not.toContain((pastAssigned.body as TripBody).ref);
+      expect(refs).toContain((pastUnassigned.body as TripBody).ref);
+    });
+
+    it('the default category (daily) excludes Events-client trips, regardless of period', async () => {
+      const eventClient = await request(server())
+        .post('/api/clients')
+        .set('Cookie', cookie)
+        .send({
+          clientType: 'EVENT',
+          company: 'Grand Prix',
+          eventCountry: 'MC',
+          eventArea: 'Monaco',
+          eventStartDate: isoOffsetDays(1),
+          eventEndDate: isoOffsetDays(3),
+          pocPhone: '0611111111',
+        })
+        .expect(201);
+      const trip = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: (eventClient.body as ClientBody).ref, pickupAt: isoOffsetDays(1) })
+        .expect(201);
+
+      const list = await request(server()).get('/api/trips?period=all').set('Cookie', cookie).expect(200);
+      const refs = (list.body as TripBody[]).map((t) => t.ref);
+      expect(refs).not.toContain((trip.body as TripBody).ref);
+    });
+
+    it('rejects an invalid period value', async () => {
+      await request(server()).get('/api/trips?period=nonsense').set('Cookie', cookie).expect(400);
+    });
+  });
+
+  describe('GET /api/trips?category=… — Planning Gantt Daily/Event/All toggle', () => {
+    function isoOffsetDays(days: number): string {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString();
+    }
+
+    async function createEventClient(): Promise<ClientBody> {
+      const res = await request(server())
+        .post('/api/clients')
+        .set('Cookie', cookie)
+        .send({
+          clientType: 'EVENT',
+          company: 'Grand Prix',
+          eventCountry: 'MC',
+          eventArea: 'Monaco',
+          eventStartDate: isoOffsetDays(1),
+          eventEndDate: isoOffsetDays(3),
+          pocPhone: '0611111111',
+        })
+        .expect(201);
+      return res.body as ClientBody;
+    }
+
+    it('category=event returns only Events-client trips; category=all returns both', async () => {
+      const client = await createClient();
+      const eventClient = await createEventClient();
+      const dailyTrip = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt: isoOffsetDays(1) })
+        .expect(201);
+      const eventTrip = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: eventClient.ref, pickupAt: isoOffsetDays(1) })
+        .expect(201);
+
+      const eventOnly = await request(server()).get('/api/trips?period=all&category=event').set('Cookie', cookie).expect(200);
+      const eventRefs = (eventOnly.body as TripBody[]).map((t) => t.ref);
+      expect(eventRefs).toContain((eventTrip.body as TripBody).ref);
+      expect(eventRefs).not.toContain((dailyTrip.body as TripBody).ref);
+
+      const all = await request(server()).get('/api/trips?period=all&category=all').set('Cookie', cookie).expect(200);
+      const allRefs = (all.body as TripBody[]).map((t) => t.ref);
+      expect(allRefs).toContain((eventTrip.body as TripBody).ref);
+      expect(allRefs).toContain((dailyTrip.body as TripBody).ref);
+    });
+
+    it('rejects an invalid category value', async () => {
+      await request(server()).get('/api/trips?category=nonsense').set('Cookie', cookie).expect(400);
+    });
+  });
+
+  describe('PATCH /api/trips/:ref/assign — Planning Gantt drag&drop', () => {
+    interface FullTripBody extends TripBody {
+      fleetVehicleId: string | null;
+      vehicleType: { name: string } | null;
+    }
+
+    // Make/Model must be a valid combination for the given Category (see
+    // CATEGORY_MODELS, apps/api/src/common/constants/fleet.ts).
+    const MAKE_MODEL_BY_CATEGORY: Record<string, { make: string; model: string }> = {
+      Business: { make: 'Mercedes-Benz', model: 'E-Class' },
+      SUV: { make: 'Mercedes-Benz', model: 'GLE' },
+    };
+
+    async function createFleetVehicle(
+      category: string,
+      regNbr: string,
+    ): Promise<{ ref: string; regNbr: string }> {
+      const res = await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send({
+          category,
+          regNbr,
+          ...MAKE_MODEL_BY_CATEGORY[category],
+          yearOfBuild: new Date().getFullYear() - 1,
+          fourWD: false,
+          nbPax: 3,
+        })
+        .expect(201);
+      return res.body as { ref: string; regNbr: string };
+    }
+
+    it('reassigning the driver via /assign resets steps/dispatched/assignmentCancelled, same as the full PUT', async () => {
+      const client = await createClient();
+      const driverA = await createDriver('0622222222');
+      const driverB = await createDriver('0633333333');
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, driverRef: driverA.ref })
+        .expect(201);
+      const ref = (created.body as TripBody).ref;
+
+      await request(server())
+        .post(`/api/trips/${ref}/dispatch-driver`)
+        .set('Cookie', cookie)
+        .expect(201);
+      await request(server())
+        .post(`/api/trips/${ref}/advance-step`)
+        .set('Cookie', cookie)
+        .expect(201); // received
+
+      const res = await request(server())
+        .patch(`/api/trips/${ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ driverRef: driverB.ref })
+        .expect(200);
+      const updated = (res.body as { trip: TripBody }).trip;
+      expect(updated.driverId).not.toBeNull();
+      expect(updated.steps).toEqual([]);
+      expect(updated.dispatched).toBe(false);
+    });
+
+    it('an empty driverRef unassigns the driver', async () => {
+      const client = await createClient();
+      const driver = await createDriver();
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, driverRef: driver.ref })
+        .expect(201);
+
+      const res = await request(server())
+        .patch(`/api/trips/${(created.body as TripBody).ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ driverRef: '' })
+        .expect(200);
+      expect((res.body as { trip: TripBody }).trip.driverId).toBeNull();
+    });
+
+    it('reassigning the fleet vehicle alone does not reset dispatched/steps (unlike a driver reassignment)', async () => {
+      const client = await createClient();
+      const driver = await createDriver();
+      const vehicle = await createFleetVehicle('Business', 'AB-123-CD');
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          driverRef: driver.ref,
+          vehicleType: 'Business',
+          fleetRegNbr: vehicle.regNbr,
+        })
+        .expect(201);
+      const ref = (created.body as TripBody).ref;
+      await request(server())
+        .post(`/api/trips/${ref}/dispatch-driver`)
+        .set('Cookie', cookie)
+        .expect(201);
+
+      const vehicle2 = await createFleetVehicle('Business', 'EF-456-GH');
+      const res = await request(server())
+        .patch(`/api/trips/${ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ fleetRegNbr: vehicle2.regNbr })
+        .expect(200);
+      const updated = res.body as { trip: FullTripBody };
+      expect(updated.trip.fleetVehicleId).not.toBeNull();
+      expect(updated.trip.dispatched).toBe(true);
+    });
+
+    it('rejects a fleet vehicle whose category is incompatible with the trip\'s vehicleType', async () => {
+      const client = await createClient();
+      const vehicle = await createFleetVehicle('SUV', 'AB-123-CD');
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, vehicleType: 'Business' })
+        .expect(201);
+
+      await request(server())
+        .patch(`/api/trips/${(created.body as TripBody).ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ fleetRegNbr: vehicle.regNbr })
+        .expect(400);
+    });
+
+    it('rejects an unresolvable driverRef/fleetRegNbr', async () => {
+      const client = await createClient();
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref })
+        .expect(201);
+      const ref = (created.body as TripBody).ref;
+
+      await request(server())
+        .patch(`/api/trips/${ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ driverRef: 'NOPE' })
+        .expect(400);
+      await request(server())
+        .patch(`/api/trips/${ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ fleetRegNbr: 'NOPE' })
+        .expect(400);
+    });
   });
 });

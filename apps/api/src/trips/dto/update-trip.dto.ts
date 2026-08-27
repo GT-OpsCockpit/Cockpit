@@ -1,5 +1,5 @@
 import { IsBoolean, IsOptional } from 'class-validator';
-import { OmitType } from '@nestjs/mapped-types';
+import { OmitType } from '@nestjs/swagger';
 import { CreateTripDto } from './create-trip.dto';
 
 // Legacy's PUT never touches pocEmail (no equivalent field in the edit popup)

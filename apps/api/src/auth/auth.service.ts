@@ -143,18 +143,6 @@ export class AuthService {
     return { ok: true };
   }
 
-  async verifyPassword(
-    userId: string,
-    password: string,
-  ): Promise<OkResponseEntity> {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-    });
-    const valid = await argon2.verify(user.passwordHash, password);
-    if (!valid) throw new UnauthorizedException('Invalid password');
-    return { ok: true };
-  }
-
   async logout(sessionId: string | undefined, res: Response): Promise<void> {
     if (sessionId) {
       await this.prisma.session.deleteMany({ where: { id: sessionId } });

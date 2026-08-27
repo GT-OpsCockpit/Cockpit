@@ -30,6 +30,22 @@ interface SearchComboboxProps {
   onSearchChange?: (value: string) => void
   disabled?: boolean
   className?: string
+  /**
+   * Forwarded onto the trigger button so this composes with shadcn's <FormControl> the same way
+   * <SelectTrigger> does elsewhere in the form — without these, <FormLabel>'s htmlFor pointed at
+   * an id that was never rendered anywhere (no accessible name on the trigger button; see the
+   * "Incorrect use of `<label for=…>`" DevTools warning documented in the Bookings handoff docs).
+   */
+  id?: string
+  'aria-describedby'?: string
+  'aria-invalid'?: boolean
+  /**
+   * For a standalone combobox with no <FormLabel>/htmlFor pairing (e.g. a
+   * filter bar) — role="combobox" computes its accessible name from a
+   * label, not from the trigger's own text content, so without this the
+   * field has no accessible name at all despite showing a value visually.
+   */
+  'aria-label'?: string
 }
 
 /** Generic searchable combobox (Popover + Command) — the shared primitive behind Country/Customer/Driver/Address/POC pickers. */
@@ -44,6 +60,10 @@ export function SearchCombobox({
   onSearchChange,
   disabled,
   className,
+  id,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
+  'aria-label': ariaLabel,
 }: SearchComboboxProps) {
   const [open, setOpen] = useState(false)
   const selected = options.find((o) => o.value === value)
@@ -52,14 +72,18 @@ export function SearchCombobox({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
+          aria-label={ariaLabel}
           type="button"
           variant="outline"
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn('w-full justify-between font-normal', !selected && 'text-muted-foreground', className)}
+          className={cn('w-full min-w-0 justify-between font-normal', !selected && 'text-muted-foreground', className)}
         >
-          <span className="truncate">{selected ? selected.label : placeholder}</span>
+          <span className="min-w-0 truncate">{selected ? selected.label : placeholder}</span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -76,7 +100,7 @@ export function SearchCombobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.value}
+                  value={option.label}
                   onSelect={() => {
                     onChange(option.value)
                     setOpen(false)

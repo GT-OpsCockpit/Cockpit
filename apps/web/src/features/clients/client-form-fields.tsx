@@ -1,0 +1,339 @@
+import type { UseFormReturn } from 'react-hook-form'
+import { ClientEntityBilling, ClientEntityClientType, useMetaControllerGetMeta } from '@cockpit/shared/api'
+import { SearchCombobox } from '@/components/search-combobox'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import type { ClientFormValues } from './client-form-schema'
+
+export function ClientFormFields({
+  form,
+  disabled = false,
+  typeLocked = false,
+}: {
+  form: UseFormReturn<ClientFormValues>
+  disabled?: boolean
+  /** Locks just the Account-type select (Events creation flow — see features/events/event-client-create-dialog.tsx). */
+  typeLocked?: boolean
+}) {
+  const meta = useMetaControllerGetMeta()
+
+  const clientType = form.watch('clientType')
+  const isCompany = clientType === ClientEntityClientType.COMPANY
+  const isEvent = clientType === ClientEntityClientType.EVENT
+  const isIndividual = !isCompany && !isEvent
+
+  const countryOptions = (meta.data?.countries ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
+
+  return (
+    <fieldset disabled={disabled} className="contents">
+      <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="clientType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Account type</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange} disabled={typeLocked}>
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={ClientEntityClientType.INDIVIDUAL}>Individual</SelectItem>
+                    <SelectItem value={ClientEntityClientType.COMPANY}>Company</SelectItem>
+                    <SelectItem value={ClientEntityClientType.EVENT}>Events</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="billing"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Payment</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={ClientEntityBilling.ACCOUNT}>Central</SelectItem>
+                    <SelectItem value={ClientEntityBilling.CARD}>Card</SelectItem>
+                    <SelectItem value={ClientEntityBilling.CASH}>Cash</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {isIndividual && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="contactFirstName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>First name</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="contactLastName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Last name</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
+
+        {(isCompany || isEvent) && (
+          <FormField
+            control={form.control}
+            name="company"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{isEvent ? 'Event name' : 'Company name'}</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {isEvent && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              control={form.control}
+              name="eventCountry"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Event country</FormLabel>
+                  <FormControl>
+                    <SearchCombobox
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      options={countryOptions}
+                      placeholder="Country…"
+                      searchPlaceholder="Search country…"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="eventArea"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Event area</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="eventStartDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Start date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="eventEndDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>End date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <FormField
+            control={form.control}
+            name="acronym"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Acronym</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="refPoOther"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Ref. / PO / Other</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="vatNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>VAT number</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input type="email" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <FormField
+            control={form.control}
+            name="address"
+            render={({ field }) => (
+              <FormItem className="lg:col-span-2">
+                <FormLabel>Address</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="postalCode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Postal code</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="city"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>City</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="countryCode"
+          render={({ field }) => (
+            <FormItem className="max-w-xs">
+              <FormLabel>Country</FormLabel>
+              <FormControl>
+                <SearchCombobox
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  options={countryOptions}
+                  placeholder="Country…"
+                  searchPlaceholder="Search country…"
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <FormField
+            control={form.control}
+            name="pocName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>POC Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Contact name" {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="pocPhone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>POC Mobile</FormLabel>
+                <FormControl>
+                  <Input placeholder="+33…" {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="pocEmail"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>POC Email</FormLabel>
+                <FormControl>
+                  <Input type="email" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+      </div>
+    </fieldset>
+  )
+}

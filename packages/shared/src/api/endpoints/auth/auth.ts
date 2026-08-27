@@ -29,8 +29,7 @@ import type {
   LoginDto,
   LoginResultEntity,
   OkResponseEntity,
-  VerifyDto,
-  VerifyPasswordDto
+  VerifyDto
 } from '../../model';
 
 import { fetcher } from '../../fetcher';
@@ -290,77 +289,6 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getAuthControllerVerifyMutationOptions(options), queryClient);
-    }
-    export const getAuthControllerVerifyPasswordUrl = () => {
-
-
-
-
-  return `/api/auth/verify-password`
-}
-
-export const authControllerVerifyPassword = async (verifyPasswordDto: VerifyPasswordDto, options?: Parameters<typeof fetcher>[1]): Promise<OkResponseEntity> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
-  };
-return fetcher<OkResponseEntity>(getAuthControllerVerifyPasswordUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(verifyPasswordDto)
-  }
-);}
-
-
-
-
-
-export const getAuthControllerVerifyPasswordMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerVerifyPassword>>, TError,AuthControllerVerifyPasswordMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
-): UseMutationOptions<Awaited<ReturnType<typeof authControllerVerifyPassword>>, TError,AuthControllerVerifyPasswordMutationVariables, TContext> => {
-
-const mutationKey = ['authControllerVerifyPassword'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authControllerVerifyPassword>>, AuthControllerVerifyPasswordMutationVariables> = (props) => {
-          const {data} = props ?? {};
-
-          return  authControllerVerifyPassword(data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type AuthControllerVerifyPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof authControllerVerifyPassword>>>
-    export type AuthControllerVerifyPasswordMutationBody = VerifyPasswordDto
-    export type AuthControllerVerifyPasswordMutationError = unknown
-    export type AuthControllerVerifyPasswordMutationVariables = {data: VerifyPasswordDto}
-
-    export const useAuthControllerVerifyPassword = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerVerifyPassword>>, TError,AuthControllerVerifyPasswordMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof authControllerVerifyPassword>>,
-        TError,
-        AuthControllerVerifyPasswordMutationVariables,
-        TContext
-      > => {
-      return useMutation(getAuthControllerVerifyPasswordMutationOptions(options), queryClient);
     }
     export const getAuthControllerLogoutUrl = () => {
 

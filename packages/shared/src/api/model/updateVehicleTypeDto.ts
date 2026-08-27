@@ -6,4 +6,9 @@
  * OpenAPI spec version: 1.0
  */
 
-export interface UpdateVehicleTypeDto { [key: string]: unknown }
+export interface UpdateVehicleTypeDto {
+  /** @minLength 1 */
+  name?: string;
+  /** @minimum 1 */
+  maxPax?: number;
+}

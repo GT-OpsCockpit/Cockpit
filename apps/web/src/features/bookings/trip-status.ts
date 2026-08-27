@@ -81,6 +81,32 @@ export function isStatusAdvanceable(trip: TripEntity): boolean {
   return !isStatusLocked(trip) && !!status && status !== 'CANCELLED' && ADVANCEABLE_STEPS.includes(status)
 }
 
+/**
+ * Local dispatch (own driver + own Fleet vehicle) needs both assigned before there's
+ * anything complete to send — greyed out (not disabled) until then, mirroring the
+ * legacy's dispatchActionButtonHtml. Doesn't apply to a sub-contracted or Farm-out trip.
+ */
+export function dispatchButtonState(trip: TripEntity, isLocal: boolean): { dimmed: boolean; disabled: boolean; title: string } {
+  if (isLocal && !trip.subContractor) {
+    const hasDriver = !!trip.driverId
+    const hasVehicle = !!trip.fleetVehicleId
+    if (!hasDriver || !hasVehicle) {
+      const missingBoth = !hasDriver && !hasVehicle
+      const title = missingBoth
+        ? 'Assign a driver and a vehicle before sending to the driver'
+        : hasDriver
+          ? 'Assign a vehicle (Reg Nbr) before sending to the driver'
+          : 'Assign a driver before sending'
+      return { dimmed: true, disabled: false, title }
+    }
+  }
+  return {
+    dimmed: false,
+    disabled: trip.dispatched,
+    title: trip.dispatched ? 'Already sent — edit or reassign to send again' : 'Dispatch to the driver',
+  }
+}
+
 export function clientDisplayName(client: ClientBaseEntity): string {
   const contact = [client.contactFirstName, client.contactLastName].filter(Boolean).join(' ').trim()
   return client.company?.trim() || contact || `Account ${client.ref}`
@@ -88,6 +114,19 @@ export function clientDisplayName(client: ClientBaseEntity): string {
 
 export function driverDisplayName(driver: DriverBaseEntity): string {
   return [driver.firstName, driver.lastName].filter(Boolean).join(' ').trim() || driver.company || driver.ref
+}
+
+/** "Cust / Pax" column's account label: the acronym when set, name as a plain clarifier — falls back to the name alone. */
+export function clientAccountLabel(trip: TripEntity): { primary: string; secondary?: string } {
+  if (trip.client.acronym) return { primary: trip.client.acronym, secondary: clientDisplayName(trip.client) }
+  return { primary: clientDisplayName(trip.client) }
+}
+
+/** Farm-out or Local: driver name, falling back to the sub-contracted partner's name. */
+export function tripDriverName(trip: TripEntity): string | null {
+  if (trip.driver) return driverDisplayName(trip.driver)
+  if (trip.partner) return driverDisplayName(trip.partner)
+  return null
 }
 
 /** "Jean Dupont" -> "Jean D." (Local table's Driver column, to save space). */
@@ -111,8 +150,13 @@ export function isLocalTrip(trip: TripEntity): boolean {
   return LOCAL_AREA_NAMES.some((n) => text.includes(n))
 }
 
-/** The trip's own pickup instant, resolved in its stored local timezone (falls back to UTC if unset). */
-export function pickupLocalInstant(trip: TripEntity): DateTime {
+/**
+ * The trip's own pickup instant, resolved in its stored local timezone
+ * (falls back to UTC if unset). Takes the minimal shape rather than the
+ * full TripEntity so it also works on the leaner TripBaseEntity nested
+ * under InvoiceEntity.trips[].trip.
+ */
+export function pickupLocalInstant(trip: Pick<TripEntity, 'pickupAt' | 'timezone'>): DateTime {
   return DateTime.fromISO(trip.pickupAt, { zone: trip.timezone ?? 'utc' })
 }
 
@@ -136,14 +180,50 @@ export function urgencyRowClass(trip: TripEntity): string {
   return ''
 }
 
-export function isPastDay(trip: TripEntity): boolean {
-  return pickupParisInstant(trip) < DateTime.now().setZone(PARIS_ZONE).startOf('day')
+export type TripPeriod = 'upcoming' | 'today' | 'week' | 'past' | 'all'
+
+export interface BookingFilters {
+  search: string
+  period: TripPeriod
+  clientRef: string
+  driverRef: string
+  passenger: string
+  vehicleType: string
+  service: string
 }
 
-/** Default list visibility: today's/upcoming trips always show; a past trip only if still unassigned (needs priority handling). */
-export function baseVisibility(trip: TripEntity): boolean {
-  if (!isPastDay(trip)) return true
-  return !trip.driverId
+export function defaultBookingFilters(): BookingFilters {
+  return { search: '', period: 'upcoming', clientRef: '', driverRef: '', passenger: '', vehicleType: '', service: '' }
+}
+
+/**
+ * Refines an already server-bounded result set (TripsService.list() resolves
+ * `period` and the always-on date-window/Events-client rules — see the
+ * 2026-08-27 handoff) — search/client/driver/passenger/vehicle/service are
+ * lightweight in-memory narrowing over that bounded set, not a second copy
+ * of the date-window logic. Mirrors the legacy's renderTrips() filter chain
+ * (dispatcher.html L442-455) for these fields, minus the Local/Farm-out
+ * split (done separately by isLocalTrip). Sort order is the server's
+ * (pickupAt ascending) — filtering here never reorders.
+ */
+export function applyBookingFilters(trips: TripEntity[], filters: BookingFilters): TripEntity[] {
+  const q = filters.search.trim().toLowerCase()
+  const passenger = filters.passenger.trim().toLowerCase()
+
+  return trips
+    .filter(
+      (t) =>
+        !q ||
+        t.ref.toLowerCase().includes(q) ||
+        clientDisplayName(t.client).toLowerCase().includes(q) ||
+        (t.passengerName || '').toLowerCase().includes(q) ||
+        (tripDriverName(t) || '').toLowerCase().includes(q),
+    )
+    .filter((t) => !filters.clientRef || t.client.ref === filters.clientRef)
+    .filter((t) => !filters.driverRef || t.driver?.ref === filters.driverRef)
+    .filter((t) => !passenger || (t.passengerName || '').toLowerCase().includes(passenger))
+    .filter((t) => !filters.vehicleType || t.vehicleType?.name === filters.vehicleType)
+    .filter((t) => !filters.service || t.service === filters.service)
 }
 
 export function itineraryLabel(trip: TripEntity): string {

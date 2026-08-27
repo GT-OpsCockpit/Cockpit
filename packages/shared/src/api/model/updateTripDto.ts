@@ -5,8 +5,40 @@
  * Cockpit v2 dispatch/booking API
  * OpenAPI spec version: 1.0
  */
+import type { UpdateTripDtoBilling } from './updateTripDtoBilling';
+import type { UpdateTripDtoService } from './updateTripDtoService';
 
 export interface UpdateTripDto {
+  countryCode: string;
+  area?: string;
+  pickupAt: string;
+  pickupLocation: string;
+  dropoffLocation?: string;
+  service: UpdateTripDtoService;
+  hours?: number;
+  instructions?: string;
+  clientRef: string;
+  /** @minLength 1 */
+  passengerName: string;
+  pocName?: string;
+  pocPhone?: string;
+  tracking?: boolean;
+  paxCount?: number;
+  /** VehicleType NAME (not id/ref). */
+  vehicleType?: string;
+  fleetRegNbr?: string;
+  priceEur?: number;
+  partnerRateEur?: number;
+  driverRef?: string;
+  billing?: UpdateTripDtoBilling;
+  flightNumber?: string;
+  bufferTime?: number;
+  fboAddress?: string;
+  tailNbr?: string;
+  pickupIata?: string;
+  dropoffIata?: string;
+  subContractor?: boolean;
+  partnerRef?: string;
   /** "Confirm and send" checkbox — best-effort WhatsApp to the POC after saving. */
   notifyDriver?: boolean;
 }
