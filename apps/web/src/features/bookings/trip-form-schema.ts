@@ -67,7 +67,10 @@ export type TripFormValues = z.infer<typeof tripFormSchema>
 export function tripFormDefaults(): TripFormValues {
   return {
     countryCode: '',
-    area: 'Local',
+    // No default Area: "Local" is only valid in France and no country is
+    // chosen yet, so seeding it would be seeding an invalid value (see
+    // AreaField / common/business/area-suggestions.ts).
+    area: '',
     pickupDate: '',
     pickupTime: '',
     service: TripEntityService.TSF,

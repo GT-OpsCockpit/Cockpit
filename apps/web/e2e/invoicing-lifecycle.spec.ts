@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { fillArea } from './helpers'
 
 /**
  * Covers the /invoicing Customer tab (docs/handoff/2026-08-27-frontend-invoicing.md):
@@ -44,19 +45,25 @@ test.describe('Invoicing — Customer tab lifecycle', () => {
 
     // --- A plain booking (no dispatch needed) for that client, with a price to invoice ---
     await page.goto('/bookings')
-    const form = page.locator('form').first()
+    // Since the UI refresh the creation bar is a dialog (BookingCreateDialog),
+    // so the form only exists while it is open.
+    await page.getByRole('button', { name: 'New booking' }).click()
+    const form = page.getByRole('dialog', { name: 'New booking' })
     await selectSearchCombobox(page, 'Country', 'Fra', 'France (FR)')
+    // Choosing a Country clears the Area (resetAreaField, common.js:871), so it
+    // is always filled after the Country, never before.
+    await fillArea(page, form, 'Nice')
     await form.locator('input[type="date"]').fill('2026-09-25')
     await form.locator('input[type="time"]').fill('14:30')
     await selectFromDropdown(page, 'Vehicle', 'Business')
     await selectSearchCombobox(page, 'Customer', clientName, clientName)
-    await page.getByLabel('Pax Name').fill('E2E Invoicing Passenger')
-    await page.getByLabel('PU', { exact: true }).fill('Nice Airport')
-    await page.getByLabel('DO', { exact: true }).fill('Cannes')
-    await page.getByLabel('POC Mobile').fill('+33612345678')
-    await page.getByLabel('Retail net').fill('100')
+    await form.getByLabel('Pax Name').fill('E2E Invoicing Passenger')
+    await form.getByLabel('PU', { exact: true }).fill('Nice Airport')
+    await form.getByLabel('DO', { exact: true }).fill('Cannes')
+    await form.getByLabel('POC Mobile').fill('+33612345678')
+    await form.getByLabel('Retail net').fill('100')
 
-    await page.getByRole('button', { name: 'Create', exact: true }).click()
+    await form.getByRole('button', { name: 'Create', exact: true }).click()
     const createdToast = toast(page, /^Trip (R-[\w-]+) created \(account \w+\)\.$/)
     await expect(createdToast).toBeVisible()
     const tripRef = (await createdToast.textContent())?.match(/Trip (R-[\w-]+) created/)?.[1]

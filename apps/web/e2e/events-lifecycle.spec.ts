@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fillArea } from './helpers'
 
 /**
@@ -28,6 +28,21 @@ async function selectFromDropdown(page: Page, name: string, optionText: string) 
 // Sonner renders each toast twice (visible + aria-live announcer copy) — `.first()` avoids strict-mode.
 function toast(page: Page, textOrPattern: string | RegExp) {
   return page.getByText(textOrPattern).first()
+}
+
+/** The New booking dialog's form, filled the same way for the single and the bulk run. */
+async function fillBookingForm(page: Page, dialog: Locator, passengerName: string) {
+  await selectSearchCombobox(page, 'Country', 'Fra', 'France (FR)')
+  // Choosing a Country clears the Area (resetAreaField, common.js:871), so it
+  // is always filled after the Country, never before.
+  await fillArea(page, dialog, 'Nice')
+  await dialog.locator('input[type="date"]').fill('2027-06-01')
+  await dialog.locator('input[type="time"]').fill('10:00')
+  await selectFromDropdown(page, 'Vehicle', 'Business')
+  await dialog.getByLabel('Pax Name').fill(passengerName)
+  await dialog.getByLabel('PU', { exact: true }).fill('Nice Airport')
+  await dialog.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
+  await dialog.getByLabel('POC Mobile').fill('+33612345678')
 }
 
 test.describe('Events — select/create event, bulk-create bookings', () => {
@@ -60,44 +75,33 @@ test.describe('Events — select/create event, bulk-create bookings', () => {
     await expect(page.getByLabel('Client', { exact: true })).toHaveText(eventName)
     await expect(page.getByLabel('Dates', { exact: true })).toHaveValue('2027-06-01 → 2027-06-03')
 
-    // --- Confirm: locks the Customer field in the New booking bar ---
+    // --- Confirm: locks the Customer field in the New booking dialog ---
     await page.getByRole('button', { name: 'Confirm' }).click()
-    const customerField = page.getByLabel('Customer', { exact: true })
+
+    // Since the UI refresh the creation bar is a dialog (EventCreateDialog),
+    // so the booking form only exists while it is open.
+    const bookingDialog = page.getByRole('dialog', { name: `New booking — ${eventName}` })
+    await page.getByRole('button', { name: 'New booking' }).click()
+    const customerField = bookingDialog.getByLabel('Customer', { exact: true })
     await expect(customerField).toBeDisabled()
     await expect(customerField).toHaveText(eventName)
 
     // --- Plain "Create": a single booking tied to the confirmed event ---
-    const form = page.locator('form').first()
-    await selectSearchCombobox(page, 'Country', 'Fra', 'France (FR)')
-    await form.locator('input[type="date"]').fill('2027-06-01')
-    await form.locator('input[type="time"]').fill('10:00')
-    await selectFromDropdown(page, 'Vehicle', 'Business')
-    await page.getByLabel('Pax Name').fill('E2E Playwright Passenger')
-    await page.getByLabel('PU', { exact: true }).fill('Nice Airport')
-    await page.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
-    await page.getByLabel('POC Mobile').fill('+33612345678')
-
-    await page.getByRole('button', { name: 'Create', exact: true }).click()
+    await fillBookingForm(page, bookingDialog, 'E2E Playwright Passenger')
+    await bookingDialog.getByRole('button', { name: 'Create', exact: true }).click()
     const singleToast = toast(page, /^Trip (R-[\w-]+) created \(account \w+\)\.$/)
     await expect(singleToast).toBeVisible()
     const singleRef = (await singleToast.textContent())?.match(/Trip (R-[\w-]+) created/)?.[1]
     if (!singleRef) throw new Error('Could not read the created trip ref off the toast.')
     await expect(page.getByRole('row').filter({ hasText: singleRef })).toBeVisible()
 
+    // --- "Create bulk": reopen the dialog, refill it, then a 3-day chained range ---
+    await page.getByRole('button', { name: 'New booking' }).click()
     // The form resets after Create, but the Customer lock survives (re-set from confirmedEvent).
     await expect(customerField).toHaveText(eventName)
+    await fillBookingForm(page, bookingDialog, 'E2E Bulk Passenger')
 
-    // --- "Create bulk": refill the bar, then a 3-day chained range ---
-    await selectSearchCombobox(page, 'Country', 'Fra', 'France (FR)')
-    await form.locator('input[type="date"]').fill('2027-06-01')
-    await form.locator('input[type="time"]').fill('10:00')
-    await selectFromDropdown(page, 'Vehicle', 'Business')
-    await page.getByLabel('Pax Name').fill('E2E Bulk Passenger')
-    await page.getByLabel('PU', { exact: true }).fill('Nice Airport')
-    await page.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
-    await page.getByLabel('POC Mobile').fill('+33612345678')
-
-    const bulkButton = page.getByRole('button', { name: 'Create bulk' })
+    const bulkButton = bookingDialog.getByRole('button', { name: 'Create bulk' })
     await expect(bulkButton).toBeEnabled()
     await bulkButton.click()
 

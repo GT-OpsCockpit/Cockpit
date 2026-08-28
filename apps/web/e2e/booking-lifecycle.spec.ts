@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
+import { fillArea } from './helpers'
 
 /**
  * Transcribes the manual browser walkthrough from
@@ -51,23 +52,29 @@ test.describe('Booking lifecycle', () => {
   test('create & dispatch, advance every status to Done, upload a nameboard, then cancel', async ({ page }) => {
     await page.goto('/bookings')
 
-    const form = page.locator('form').first()
+    // Since the UI refresh the creation bar is a dialog (BookingCreateDialog),
+    // so the form only exists while it is open.
+    await page.getByRole('button', { name: 'New booking' }).click()
+    const form = page.getByRole('dialog', { name: 'New booking' })
 
     await selectSearchCombobox(page, 'Country', 'Fra', 'France (FR)')
+    // Choosing a Country clears the Area (resetAreaField, common.js:871), so it
+    // is always filled after the Country, never before.
+    await fillArea(page, form, 'Nice')
     await form.locator('input[type="date"]').fill('2026-09-25')
     await form.locator('input[type="time"]').fill('14:30')
     await selectFromDropdown(page, 'Vehicle', 'Business')
     await selectSearchCombobox(page, 'Customer', 'Marc', 'Marc Dubois')
-    await page.getByLabel('Pax Name').fill('E2E Playwright Passenger')
-    await page.getByLabel('PU', { exact: true }).fill('Nice Airport')
-    await page.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
-    await page.getByLabel('POC Name').fill('Sophie Durand')
-    await page.getByLabel('POC Mobile').fill('+33612345678')
+    await form.getByLabel('Pax Name').fill('E2E Playwright Passenger')
+    await form.getByLabel('PU', { exact: true }).fill('Nice Airport')
+    await form.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
+    await form.getByLabel('POC Name').fill('Sophie Durand')
+    await form.getByLabel('POC Mobile').fill('+33612345678')
     await selectSearchCombobox(page, 'Driver', 'Julien', 'Julien Petit')
     await selectFromDropdown(page, 'Reg Nbr', 'AA-001-BC — Business')
-    await page.getByLabel('Retail net').fill('150')
+    await form.getByLabel('Retail net').fill('150')
 
-    const createAndDispatch = page.getByRole('button', { name: 'Create & Dispatch' })
+    const createAndDispatch = form.getByRole('button', { name: 'Create & Dispatch' })
     await expect(createAndDispatch).toBeEnabled()
     await createAndDispatch.click()
 
