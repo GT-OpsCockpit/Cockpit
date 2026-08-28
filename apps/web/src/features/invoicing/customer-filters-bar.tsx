@@ -5,6 +5,7 @@ import { SearchCombobox } from '@/components/search-combobox'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FilterResetButton } from '@/components/filter-reset-button'
 import type { CustomerFilters } from './customer-filters'
 
 const PICKER_LIMIT = 20
@@ -14,9 +15,13 @@ const PICKER_DEBOUNCE_MS = 300
 export function CustomerFiltersBar({
   filters,
   onChange,
+  hasActiveFilters,
+  onReset,
 }: {
   filters: CustomerFilters
   onChange: (filters: CustomerFilters) => void
+  hasActiveFilters: boolean
+  onReset: () => void
 }) {
   const [clientSearch, setClientSearch] = useState('')
   const { debounced: debouncedClientSearch, pending: clientSearchPending } = useDebouncedSearch(clientSearch, PICKER_DEBOUNCE_MS)
@@ -109,6 +114,8 @@ export function CustomerFiltersBar({
           Events
         </Label>
       </div>
+
+      <FilterResetButton onReset={onReset} hasActiveFilters={hasActiveFilters} />
     </div>
   )
 }

@@ -8,7 +8,25 @@ afterEach(cleanup)
 describe('ClientsTable', () => {
   it('shows a placeholder row when there are no accounts', () => {
     render(<ClientsTable clients={[]} onEdit={vi.fn()} onToggleActive={vi.fn()} onNewBooking={vi.fn()} />)
-    expect(screen.getByText('No accounts to display.')).toBeInTheDocument()
+    expect(screen.getByText('No accounts to display')).toBeInTheDocument()
+  })
+
+  it('shows a filtered-empty state with a working reset action when filters are active', () => {
+    const onResetFilters = vi.fn()
+    render(
+      <ClientsTable
+        clients={[]}
+        onEdit={vi.fn()}
+        onToggleActive={vi.fn()}
+        onNewBooking={vi.fn()}
+        hasActiveFilters
+        onResetFilters={onResetFilters}
+      />,
+    )
+
+    expect(screen.queryByText('No accounts to display')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }))
+    expect(onResetFilters).toHaveBeenCalledOnce()
   })
 
   it('renders the acronym next to the name only when set', () => {

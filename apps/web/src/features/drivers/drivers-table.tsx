@@ -1,4 +1,4 @@
-import { CalendarClock, CalendarPlus, Lock, Pencil, RotateCcw, X } from 'lucide-react'
+import { CalendarClock, CalendarPlus, Car, Lock, Pencil, RotateCcw, X } from 'lucide-react'
 import type { DriverEntity } from '@cockpit/shared/api'
 import { formatPhoneDisplay } from '@cockpit/shared'
 import { cn } from '@/lib/utils'
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
+import { EmptyState } from '@/components/empty-state'
 import { isPartner, unavailabilityLabel } from './driver-status'
 
 interface DriversTableProps {
@@ -20,9 +21,22 @@ interface DriversTableProps {
   onNewBooking: (driver: DriverEntity) => void
   /** UX-layer mirror of driver:reactivate (see docs/agents/permissions.md) — deactivating stays ungated. */
   canReactivate: boolean
+  hasActiveFilters?: boolean
+  onResetFilters?: () => void
 }
 
-export function DriversTable({ drivers, loading = false, onEdit, onUnavailability, onToggleActive, onUnlinkVehicle, onNewBooking, canReactivate }: DriversTableProps) {
+export function DriversTable({
+  drivers,
+  loading = false,
+  onEdit,
+  onUnavailability,
+  onToggleActive,
+  onUnlinkVehicle,
+  onNewBooking,
+  canReactivate,
+  hasActiveFilters,
+  onResetFilters,
+}: DriversTableProps) {
   const chauffeurs = drivers.filter((d) => !isPartner(d))
   const partners = drivers.filter(isPartner)
 
@@ -38,6 +52,8 @@ export function DriversTable({ drivers, loading = false, onEdit, onUnavailabilit
         onUnlinkVehicle={onUnlinkVehicle}
         onNewBooking={onNewBooking}
         canReactivate={canReactivate}
+        hasActiveFilters={hasActiveFilters}
+        onResetFilters={onResetFilters}
       />
       <DriverGroup
         title="Partenaires"
@@ -49,6 +65,8 @@ export function DriversTable({ drivers, loading = false, onEdit, onUnavailabilit
         onUnlinkVehicle={onUnlinkVehicle}
         onNewBooking={onNewBooking}
         canReactivate={canReactivate}
+        hasActiveFilters={hasActiveFilters}
+        onResetFilters={onResetFilters}
       />
     </div>
   )
@@ -64,6 +82,8 @@ function DriverGroup({
   onUnlinkVehicle,
   onNewBooking,
   canReactivate,
+  hasActiveFilters,
+  onResetFilters,
 }: DriversTableProps & { title: string }) {
   return (
     <div className="grid gap-2">
@@ -86,8 +106,14 @@ function DriverGroup({
               <TableSkeletonRows columns={7} />
             ) : drivers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground text-center">
-                  No records to display.
+                <TableCell colSpan={7} className="p-0 whitespace-normal">
+                  <EmptyState
+                    icon={Car}
+                    title="No records to display"
+                    description={`${title} added will appear here.`}
+                    hasActiveFilters={hasActiveFilters}
+                    onResetFilters={onResetFilters}
+                  />
                 </TableCell>
               </TableRow>
             ) : (

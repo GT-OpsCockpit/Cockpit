@@ -8,7 +8,7 @@ afterEach(cleanup)
 describe('UsersTable', () => {
   it('shows a placeholder row when there are no users', () => {
     render(<UsersTable users={[]} onEdit={vi.fn()} onDeactivate={vi.fn()} canManage />)
-    expect(screen.getByText('No records to display.')).toBeInTheDocument()
+    expect(screen.getByText('No records to display')).toBeInTheDocument()
   })
 
   it('renders a user row with its fields', () => {

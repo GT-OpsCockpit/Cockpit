@@ -14,11 +14,13 @@ import { ClientFiltersBar } from './client-filters-bar'
 import { ClientsTable } from './clients-table'
 import { clientBookingPrefill, defaultClientFilters, type ClientFilters } from './client-status'
 import { PageTitle } from '@/components/layout/page-title'
+import { filtersChanged } from '@/lib/utils'
 
 const PAGE_SIZE = 20
 
 export function ClientsPage() {
   const [filters, setFilters] = useState(defaultClientFilters())
+  const hasActiveFilters = filtersChanged(filters, defaultClientFilters())
   const [page, setPage] = useState(1)
   const [editTarget, setEditTarget] = useState<ClientEntity | null>(null)
   const [bookingPrefill, setBookingPrefill] = useState<BookingPrefill | null>(null)
@@ -46,6 +48,8 @@ export function ClientsPage() {
     setPage(1)
   }
 
+  const resetFilters = () => handleFiltersChange(defaultClientFilters())
+
   const handleToggleActive = async (client: ClientEntity) => {
     try {
       await setActive.mutateAsync({ ref: client.ref, data: { active: !client.active } })
@@ -63,7 +67,7 @@ export function ClientsPage() {
         <ClientCreateDialog />
       </div>
 
-      <ClientFiltersBar filters={filters} onChange={handleFiltersChange} />
+      <ClientFiltersBar filters={filters} onChange={handleFiltersChange} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
 
       <ClientsTable
         clients={clients.data?.data ?? []}
@@ -71,6 +75,8 @@ export function ClientsPage() {
         onEdit={setEditTarget}
         onToggleActive={(c) => void handleToggleActive(c)}
         onNewBooking={(c) => setBookingPrefill(clientBookingPrefill(c))}
+        hasActiveFilters={hasActiveFilters}
+        onResetFilters={resetFilters}
       />
 
       <ListPagination page={page} limit={PAGE_SIZE} total={clients.data?.total ?? 0} onPageChange={setPage} />

@@ -7,6 +7,7 @@ import {
 } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
+import { FilterResetButton } from '@/components/filter-reset-button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { BookingFilters, TripPeriod } from './trip-status'
@@ -26,9 +27,13 @@ const PICKER_DEBOUNCE_MS = 300
 export function BookingFiltersBar({
   filters,
   onChange,
+  hasActiveFilters,
+  onReset,
 }: {
   filters: BookingFilters
   onChange: (filters: BookingFilters) => void
+  hasActiveFilters: boolean
+  onReset: () => void
 }) {
   const meta = useMetaControllerGetMeta()
 
@@ -132,6 +137,8 @@ export function BookingFiltersBar({
             <SelectItem value={TripEntityService.SPEC}>SPEC</SelectItem>
           </SelectContent>
         </Select>
+
+        <FilterResetButton onReset={onReset} hasActiveFilters={hasActiveFilters} />
       </div>
     </div>
   )

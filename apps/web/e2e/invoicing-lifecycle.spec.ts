@@ -101,7 +101,9 @@ test.describe('Invoicing — Customer tab lifecycle', () => {
     const invoiceRef = (await invoiceToast.textContent())?.match(/Invoice (INV\d+) created/)?.[1]
     if (!invoiceRef) throw new Error('Could not read the created invoice ref off the toast.')
 
-    await expect(page.getByText('No trips to display for this period.')).toBeVisible()
+    // Client + a widened date range are both active filters here, so the empty
+    // state is the "filtered to zero" variant, not the generic empty-dataset one.
+    await expect(page.getByText('No results for these filters')).toBeVisible()
     await expect(page.getByText('1 invoice(s) matching.')).toBeVisible()
     const invoiceRow = page.getByRole('row').filter({ hasText: clientName })
     await expect(invoiceRow.getByRole('cell', { name: '1', exact: true })).toBeVisible() // booking nbr

@@ -5,6 +5,7 @@ import { SearchCombobox } from '@/components/search-combobox'
 import { useCountryOptions } from '@/hooks/use-country-options'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { FilterResetButton } from '@/components/filter-reset-button'
 import type { EventFilters } from './event-filters'
 
 const ALL = '__all__'
@@ -15,9 +16,13 @@ const PICKER_DEBOUNCE_MS = 300
 export function EventFiltersBar({
   filters,
   onChange,
+  hasActiveFilters,
+  onReset,
 }: {
   filters: EventFilters
   onChange: (filters: EventFilters) => void
+  hasActiveFilters: boolean
+  onReset: () => void
 }) {
   const meta = useMetaControllerGetMeta()
   const countryOptions = [{ value: '', label: 'All countries' }, ...useCountryOptions()]
@@ -103,6 +108,8 @@ export function EventFiltersBar({
         value={filters.refPoOther}
         onChange={(e) => set('refPoOther', e.target.value)}
       />
+
+      <FilterResetButton onReset={onReset} hasActiveFilters={hasActiveFilters} />
     </div>
   )
 }

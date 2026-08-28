@@ -20,6 +20,7 @@ import { downloadCustomerPendingExcel, downloadInvoicesExcel } from './invoice-e
 import { InvoiceCreateDialog } from './invoice-create-dialog'
 import { InvoicedTable } from './invoiced-table'
 import { PendingTripsTable } from './pending-trips-table'
+import { filtersChanged } from '@/lib/utils'
 
 export function CustomerTab() {
   const [filters, setFilters] = useState(() => defaultCustomerFilters({ start: '', end: '' }))
@@ -27,6 +28,12 @@ export function CustomerTab() {
 
   const trips = useTripsControllerList({ period: 'all' })
   const invoices = useInvoicesControllerList()
+
+  // Recomputed from the same rule the mount-time effect below uses — "reset"
+  // returns to the current default period, not to blank dates.
+  const defaultFilters = defaultCustomerFilters(computeCustomerDefaultPeriod(trips.data ?? []))
+  const hasActiveFilters = filtersChanged(filters, defaultFilters)
+  const resetFilters = () => setFilters(defaultFilters)
 
   // Computed once on the first successful load, not on every refetch — matches
   // the legacy's custDatesInitialized flag (invoicing.html:234) so the
@@ -55,7 +62,7 @@ export function CustomerTab() {
     <div className="grid gap-6">
       <div className="grid gap-3">
         <h2 className="text-lg font-semibold">Customer</h2>
-        <CustomerFiltersBar filters={filters} onChange={setFilters} />
+        <CustomerFiltersBar filters={filters} onChange={setFilters} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
       </div>
 
       <div className="grid gap-2">
@@ -87,6 +94,8 @@ export function CustomerTab() {
           onCancel={setCancelTarget}
           onDispatch={setDispatchTarget}
           onAdvance={setAdvanceTarget}
+          hasActiveFilters={hasActiveFilters}
+          onResetFilters={resetFilters}
         />
       </div>
 
@@ -106,7 +115,7 @@ export function CustomerTab() {
             Export to Excel
           </Button>
         </div>
-        <InvoicedTable invoices={filteredInvoices} />
+        <InvoicedTable invoices={filteredInvoices} hasActiveFilters={hasActiveFilters} onResetFilters={resetFilters} />
       </div>
 
       <InvoiceCreateDialog

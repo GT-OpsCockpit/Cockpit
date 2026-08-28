@@ -1,10 +1,11 @@
-import { Pencil, X } from 'lucide-react'
+import { Pencil, UserCog, X } from 'lucide-react'
 import type { PublicUserEntity } from '@cockpit/shared/api'
 import { formatPhoneDisplay } from '@cockpit/shared'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
+import { EmptyState } from '@/components/empty-state'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString()
@@ -37,8 +38,8 @@ export function UsersTable({ users, onEdit, onDeactivate, canManage }: UsersTabl
         <TableBody>
           {users.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-muted-foreground text-center">
-                No records to display.
+              <TableCell colSpan={8} className="p-0 whitespace-normal">
+                <EmptyState icon={UserCog} title="No records to display" description="Users added to Cockpit will appear here." />
               </TableCell>
             </TableRow>
           ) : (

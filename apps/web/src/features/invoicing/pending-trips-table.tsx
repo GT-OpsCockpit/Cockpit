@@ -1,8 +1,9 @@
-import { Check, Pencil, X } from 'lucide-react'
+import { Check, Pencil, ReceiptText, X } from 'lucide-react'
 import type { TripEntity } from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
+import { EmptyState } from '@/components/empty-state'
 import { DispatchButton } from '../bookings/bookings-table'
 import { StatusBadge } from '../bookings/status-badge'
 import { clientAccountLabel, displayPickup, itineraryLabel } from '../bookings/trip-status'
@@ -17,12 +18,16 @@ export function PendingTripsTable({
   onCancel,
   onDispatch,
   onAdvance,
+  hasActiveFilters,
+  onResetFilters,
 }: {
   trips: TripEntity[]
   onEdit: (trip: TripEntity) => void
   onCancel: (trip: TripEntity) => void
   onDispatch: (trip: TripEntity) => void
   onAdvance: (trip: TripEntity) => void
+  hasActiveFilters?: boolean
+  onResetFilters?: () => void
 }) {
   return (
     <TableCard>
@@ -44,8 +49,14 @@ export function PendingTripsTable({
         <TableBody>
           {trips.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={10} className="text-muted-foreground text-center">
-                No trips to display for this period.
+              <TableCell colSpan={10} className="p-0 whitespace-normal">
+                <EmptyState
+                  icon={ReceiptText}
+                  title="No trips to display for this period"
+                  description="Trips pending invoicing for this period will appear here."
+                  hasActiveFilters={hasActiveFilters}
+                  onResetFilters={onResetFilters}
+                />
               </TableCell>
             </TableRow>
           ) : (

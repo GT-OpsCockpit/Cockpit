@@ -1,14 +1,19 @@
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { FilterResetButton } from '@/components/filter-reset-button'
 import type { VehicleFilters } from './vehicle-status'
 
 export function VehicleFiltersBar({
   filters,
   onChange,
+  hasActiveFilters,
+  onReset,
 }: {
   filters: VehicleFilters
   onChange: (filters: VehicleFilters) => void
+  hasActiveFilters: boolean
+  onReset: () => void
 }) {
   const set = <K extends keyof VehicleFilters>(key: K, value: VehicleFilters[K]) => onChange({ ...filters, [key]: value })
 
@@ -29,6 +34,7 @@ export function VehicleFiltersBar({
         <Label htmlFor="show-inactive-vehicles" className="text-sm font-normal">
           Show deactivated
         </Label>
+        <FilterResetButton onReset={onReset} hasActiveFilters={hasActiveFilters} />
       </div>
     </div>
   )

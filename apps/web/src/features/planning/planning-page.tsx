@@ -28,6 +28,7 @@ import { PlanningList } from './planning-list'
 import { coversDate, defaultPlanningFilters, vehicleTypeColor, type PlanningResource } from './planning-status'
 import { PlanningTimeline, type TimelineRow } from './planning-timeline'
 import { PageTitle } from '@/components/layout/page-title'
+import { filtersChanged } from '@/lib/utils'
 
 // The backend caps `limit` at 100 on every paginated list endpoint (see
 // e.g. ListDriversQueryDto) — the Gantt's row roster reuses that same bound
@@ -38,6 +39,8 @@ export function PlanningPage() {
   useTripEvents()
 
   const [filters, setFilters] = useState(defaultPlanningFilters())
+  const hasActiveFilters = filtersChanged(filters, defaultPlanningFilters())
+  const resetFilters = () => setFilters(defaultPlanningFilters())
   const [editTarget, setEditTarget] = useState<TripEntity | null>(null)
   const [advanceTarget, setAdvanceTarget] = useState<TripEntity | null>(null)
   const [driverAvailabilityTarget, setDriverAvailabilityTarget] = useState<DriverEntity | null>(null)
@@ -155,10 +158,18 @@ export function PlanningPage() {
         onChange={setFilters}
         resourceOptions={resourceOptions}
         resourceLabel={filters.resource === 'drivers' ? 'driver' : 'vehicle'}
+        hasActiveFilters={hasActiveFilters}
+        onReset={resetFilters}
       />
 
       {filters.view === 'list' ? (
-        <PlanningList trips={listTrips} onEdit={setEditTarget} onAdvance={setAdvanceTarget} />
+        <PlanningList
+          trips={listTrips}
+          onEdit={setEditTarget}
+          onAdvance={setAdvanceTarget}
+          hasActiveFilters={hasActiveFilters}
+          onResetFilters={resetFilters}
+        />
       ) : filters.resource === 'drivers' ? (
         <PlanningTimeline
           trips={trips.data ?? []}

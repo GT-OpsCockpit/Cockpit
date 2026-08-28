@@ -144,6 +144,6 @@ test.describe('Events — select/create event, bulk-create bookings', () => {
 
     // --- A non-matching event name filters everything out ---
     await page.getByPlaceholder('Search event name…').fill('definitely not a real event name')
-    await expect(page.getByText('No bookings to display.')).toBeVisible()
+    await expect(page.getByText('No results for these filters')).toBeVisible()
   })
 })

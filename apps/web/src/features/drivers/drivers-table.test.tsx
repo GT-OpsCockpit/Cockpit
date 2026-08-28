@@ -11,7 +11,19 @@ const noop = { onEdit: vi.fn(), onUnavailability: vi.fn(), onToggleActive: vi.fn
 describe('DriversTable', () => {
   it('shows a placeholder row in both groups when there are no drivers', () => {
     render(<DriversTable drivers={[]} canReactivate {...noop} />)
-    expect(screen.getAllByText('No records to display.')).toHaveLength(2)
+    expect(screen.getAllByText('No records to display')).toHaveLength(2)
+  })
+
+  it('shows a filtered-empty state with a working reset action when filters are active', () => {
+    const onResetFilters = vi.fn()
+    render(<DriversTable drivers={[]} canReactivate {...noop} hasActiveFilters onResetFilters={onResetFilters} />)
+
+    const resetButtons = screen.getAllByRole('button', { name: 'Reset filters' })
+    expect(resetButtons).toHaveLength(2)
+    expect(screen.queryByText('No records to display')).not.toBeInTheDocument()
+
+    fireEvent.click(resetButtons[0])
+    expect(onResetFilters).toHaveBeenCalledOnce()
   })
 
   it('splits an internal driver into Chauffeurs and a company driver into Partenaires', () => {

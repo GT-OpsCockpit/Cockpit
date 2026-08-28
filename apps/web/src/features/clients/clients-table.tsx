@@ -1,4 +1,4 @@
-import { CalendarPlus, Pencil, RotateCcw, X } from 'lucide-react'
+import { CalendarPlus, Pencil, RotateCcw, Users, X } from 'lucide-react'
 import type { ClientEntity } from '@cockpit/shared/api'
 import { formatPhoneDisplay } from '@cockpit/shared'
 import { cn } from '@/lib/utils'
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
+import { EmptyState } from '@/components/empty-state'
 import { clientTypeLabel } from './client-status'
 
 interface ClientsTableProps {
@@ -15,9 +16,19 @@ interface ClientsTableProps {
   onEdit: (client: ClientEntity) => void
   onToggleActive: (client: ClientEntity) => void
   onNewBooking: (client: ClientEntity) => void
+  hasActiveFilters?: boolean
+  onResetFilters?: () => void
 }
 
-export function ClientsTable({ clients, loading = false, onEdit, onToggleActive, onNewBooking }: ClientsTableProps) {
+export function ClientsTable({
+  clients,
+  loading = false,
+  onEdit,
+  onToggleActive,
+  onNewBooking,
+  hasActiveFilters,
+  onResetFilters,
+}: ClientsTableProps) {
   return (
     <TableCard>
       <Table>
@@ -37,8 +48,14 @@ export function ClientsTable({ clients, loading = false, onEdit, onToggleActive,
             <TableSkeletonRows columns={7} />
           ) : clients.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-muted-foreground text-center">
-                No accounts to display.
+              <TableCell colSpan={7} className="p-0 whitespace-normal">
+                <EmptyState
+                  icon={Users}
+                  title="No accounts to display"
+                  description="Accounts created will appear here."
+                  hasActiveFilters={hasActiveFilters}
+                  onResetFilters={onResetFilters}
+                />
               </TableCell>
             </TableRow>
           ) : (

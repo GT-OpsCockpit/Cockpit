@@ -14,12 +14,15 @@ import { useTripEvents } from './use-trip-events'
 import { applyBookingFilters, defaultBookingFilters, isLocalTrip } from './trip-status'
 import { Button } from '@/components/ui/button'
 import { PageTitle } from '@/components/layout/page-title'
+import { filtersChanged } from '@/lib/utils'
 
 export function BookingsPage() {
   useTripEvents()
 
   const [createOpen, setCreateOpen] = useState(false)
   const [filters, setFilters] = useState(defaultBookingFilters())
+  const hasActiveFilters = filtersChanged(filters, defaultBookingFilters())
+  const resetFilters = () => setFilters(defaultBookingFilters())
   // period + the live-board window are resolved server-side
   // (TripsService.list()) — the single source of truth for "what's on the
   // board" (was previously duplicated client-side in periodMatches/
@@ -53,7 +56,7 @@ export function BookingsPage() {
       </div>
 
       <div className="grid gap-3">
-        <BookingFiltersBar filters={filters} onChange={setFilters} />
+        <BookingFiltersBar filters={filters} onChange={setFilters} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
       </div>
 
       <div className="grid gap-2">
@@ -67,6 +70,8 @@ export function BookingsPage() {
           onDispatch={setDispatchTarget}
           onAdvance={setAdvanceTarget}
           onNameboard={setNameboardTarget}
+          hasActiveFilters={hasActiveFilters}
+          onResetFilters={resetFilters}
         />
       </div>
 
@@ -81,6 +86,8 @@ export function BookingsPage() {
           onDispatch={setDispatchTarget}
           onAdvance={setAdvanceTarget}
           onNameboard={setNameboardTarget}
+          hasActiveFilters={hasActiveFilters}
+          onResetFilters={resetFilters}
         />
       </div>
 

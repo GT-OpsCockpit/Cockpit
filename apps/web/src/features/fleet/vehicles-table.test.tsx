@@ -20,8 +20,20 @@ const noop = { onEdit: vi.fn(), onUnavailability: vi.fn(), onToggleActive: vi.fn
 describe('VehiclesTable', () => {
   it('shows a placeholder row in both groups when there are no vehicles', () => {
     render(<VehiclesTable vehicles={[]} canReactivate {...noop} />)
-    expect(screen.getByText('No internal vehicles yet.')).toBeInTheDocument()
-    expect(screen.getByText('No external vehicles yet.')).toBeInTheDocument()
+    expect(screen.getByText('No internal vehicles yet')).toBeInTheDocument()
+    expect(screen.getByText('No external vehicles yet')).toBeInTheDocument()
+  })
+
+  it('shows a filtered-empty state with a working reset action when filters are active', () => {
+    const onResetFilters = vi.fn()
+    render(<VehiclesTable vehicles={[]} canReactivate {...noop} hasActiveFilters onResetFilters={onResetFilters} />)
+
+    const resetButtons = screen.getAllByRole('button', { name: 'Reset filters' })
+    expect(resetButtons).toHaveLength(2)
+    expect(screen.queryByText('No internal vehicles yet')).not.toBeInTheDocument()
+
+    fireEvent.click(resetButtons[0])
+    expect(onResetFilters).toHaveBeenCalledOnce()
   })
 
   it('splits a Local vehicle into Fleet - Internal and a non-Local one into Fleet - External', () => {

@@ -15,6 +15,7 @@ import { applyEventFilters, defaultEventFilters } from './event-filters'
 import { EventSelectPanel } from './event-select-panel'
 import { Button } from '@/components/ui/button'
 import { PageTitle } from '@/components/layout/page-title'
+import { filtersChanged } from '@/lib/utils'
 
 export function EventsPage() {
   useTripEvents()
@@ -22,6 +23,8 @@ export function EventsPage() {
   const [confirmedEvent, setConfirmedEvent] = useState<ClientEntity | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [filters, setFilters] = useState(defaultEventFilters())
+  const hasActiveFilters = filtersChanged(filters, defaultEventFilters())
+  const resetFilters = () => setFilters(defaultEventFilters())
 
   // Bounded by the server-side `category` filter (same mechanism Planning's
   // Daily/Event/All toggle uses) — `period: 'all'` because event bookings are
@@ -50,7 +53,7 @@ export function EventsPage() {
 
       <div className="grid gap-3">
         <h2 className="text-lg font-semibold">Search</h2>
-        <EventFiltersBar filters={filters} onChange={setFilters} />
+        <EventFiltersBar filters={filters} onChange={setFilters} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
       </div>
 
       <div className="grid gap-2">
@@ -63,6 +66,8 @@ export function EventsPage() {
           onDispatch={setDispatchTarget}
           onAdvance={setAdvanceTarget}
           onNameboard={setNameboardTarget}
+          hasActiveFilters={hasActiveFilters}
+          onResetFilters={resetFilters}
         />
       </div>
 

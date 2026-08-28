@@ -1,4 +1,4 @@
-import { Check, Image, Pencil, Send, X } from 'lucide-react'
+import { Calendar, Check, Image, Pencil, Send, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { TripEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
+import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from './status-badge'
 import {
   clientAccountLabel,
@@ -66,9 +67,23 @@ interface BookingsTableProps {
   onDispatch: (trip: TripEntity) => void
   onAdvance: (trip: TripEntity) => void
   onNameboard: (trip: TripEntity) => void
+  /** Whether the caller's filters are away from their defaults — switches the empty state to the "no results" variant with a reset action. */
+  hasActiveFilters?: boolean
+  onResetFilters?: () => void
 }
 
-export function BookingsTable({ trips, variant, loading = false, onEdit, onCancel, onDispatch, onAdvance, onNameboard }: BookingsTableProps) {
+export function BookingsTable({
+  trips,
+  variant,
+  loading = false,
+  onEdit,
+  onCancel,
+  onDispatch,
+  onAdvance,
+  onNameboard,
+  hasActiveFilters,
+  onResetFilters,
+}: BookingsTableProps) {
   const isLocal = variant === 'local'
   const colSpan = isLocal ? 10 : 9
 
@@ -94,8 +109,14 @@ export function BookingsTable({ trips, variant, loading = false, onEdit, onCance
             <TableSkeletonRows columns={colSpan} />
           ) : trips.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={colSpan} className="text-muted-foreground text-center">
-                No bookings to display.
+              <TableCell colSpan={colSpan} className="p-0 whitespace-normal">
+                <EmptyState
+                  icon={Calendar}
+                  title="No bookings to display"
+                  description="Bookings created will appear here."
+                  hasActiveFilters={hasActiveFilters}
+                  onResetFilters={onResetFilters}
+                />
               </TableCell>
             </TableRow>
           ) : (

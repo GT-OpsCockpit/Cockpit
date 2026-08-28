@@ -1,7 +1,9 @@
+import { CalendarClock } from 'lucide-react'
 import type { TripEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
+import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from '../bookings/status-badge'
 import { clientAccountLabel, displayPickup, itineraryLabel, tripDriverName, urgencyRowClass } from '../bookings/trip-status'
 
@@ -9,6 +11,8 @@ interface PlanningListProps {
   trips: TripEntity[]
   onEdit: (trip: TripEntity) => void
   onAdvance: (trip: TripEntity) => void
+  hasActiveFilters?: boolean
+  onResetFilters?: () => void
 }
 
 /**
@@ -16,7 +20,7 @@ interface PlanningListProps {
  * is a single list, not split Local/Farm-out (common.js's planning List view
  * reused the same row format but never applied that split).
  */
-export function PlanningList({ trips, onEdit, onAdvance }: PlanningListProps) {
+export function PlanningList({ trips, onEdit, onAdvance, hasActiveFilters, onResetFilters }: PlanningListProps) {
   return (
     <TableCard>
       <Table>
@@ -35,8 +39,14 @@ export function PlanningList({ trips, onEdit, onAdvance }: PlanningListProps) {
         <TableBody>
           {trips.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-muted-foreground text-center">
-                No trips to display.
+              <TableCell colSpan={8} className="p-0 whitespace-normal">
+                <EmptyState
+                  icon={CalendarClock}
+                  title="No trips to display"
+                  description="Trips scheduled for this view will appear here."
+                  hasActiveFilters={hasActiveFilters}
+                  onResetFilters={onResetFilters}
+                />
               </TableCell>
             </TableRow>
           ) : (

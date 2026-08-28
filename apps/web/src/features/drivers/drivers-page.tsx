@@ -17,11 +17,13 @@ import { DriverUnavailabilityDialog } from './driver-unavailability-dialog'
 import { UnlinkVehicleDialog } from './unlink-vehicle-dialog'
 import { defaultDriverFilters, driverBookingPrefill, type DriverFilters } from './driver-status'
 import { PageTitle } from '@/components/layout/page-title'
+import { filtersChanged } from '@/lib/utils'
 
 const PAGE_SIZE = 20
 
 export function DriversPage() {
   const [filters, setFilters] = useState(defaultDriverFilters())
+  const hasActiveFilters = filtersChanged(filters, defaultDriverFilters())
   const [page, setPage] = useState(1)
   const [editTarget, setEditTarget] = useState<DriverEntity | null>(null)
   const [unavailabilityTarget, setUnavailabilityTarget] = useState<DriverEntity | null>(null)
@@ -54,6 +56,8 @@ export function DriversPage() {
     setPage(1)
   }
 
+  const resetFilters = () => handleFiltersChange(defaultDriverFilters())
+
   const handleToggleActive = async (driver: DriverEntity) => {
     try {
       await setActive.mutateAsync({ ref: driver.ref, data: { active: !driver.active } })
@@ -71,7 +75,7 @@ export function DriversPage() {
         <DriverCreateDialog />
       </div>
 
-      <DriverFiltersBar filters={filters} onChange={handleFiltersChange} />
+      <DriverFiltersBar filters={filters} onChange={handleFiltersChange} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
 
       <DriversTable
         drivers={drivers.data?.data ?? []}
@@ -82,6 +86,8 @@ export function DriversPage() {
         onUnlinkVehicle={setUnlinkTarget}
         onNewBooking={(d) => setBookingPrefill(driverBookingPrefill(d))}
         canReactivate={canReactivate}
+        hasActiveFilters={hasActiveFilters}
+        onResetFilters={resetFilters}
       />
 
       <ListPagination page={page} limit={PAGE_SIZE} total={drivers.data?.total ?? 0} onPageChange={setPage} />

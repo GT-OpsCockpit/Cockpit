@@ -12,6 +12,7 @@ import { NameboardUploadDialog } from '../bookings/nameboard-upload-dialog'
 import { downloadPartnerExcel } from './invoice-excel'
 import { PartnerFiltersBar } from './partner-filters-bar'
 import { applyPartnerFilters, defaultPartnerFilters } from './partner-filters'
+import { filtersChanged } from '@/lib/utils'
 
 /**
  * Same search mechanics as Customer, scoped to trip.partner instead of
@@ -21,6 +22,8 @@ import { applyPartnerFilters, defaultPartnerFilters } from './partner-filters'
  */
 export function PartnerLogTab() {
   const [filters, setFilters] = useState(defaultPartnerFilters())
+  const hasActiveFilters = filtersChanged(filters, defaultPartnerFilters())
+  const resetFilters = () => setFilters(defaultPartnerFilters())
   const trips = useTripsControllerList({ period: 'all' })
 
   const [editTarget, setEditTarget] = useState<TripEntity | null>(null)
@@ -36,7 +39,7 @@ export function PartnerLogTab() {
     <div className="grid gap-6">
       <div className="grid gap-3">
         <h2 className="text-lg font-semibold">Partner log</h2>
-        <PartnerFiltersBar filters={filters} onChange={setFilters} />
+        <PartnerFiltersBar filters={filters} onChange={setFilters} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
       </div>
 
       <div className="grid gap-2">
@@ -61,6 +64,8 @@ export function PartnerLogTab() {
           onDispatch={setDispatchTarget}
           onAdvance={setAdvanceTarget}
           onNameboard={setNameboardTarget}
+          hasActiveFilters={hasActiveFilters}
+          onResetFilters={resetFilters}
         />
       </div>
 

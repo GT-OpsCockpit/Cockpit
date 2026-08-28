@@ -1,10 +1,11 @@
-import { Check, FileDown, FileSpreadsheet, PenSquare, Send } from 'lucide-react'
+import { Check, FileDown, FileSpreadsheet, PenSquare, ReceiptText, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import type { InvoiceEntity } from '@cockpit/shared/api'
 import { useMetaControllerGetMeta } from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
+import { EmptyState } from '@/components/empty-state'
 import { clientDisplayName } from '../bookings/trip-status'
 import { downloadInvoiceDetailExcel } from './invoice-excel'
 import { downloadInvoicePdf } from './invoice-pdf'
@@ -14,7 +15,15 @@ import { buildInvoiceMailto } from './invoice-send'
  * One row per invoice (not per trip) — mirrors the legacy's
  * renderInvoicesTable/buildInvoiceRowHtml (invoicing.html:422-459).
  */
-export function InvoicedTable({ invoices }: { invoices: InvoiceEntity[] }) {
+export function InvoicedTable({
+  invoices,
+  hasActiveFilters,
+  onResetFilters,
+}: {
+  invoices: InvoiceEntity[]
+  hasActiveFilters?: boolean
+  onResetFilters?: () => void
+}) {
   const meta = useMetaControllerGetMeta()
   // The invoice's nested trips are the lean TripBaseEntity (no joined vehicleType) — resolve the
   // "Category" column's display name from meta instead (see invoice-calc.ts's invoiceLineRows).
@@ -52,8 +61,14 @@ export function InvoicedTable({ invoices }: { invoices: InvoiceEntity[] }) {
         <TableBody>
           {sorted.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-muted-foreground text-center">
-                No invoices to display for this period.
+              <TableCell colSpan={8} className="p-0 whitespace-normal">
+                <EmptyState
+                  icon={ReceiptText}
+                  title="No invoices to display for this period"
+                  description="Invoices created for this period will appear here."
+                  hasActiveFilters={hasActiveFilters}
+                  onResetFilters={onResetFilters}
+                />
               </TableCell>
             </TableRow>
           ) : (

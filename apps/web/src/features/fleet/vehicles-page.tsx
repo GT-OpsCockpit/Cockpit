@@ -21,11 +21,13 @@ import { VehiclesTable } from './vehicles-table'
 import { VehicleUnavailabilityDialog } from './vehicle-unavailability-dialog'
 import { defaultVehicleFilters, vehicleBookingPrefill, type VehicleFilters } from './vehicle-status'
 import { PageTitle } from '@/components/layout/page-title'
+import { filtersChanged } from '@/lib/utils'
 
 const PAGE_SIZE = 20
 
 export function VehiclesPage() {
   const [filters, setFilters] = useState(defaultVehicleFilters())
+  const hasActiveFilters = filtersChanged(filters, defaultVehicleFilters())
   const [page, setPage] = useState(1)
   const [editTarget, setEditTarget] = useState<FleetVehicleEntity | null>(null)
   const [unavailabilityTarget, setUnavailabilityTarget] = useState<FleetVehicleEntity | null>(null)
@@ -58,6 +60,8 @@ export function VehiclesPage() {
     setPage(1)
   }
 
+  const resetFilters = () => handleFiltersChange(defaultVehicleFilters())
+
   const handleToggleActive = async (vehicle: FleetVehicleEntity) => {
     try {
       await setActive.mutateAsync({ ref: vehicle.ref, data: { active: !vehicle.active } })
@@ -75,7 +79,7 @@ export function VehiclesPage() {
         <VehicleCreateDialog />
       </div>
 
-      <VehicleFiltersBar filters={filters} onChange={handleFiltersChange} />
+      <VehicleFiltersBar filters={filters} onChange={handleFiltersChange} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
 
       <VehiclesTable
         vehicles={vehicles.data?.data ?? []}
@@ -86,6 +90,8 @@ export function VehiclesPage() {
         onNewBooking={(v) => setBookingPrefill(vehicleBookingPrefill(v))}
         canReactivate={canReactivate}
         fleetColors={meta.data?.fleetColors}
+        hasActiveFilters={hasActiveFilters}
+        onResetFilters={resetFilters}
       />
 
       <ListPagination page={page} limit={PAGE_SIZE} total={vehicles.data?.total ?? 0} onPageChange={setPage} />

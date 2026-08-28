@@ -3,6 +3,7 @@ import { ClientsControllerListType, useClientsControllerList, useDriversControll
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { Input } from '@/components/ui/input'
+import { FilterResetButton } from '@/components/filter-reset-button'
 import type { PartnerFilters } from './partner-filters'
 
 const PICKER_LIMIT = 20
@@ -12,9 +13,13 @@ const PICKER_DEBOUNCE_MS = 300
 export function PartnerFiltersBar({
   filters,
   onChange,
+  hasActiveFilters,
+  onReset,
 }: {
   filters: PartnerFilters
   onChange: (filters: PartnerFilters) => void
+  hasActiveFilters: boolean
+  onReset: () => void
 }) {
   const [partnerSearch, setPartnerSearch] = useState('')
   const { debounced: debouncedPartnerSearch, pending: partnerSearchPending } = useDebouncedSearch(partnerSearch, PICKER_DEBOUNCE_MS)
@@ -92,6 +97,8 @@ export function PartnerFiltersBar({
         onSearchChange={setEventSearch}
         loading={eventSearchPending || events.isFetching}
       />
+
+      <FilterResetButton onReset={onReset} hasActiveFilters={hasActiveFilters} />
     </div>
   )
 }

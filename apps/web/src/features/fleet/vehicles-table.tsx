@@ -1,4 +1,4 @@
-import { CalendarPlus, Pencil, RotateCcw, Wrench, X } from 'lucide-react'
+import { CalendarPlus, Pencil, RotateCcw, Truck, Wrench, X } from 'lucide-react'
 import type { FleetColorEntity, FleetVehicleEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { driverDisplayName } from '@/features/bookings/trip-status'
@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { CountryLabel } from '@/components/country-label'
 import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
+import { EmptyState } from '@/components/empty-state'
 import { unavailabilityLabel } from './vehicle-status'
 
 interface VehiclesTableProps {
@@ -21,6 +22,8 @@ interface VehiclesTableProps {
   canReactivate: boolean
   /** For the Color swatch's dot — kept as a prop (fetched by the page) rather than an internal useMetaControllerGetMeta() call, so this stays a plain presentational component like DriversTable. */
   fleetColors?: FleetColorEntity[]
+  hasActiveFilters?: boolean
+  onResetFilters?: () => void
 }
 
 function ColorSwatch({ color, hex }: { color: string; hex?: string }) {
@@ -119,8 +122,14 @@ export function VehiclesTable(props: VehiclesTableProps) {
                 <TableSkeletonRows columns={11} />
               ) : internal.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-muted-foreground text-center">
-                    No internal vehicles yet.
+                  <TableCell colSpan={11} className="p-0 whitespace-normal">
+                    <EmptyState
+                      icon={Truck}
+                      title="No internal vehicles yet"
+                      description="Vehicles added to the fleet will appear here."
+                      hasActiveFilters={props.hasActiveFilters}
+                      onResetFilters={props.onResetFilters}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -181,8 +190,14 @@ export function VehiclesTable(props: VehiclesTableProps) {
                 <TableSkeletonRows columns={14} />
               ) : external.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={14} className="text-muted-foreground text-center">
-                    No external vehicles yet.
+                  <TableCell colSpan={14} className="p-0 whitespace-normal">
+                    <EmptyState
+                      icon={Truck}
+                      title="No external vehicles yet"
+                      description="Partner vehicles added to the fleet will appear here."
+                      hasActiveFilters={props.hasActiveFilters}
+                      onResetFilters={props.onResetFilters}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (

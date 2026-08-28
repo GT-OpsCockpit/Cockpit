@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { FilterResetButton } from '@/components/filter-reset-button'
 import type { ClientFilters } from './client-status'
 
 const ALL_TYPES = '__all__'
@@ -10,9 +11,13 @@ const ALL_TYPES = '__all__'
 export function ClientFiltersBar({
   filters,
   onChange,
+  hasActiveFilters,
+  onReset,
 }: {
   filters: ClientFilters
   onChange: (filters: ClientFilters) => void
+  hasActiveFilters: boolean
+  onReset: () => void
 }) {
   const set = <K extends keyof ClientFilters>(key: K, value: ClientFilters[K]) => onChange({ ...filters, [key]: value })
 
@@ -46,6 +51,7 @@ export function ClientFiltersBar({
             Show deactivated
           </Label>
         </div>
+        <FilterResetButton onReset={onReset} hasActiveFilters={hasActiveFilters} />
       </div>
     </div>
   )

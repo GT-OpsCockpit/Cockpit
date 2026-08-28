@@ -1,6 +1,7 @@
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { FilterResetButton } from '@/components/filter-reset-button'
 import type { TripPeriod } from '../bookings/trip-status'
 import type { PlanningCategory, PlanningFilters, PlanningView } from './planning-status'
 
@@ -19,10 +20,19 @@ interface PlanningFiltersBarProps {
   onChange: (filters: PlanningFilters) => void
   resourceOptions: { value: string; label: string }[]
   resourceLabel: string
+  hasActiveFilters: boolean
+  onReset: () => void
 }
 
 /** Mirrors the legacy's two toolbars (planning-chauffeur.html:36-62) — Daily/Event/All + period/resource filter, then List/Timeline + date/days (Timeline only). */
-export function PlanningFiltersBar({ filters, onChange, resourceOptions, resourceLabel }: PlanningFiltersBarProps) {
+export function PlanningFiltersBar({
+  filters,
+  onChange,
+  resourceOptions,
+  resourceLabel,
+  hasActiveFilters,
+  onReset,
+}: PlanningFiltersBarProps) {
   const set = <K extends keyof PlanningFilters>(key: K, value: PlanningFilters[K]) =>
     onChange({ ...filters, [key]: value })
 
@@ -65,6 +75,8 @@ export function PlanningFiltersBar({ filters, onChange, resourceOptions, resourc
             ))}
           </SelectContent>
         </Select>
+
+        <FilterResetButton onReset={onReset} hasActiveFilters={hasActiveFilters} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
