@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { TripEntityBilling, TripEntityService } from '@cockpit/shared/api'
+import { optionalPhone } from '@/lib/contact-fields'
 
 export const tripFormSchema = z
   .object({
@@ -18,7 +19,7 @@ export const tripFormSchema = z
     dropoffLocation: z.string().optional(),
     instructions: z.string().optional(),
     pocName: z.string().optional(),
-    pocPhone: z.string().optional(),
+    pocPhone: optionalPhone(),
     driverRef: z.string().optional(),
     fleetRegNbr: z.string().optional(),
     subContractor: z.boolean(),

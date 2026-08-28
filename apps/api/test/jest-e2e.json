@@ -1,5 +1,5 @@
 {
-  "moduleFileExtensions": ["js", "json", "ts"],
+  "moduleFileExtensions": ["js", "cjs", "json", "ts"],
   "rootDir": "..",
   "testEnvironment": "node",
   "testRegex": "test/.*\\.e2e-spec\\.ts$",
@@ -9,6 +9,7 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "moduleNameMapper": {
+    "^libphonenumber-js/max$": "<rootDir>/../../packages/shared/node_modules/libphonenumber-js/max/index.cjs",
     "^(\\.{1,2}/.*)\\.js$": "$1",
     "^@cockpit/shared$": "<rootDir>/../../packages/shared/src/index.ts"
   }

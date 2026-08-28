@@ -6,6 +6,7 @@ import {
 import * as argon2 from 'argon2';
 import { normalizeEmail } from '@cockpit/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizePhone } from '../common/utils/normalize-phone';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PublicUserEntity } from './dto/user.entity';
@@ -51,7 +52,7 @@ export class UsersService {
         role: dto.role,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        phone: dto.phone,
+        phone: normalizePhone(dto.phone),
       },
       select: PUBLIC_SELECT,
     });
@@ -73,7 +74,7 @@ export class UsersService {
         role: dto.role,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        phone: dto.phone,
+        phone: normalizePhone(dto.phone),
       },
       select: PUBLIC_SELECT,
     });

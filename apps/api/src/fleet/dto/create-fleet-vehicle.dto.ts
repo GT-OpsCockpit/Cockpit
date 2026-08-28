@@ -7,6 +7,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { IsCountryCode } from '../../common/validators/contact.validators';
 
 export class CreateFleetVehicleDto {
   /** Vehicle-type NAME (not id/ref) — matches an existing VehicleType.name. */
@@ -47,7 +48,7 @@ export class CreateFleetVehicleDto {
   isLocal?: boolean;
 
   @IsOptional()
-  @IsString()
+  @IsCountryCode()
   countryCode?: string;
 
   @IsOptional()
@@ -68,7 +69,7 @@ export class CreateFleetVehicleDto {
   eventsOnly?: boolean;
 
   @IsOptional()
-  @IsString()
+  @IsCountryCode()
   eventCountry?: string;
 
   @IsOptional()

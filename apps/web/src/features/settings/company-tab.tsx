@@ -4,11 +4,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Pencil } from 'lucide-react'
 import { useCompanyControllerGet, useCompanyControllerUpdate } from '@cockpit/shared/api'
+import type { CompanyInfoEntity } from '@cockpit/shared/api'
+import { formatPhoneDisplay } from '@cockpit/shared'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { usePermission } from '@/features/auth/use-permission'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CountryLabel } from '@/components/country-label'
 import { Form } from '@/components/ui/form'
 import { CompanyFormFields } from './company-form-fields'
 import { companyFormDefaults, companyFormSchema, type CompanyFormValues } from './company-form-schema'
@@ -29,6 +32,13 @@ const COMPANY_FIELDS: { key: keyof CompanyFormValues; label: string }[] = [
   { key: 'mobile', label: 'Mobile' },
   { key: 'ownerEmail', label: 'Owner email' },
 ]
+
+/** Country and mobile are stored as a code and as E.164 — neither reads well raw. */
+function companyFieldValue(key: keyof CompanyFormValues, saved: CompanyInfoEntity) {
+  if (key === 'countryCode') return <CountryLabel code={saved[key]} />
+  if (key === 'mobile') return formatPhoneDisplay(saved[key]) || '—'
+  return saved[key] || '—'
+}
 
 export function CompanyTab() {
   const canEdit = usePermission('company:edit')
@@ -93,7 +103,7 @@ export function CompanyTab() {
             {COMPANY_FIELDS.map(({ key, label }) => (
               <div key={key}>
                 <dt className="text-muted-foreground text-xs">{label}</dt>
-                <dd className="text-sm">{saved[key] || '—'}</dd>
+                <dd className="text-sm">{companyFieldValue(key, saved)}</dd>
               </div>
             ))}
           </dl>

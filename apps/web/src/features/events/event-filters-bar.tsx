@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ClientsControllerListType, useClientsControllerList, useMetaControllerGetMeta } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
+import { useCountryOptions } from '@/hooks/use-country-options'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { EventFilters } from './event-filters'
@@ -19,6 +20,7 @@ export function EventFiltersBar({
   onChange: (filters: EventFilters) => void
 }) {
   const meta = useMetaControllerGetMeta()
+  const countryOptions = [{ value: '', label: 'All countries' }, ...useCountryOptions()]
 
   const [clientSearch, setClientSearch] = useState('')
   const { debounced: debouncedClientSearch, pending: clientSearchPending } = useDebouncedSearch(clientSearch, PICKER_DEBOUNCE_MS)
@@ -48,19 +50,17 @@ export function EventFiltersBar({
         loading={clientSearchPending || clients.isFetching}
       />
 
-      <Select value={filters.countryCode || ALL} onValueChange={(v) => set('countryCode', v === ALL ? '' : v)}>
-        <SelectTrigger className="w-40">
-          <SelectValue placeholder="All countries" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>All countries</SelectItem>
-          {(meta.data?.countries ?? []).map((c) => (
-            <SelectItem key={c.code} value={c.code}>
-              {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* A <Select> here meant scrolling 210 unsearchable rows, and labelled them
+          by name alone where every other screen shows "Name (CODE)". */}
+      <SearchCombobox
+        className="w-40"
+        aria-label="Country"
+        value={filters.countryCode}
+        onChange={(v) => set('countryCode', v)}
+        options={countryOptions}
+        placeholder="All countries"
+        searchPlaceholder="Search country…"
+      />
 
       <Input
         className="w-36"

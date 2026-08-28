@@ -9,6 +9,7 @@
     "./api": "./src/api/index.ts"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.102.4"
+    "@tanstack/react-query": "^5.102.4",
+    "libphonenumber-js": "^1.13.12"
   }
 }

@@ -14,12 +14,12 @@ function fullyValid(): CompanyFormValues {
     website: 'https://cockpit.test',
     ownerSurname: 'Dubois',
     ownerName: 'Marc',
-    mobile: '0611111111',
+    mobile: '+33611111111',
     ownerEmail: 'marc.dubois@cockpit.test',
   }
 }
 
-describe('companyFormSchema — mirrors UpdateCompanyInfoDto (all-or-nothing, no format checks)', () => {
+describe('companyFormSchema — mirrors UpdateCompanyInfoDto (all-or-nothing, plus contact formats)', () => {
   it('accepts a fully filled form', () => {
     expect(companyFormSchema.safeParse(fullyValid()).success).toBe(true)
   })
@@ -49,9 +49,21 @@ describe('companyFormSchema — mirrors UpdateCompanyInfoDto (all-or-nothing, no
     if (!result.success) expect(result.error.issues.map((i) => String(i.path[0]))).toContain(field)
   })
 
-  it('does not require email/ownerEmail to look like an email — the backend never has either', () => {
-    expect(companyFormSchema.safeParse({ ...fullyValid(), email: 'not-an-email', ownerEmail: 'also-not' }).success).toBe(
-      true,
-    )
+  it('rejects an email or owner email that is not one', () => {
+    const result = companyFormSchema.safeParse({ ...fullyValid(), email: 'not-an-email', ownerEmail: 'also-not' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => String(i.path[0]))).toEqual(expect.arrayContaining(['email', 'ownerEmail']))
+    }
+  })
+
+  it('rejects a mobile that is not a real number, or that omits its country code', () => {
+    // "0611111111" is the shape the field used to accept and store, and the
+    // one Twilio could never dial (whatsapp:+0611111111).
+    for (const mobile of ['not-a-phone', '0611111111', '+33400456789']) {
+      const result = companyFormSchema.safeParse({ ...fullyValid(), mobile })
+      expect(result.success).toBe(false)
+      if (!result.success) expect(result.error.issues.map((i) => String(i.path[0]))).toContain('mobile')
+    }
   })
 })

@@ -366,7 +366,7 @@ describe('Fleet (e2e)', () => {
       const driver = await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({ firstName: 'John', lastName: 'Smith', phone: '0611111111' })
+        .send({ firstName: 'John', lastName: 'Smith', phone: '+33611111111' })
         .expect(201);
       const local = await request(server())
         .post('/api/fleet-vehicles')

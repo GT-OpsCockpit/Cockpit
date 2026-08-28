@@ -2,6 +2,7 @@ import { CalendarOff, Wrench } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import type { DriverEntity, FleetVehicleEntity, TripEntity } from '@cockpit/shared/api'
+import { formatPhoneDisplay } from '@cockpit/shared'
 import {
   getTripsControllerListQueryKey,
   useDriversControllerList,
@@ -103,7 +104,7 @@ export function PlanningPage() {
       return {
         key: d.ref,
         label: driverDisplayName(d),
-        subLabel: d.phone ?? undefined,
+        subLabel: formatPhoneDisplay(d.phone) || undefined,
         icon: {
           icon: CalendarOff,
           title: 'Day off / Holidays / Sickness leave',

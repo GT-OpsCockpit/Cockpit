@@ -1,4 +1,9 @@
 import { IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsCountryCode,
+  IsEmailFormat,
+  IsPhone,
+} from '../../common/validators/contact.validators';
 
 // All 13 fields are required together, matching the legacy's all-or-nothing
 // COMPANY_INFO_FIELDS validation.
@@ -23,16 +28,14 @@ export class UpdateCompanyInfoDto {
   @IsNotEmpty()
   city: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsCountryCode()
   countryCode: string;
 
   @IsString()
   @IsNotEmpty()
   vatNbr: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsEmailFormat()
   email: string;
 
   @IsString()
@@ -47,11 +50,9 @@ export class UpdateCompanyInfoDto {
   @IsNotEmpty()
   ownerName: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsPhone()
   mobile: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsEmailFormat()
   ownerEmail: string;
 }

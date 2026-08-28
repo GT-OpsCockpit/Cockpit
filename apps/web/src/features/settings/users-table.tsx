@@ -1,5 +1,6 @@
 import { Pencil, X } from 'lucide-react'
 import type { PublicUserEntity } from '@cockpit/shared/api'
+import { formatPhoneDisplay } from '@cockpit/shared'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -46,7 +47,7 @@ export function UsersTable({ users, onEdit, onDeactivate, canManage }: UsersTabl
                 <TableCell className="text-xs font-medium">{user.id.slice(0, 8)}</TableCell>
                 <TableCell className="text-xs">{user.firstName}</TableCell>
                 <TableCell className="text-xs">{user.lastName}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">{user.phone ?? '—'}</TableCell>
+                <TableCell className="text-muted-foreground text-xs">{formatPhoneDisplay(user.phone) || '—'}</TableCell>
                 <TableCell className="text-muted-foreground text-xs">{user.email}</TableCell>
                 <TableCell className="text-xs">{user.role}</TableCell>
                 <TableCell className="text-xs">

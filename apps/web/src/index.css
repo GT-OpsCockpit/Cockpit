@@ -1,5 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Country flags (.fi .fi-fr), used by <CountryFlag>. Vite rewrites the
+   stylesheet's relative url(../flags/4x3/xx.svg) into emitted assets, so the
+   browser only fetches the flags actually rendered — unlike a bundled set of
+   SVG components, which would ship all ~250 in the JS whatever is on screen. */
+@import "flag-icons/css/flag-icons.min.css";
 
 :root {
   --radius: 0.75rem;

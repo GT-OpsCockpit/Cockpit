@@ -19,6 +19,7 @@ export function InvoicedTable({ invoices }: { invoices: InvoiceEntity[] }) {
   // The invoice's nested trips are the lean TripBaseEntity (no joined vehicleType) — resolve the
   // "Category" column's display name from meta instead (see invoice-calc.ts's invoiceLineRows).
   const vehicleTypeNameById = Object.fromEntries((meta.data?.vehicleTypes ?? []).map((v) => [v.id, v.name]))
+  const countryNameByCode = Object.fromEntries((meta.data?.countries ?? []).map((c) => [c.code, c.name]))
 
   const sorted = invoices.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
@@ -80,14 +81,14 @@ export function InvoicedTable({ invoices }: { invoices: InvoiceEntity[] }) {
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" title="Download PDF" onClick={() => void downloadInvoicePdf(invoice, vehicleTypeNameById)}>
+                      <Button variant="ghost" size="icon" title="Download PDF" onClick={() => void downloadInvoicePdf(invoice, vehicleTypeNameById, countryNameByCode[invoice.client.countryCode ?? ''] ?? null)}>
                         <FileDown className="size-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         title="Download Excel"
-                        onClick={() => void downloadInvoiceDetailExcel(invoice, vehicleTypeNameById)}
+                        onClick={() => void downloadInvoiceDetailExcel(invoice, vehicleTypeNameById, countryNameByCode[invoice.client.countryCode ?? ''] ?? null)}
                       >
                         <FileSpreadsheet className="size-3.5" />
                       </Button>

@@ -11,6 +11,7 @@ import {
 } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
+import { requiredEmail } from '@/lib/contact-fields'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -35,7 +36,9 @@ import {
 const OTP_TTL_SECONDS = 5 * 60
 
 const credentialsSchema = z.object({
-  email: z.string().email('Enter a valid email address.'),
+  // requiredEmail, not z.email(): the API checks the address with the shared
+  // isValidEmail, and zod's own regex disagrees with it on edge cases.
+  email: requiredEmail('Email is required.'),
   password: z.string().min(1, 'Password is required.'),
 })
 

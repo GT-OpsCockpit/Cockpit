@@ -9,7 +9,7 @@ export function baseDriver(overrides: Partial<DriverEntity> = {}): DriverEntity 
     countryCode: 'FR',
     firstName: 'John',
     lastName: 'Smith',
-    phone: '0611111111',
+    phone: '+33611111111',
     company: null,
     email: null,
     area: 'Local',

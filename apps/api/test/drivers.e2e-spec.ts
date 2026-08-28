@@ -50,7 +50,7 @@ const EVENTS_DRIVER = {
   firstName: 'A',
   lastName: 'B',
   email: 'a@b.test',
-  phone: '0611111111',
+  phone: '+33611111111',
   countryCode: 'MC',
   area: 'Monaco',
   eventCountry: 'MC',
@@ -107,25 +107,56 @@ describe('Drivers (e2e)', () => {
     const res = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '06 12 34 56 78' })
+      .send({
+        firstName: 'John',
+        lastName: 'Smith',
+        phone: '+33 6 12 34 56 78',
+      })
       .expect(201);
     const body = res.body as DriverBody;
     expect(body.ref).toBe('D-FR-INT-001');
     expect(body.name).toBe('John Smith');
-    expect(body.phone).toBe('0612345678');
+    // Stored canonically, spacing dropped.
+    expect(body.phone).toBe('+33612345678');
+  });
+
+  it('refuses a phone that is not a real number in international format', async () => {
+    // "0612345678" is the shape the column used to hold, and the one that made
+    // Twilio's `whatsapp:+0612345678` undialable — a national number cannot be
+    // resolved without knowing the country, so the API no longer guesses.
+    for (const phone of [
+      '0612345678',
+      '33612345678',
+      'not-a-phone',
+      '+33400456789',
+    ]) {
+      await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({ firstName: 'John', lastName: 'Smith', phone })
+        .expect(400);
+    }
+  });
+
+  it('refuses an email that is not one', async () => {
+    await request(server())
+      .post('/api/drivers')
+      .set('Cookie', cookie)
+      .send({ company: 'Uber', email: 'ops@uber' })
+      .expect(400);
   });
 
   it('dedups by phone: posting the same phone again returns the existing driver, not a new one', async () => {
     const first = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '0612345678' })
+      .send({ firstName: 'John', lastName: 'Smith', phone: '+33612345678' })
       .expect(201);
 
     const second = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'Someone', lastName: 'Else', phone: '0612345678' })
+      .send({ firstName: 'Someone', lastName: 'Else', phone: '+33612345678' })
       .expect(201);
 
     expect((second.body as DriverBody).ref).toBe(
@@ -193,7 +224,7 @@ describe('Drivers (e2e)', () => {
         company: 'Uber',
         firstName: 'Bob',
         email: 'bob@uber.test',
-        phone: '0611111111',
+        phone: '+33611111111',
       })
       .expect(201);
   });
@@ -208,7 +239,7 @@ describe('Drivers (e2e)', () => {
         firstName: 'A',
         lastName: 'B',
         email: 'a@b.test',
-        phone: '0611111111',
+        phone: '+33611111111',
       })
       .expect(400); // no eventRef
 
@@ -345,7 +376,7 @@ describe('Drivers (e2e)', () => {
     const created = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '0612345678' })
+      .send({ firstName: 'John', lastName: 'Smith', phone: '+33612345678' })
       .expect(201);
     const ref = (created.body as DriverBody).ref;
 
@@ -384,18 +415,18 @@ describe('Drivers (e2e)', () => {
     await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '0612345678' })
+      .send({ firstName: 'John', lastName: 'Smith', phone: '+33612345678' })
       .expect(201);
     const second = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'Jane', lastName: 'Doe', phone: '0699999999' })
+      .send({ firstName: 'Jane', lastName: 'Doe', phone: '+33699999999' })
       .expect(201);
 
     await request(server())
       .put(`/api/drivers/${(second.body as DriverBody).ref}`)
       .set('Cookie', cookie)
-      .send({ firstName: 'Jane', lastName: 'Doe', phone: '0612345678' })
+      .send({ firstName: 'Jane', lastName: 'Doe', phone: '+33612345678' })
       .expect(409);
   });
 
@@ -403,7 +434,7 @@ describe('Drivers (e2e)', () => {
     const created = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '0612345678' })
+      .send({ firstName: 'John', lastName: 'Smith', phone: '+33612345678' })
       .expect(201);
     const ref = (created.body as DriverBody).ref;
     await request(server())
@@ -422,7 +453,7 @@ describe('Drivers (e2e)', () => {
     const created = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '0612345678' })
+      .send({ firstName: 'John', lastName: 'Smith', phone: '+33612345678' })
       .expect(201);
     const ref = (created.body as DriverBody).ref;
 
@@ -507,14 +538,14 @@ describe('Drivers (e2e)', () => {
         .send({
           firstName: 'Riviera',
           lastName: `Driver${i}`,
-          phone: `061111000${i}`,
+          phone: `+3361111000${i}`,
         })
         .expect(201);
     }
     const other = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'Someone', lastName: 'Else', phone: '0622220000' })
+      .send({ firstName: 'Someone', lastName: 'Else', phone: '+33622220000' })
       .expect(201);
     await request(server())
       .patch(`/api/drivers/${(other.body as DriverBody).ref}/active`)
@@ -583,7 +614,7 @@ describe('Drivers (e2e)', () => {
           eventArea: 'Monaco',
           eventStartDate: isoOffsetDays(-1),
           eventEndDate: isoOffsetDays(3),
-          pocPhone: '0611111111',
+          pocPhone: '+33611111111',
         })
         .expect(201);
       return res.body as ClientBody;
@@ -596,7 +627,7 @@ describe('Drivers (e2e)', () => {
         .send({
           clientType: 'COMPANY',
           company: 'Acme Corp',
-          pocPhone: '0622222222',
+          pocPhone: '+33622222222',
         })
         .expect(201);
       return res.body as ClientBody;
@@ -663,9 +694,9 @@ describe('Drivers (e2e)', () => {
     it('a daily booking excludes Events drivers, keeps in-house and partners', async () => {
       const eventClient = await createEventClient();
       const dailyClient = await createDailyClient();
-      const internal = await createInternalDriver('0630000001');
-      const partner = await createPartnerDriver('0630000002');
-      const events = await createEventsDriver('0630000003', eventClient.ref);
+      const internal = await createInternalDriver('+33630000001');
+      const partner = await createPartnerDriver('+33630000002');
+      const events = await createEventsDriver('+33630000003', eventClient.ref);
 
       const refs = await listRefs(`tripClientRef=${dailyClient.ref}`);
       expect(refs).toContain(internal.ref);
@@ -675,9 +706,9 @@ describe('Drivers (e2e)', () => {
 
     it('a non-local Events booking keeps only Events drivers', async () => {
       const eventClient = await createEventClient();
-      const internal = await createInternalDriver('0630000001');
-      const partner = await createPartnerDriver('0630000002');
-      const events = await createEventsDriver('0630000003', eventClient.ref);
+      const internal = await createInternalDriver('+33630000001');
+      const partner = await createPartnerDriver('+33630000002');
+      const events = await createEventsDriver('+33630000003', eventClient.ref);
 
       const refs = await listRefs(
         `tripClientRef=${eventClient.ref}&tripArea=Paris&tripCountryCode=FR`,
@@ -689,9 +720,9 @@ describe('Drivers (e2e)', () => {
 
     it('a LOCAL Events booking also keeps in-house drivers, but never partners', async () => {
       const eventClient = await createEventClient();
-      const internal = await createInternalDriver('0630000001');
-      const partner = await createPartnerDriver('0630000002');
-      const events = await createEventsDriver('0630000003', eventClient.ref);
+      const internal = await createInternalDriver('+33630000001');
+      const partner = await createPartnerDriver('+33630000002');
+      const events = await createEventsDriver('+33630000003', eventClient.ref);
 
       // Monaco makes the booking local (isLocalTrip), which is what lets an
       // in-house driver take an Events job.
@@ -704,8 +735,8 @@ describe('Drivers (e2e)', () => {
     });
 
     it('availableOnly drops a driver on a day off today, keeps one off tomorrow', async () => {
-      const offToday = await createInternalDriver('0630000001');
-      const offTomorrow = await createInternalDriver('0630000002');
+      const offToday = await createInternalDriver('+33630000001');
+      const offTomorrow = await createInternalDriver('+33630000002');
       for (const [driver, date] of [
         [offToday, isoOffsetDays(0)],
         [offTomorrow, isoOffsetDays(1)],
@@ -726,7 +757,7 @@ describe('Drivers (e2e)', () => {
     });
 
     it('availableOnly drops a driver on holidays covering today', async () => {
-      const driver = await createInternalDriver('0630000001');
+      const driver = await createInternalDriver('+33630000001');
       await request(server())
         .patch(`/api/drivers/${driver.ref}/unavailability`)
         .set('Cookie', cookie)
@@ -751,18 +782,18 @@ describe('Drivers (e2e)', () => {
           eventArea: 'Monaco',
           eventStartDate: isoOffsetDays(30),
           eventEndDate: isoOffsetDays(35),
-          pocPhone: '0611111111',
+          pocPhone: '+33611111111',
         })
         .expect(201);
       const resting = await createEventsDriver(
-        '0630000003',
+        '+33630000003',
         (upcoming.body as ClientBody).ref,
       );
 
       expect(await listRefs('availableOnly=true')).not.toContain(resting.ref);
 
       const running = await createEventClient();
-      const active = await createEventsDriver('0630000004', running.ref);
+      const active = await createEventsDriver('+33630000004', running.ref);
       expect(await listRefs('availableOnly=true')).toContain(active.ref);
     });
   });

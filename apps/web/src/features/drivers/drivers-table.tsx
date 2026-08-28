@@ -1,5 +1,6 @@
 import { CalendarClock, CalendarPlus, Lock, Pencil, RotateCcw, X } from 'lucide-react'
 import type { DriverEntity } from '@cockpit/shared/api'
+import { formatPhoneDisplay } from '@cockpit/shared'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -112,7 +113,7 @@ function DriverGroup({
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{driver.phone ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{formatPhoneDisplay(driver.phone) || '—'}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{driver.email ?? '—'}</TableCell>
                     <TableCell className="text-xs">{driver.area}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">

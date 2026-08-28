@@ -1,6 +1,8 @@
 import type { UseFormReturn } from 'react-hook-form'
-import { useMetaControllerGetMeta } from '@cockpit/shared/api'
 import { SearchCombobox } from '@/components/search-combobox'
+import { EmailInput } from '@/components/email-input'
+import { PhoneInput } from '@/components/phone-input'
+import { useCountryOptions } from '@/hooks/use-country-options'
 import { Input } from '@/components/ui/input'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import type { CompanyFormValues } from './company-form-schema'
@@ -12,8 +14,7 @@ export function CompanyFormFields({
   form: UseFormReturn<CompanyFormValues>
   disabled?: boolean
 }) {
-  const meta = useMetaControllerGetMeta()
-  const countryOptions = (meta.data?.countries ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
+  const countryOptions = useCountryOptions()
 
   return (
     <fieldset disabled={disabled} className="contents">
@@ -145,7 +146,7 @@ export function CompanyFormFields({
             <FormItem className="max-w-sm">
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <EmailInput value={field.value} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -189,7 +190,11 @@ export function CompanyFormFields({
               <FormItem>
                 <FormLabel>Mobile</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <PhoneInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    countryCode={form.watch('countryCode')}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -202,7 +207,7 @@ export function CompanyFormFields({
               <FormItem>
                 <FormLabel>Owner email</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <EmailInput value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

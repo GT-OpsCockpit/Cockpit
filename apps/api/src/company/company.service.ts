@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCompanyInfoDto } from './dto/update-company-info.dto';
+import { normalizePhone } from '../common/utils/normalize-phone';
 import { CompanyInfoEntity } from './dto/company-info.entity';
 
 const SINGLETON_ID = 1;
@@ -24,10 +25,13 @@ export class CompanyService {
   // company sheet uncorrectable forever; the `company:edit` permission on
   // the controller is what plays the Owner-password gate's role now.
   update(dto: UpdateCompanyInfoDto): Promise<CompanyInfoEntity> {
+    // The DTO is spread wholesale, so `mobile` used to reach the column exactly
+    // as typed — the one phone in the app that skipped normalization entirely.
+    const data = { ...dto, mobile: normalizePhone(dto.mobile) };
     return this.prisma.companyInfo.upsert({
       where: { id: SINGLETON_ID },
-      create: { id: SINGLETON_ID, ...dto, saved: true },
-      update: { ...dto, saved: true },
+      create: { id: SINGLETON_ID, ...data, saved: true },
+      update: { ...data, saved: true },
     });
   }
 }

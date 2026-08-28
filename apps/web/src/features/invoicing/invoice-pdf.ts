@@ -11,7 +11,12 @@ import { invoiceLineRows, round2 } from './invoice-calc'
  * html2canvas/purify chunk) are only needed once a user actually clicks a
  * download button, not on every page load.
  */
-export async function downloadInvoicePdf(invoice: InvoiceEntity, vehicleTypeNameById: Record<string, string>): Promise<void> {
+export async function downloadInvoicePdf(
+  invoice: InvoiceEntity,
+  vehicleTypeNameById: Record<string, string>,
+  /** The client's country spelled out — an invoice address reads "France", not "FR". */
+  countryName: string | null,
+): Promise<void> {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')])
   const doc = new jsPDF()
   const rightX = doc.internal.pageSize.getWidth() - 14
@@ -26,7 +31,7 @@ export async function downloadInvoicePdf(invoice: InvoiceEntity, vehicleTypeName
   const addressLines = [
     invoice.client.address,
     [invoice.client.postalCode, invoice.client.city].filter(Boolean).join(' '),
-    invoice.client.countryCode,
+    countryName ?? invoice.client.countryCode,
   ].filter((line): line is string => !!line)
   for (const line of addressLines) {
     doc.text(line, 14, leftY)

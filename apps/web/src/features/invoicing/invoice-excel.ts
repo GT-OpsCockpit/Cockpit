@@ -118,8 +118,13 @@ export async function downloadPartnerExcel(trips: TripEntity[], targetLabel: str
 }
 
 /** Per-invoice detail export (📊 in the Invoiced row) — header block + ride details + totals, mirrors downloadInvoiceExcel (invoicing.html:551-594). */
-export async function downloadInvoiceDetailExcel(invoice: InvoiceEntity, vehicleTypeNameById: Record<string, string>): Promise<void> {
-  const addressLine = [invoice.client.address, [invoice.client.postalCode, invoice.client.city].filter(Boolean).join(' '), invoice.client.countryCode]
+export async function downloadInvoiceDetailExcel(
+  invoice: InvoiceEntity,
+  vehicleTypeNameById: Record<string, string>,
+  /** The client's country spelled out — an invoice address reads "France", not "FR". */
+  countryName: string | null,
+): Promise<void> {
+  const addressLine = [invoice.client.address, [invoice.client.postalCode, invoice.client.city].filter(Boolean).join(' '), countryName ?? invoice.client.countryCode]
     .filter(Boolean)
     .join(', ')
   const rows = invoiceLineRows(invoice, vehicleTypeNameById)

@@ -1,14 +1,12 @@
-import {
-  IsEmail,
-  IsEnum,
-  IsOptional,
-  IsString,
-  MinLength,
-} from 'class-validator';
+import { IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 import { Role } from '../../../generated/prisma/enums';
+import {
+  IsEmailFormat,
+  IsPhone,
+} from '../../common/validators/contact.validators';
 
 export class UpdateUserDto {
-  @IsEmail()
+  @IsEmailFormat()
   email: string;
 
   @IsEnum(Role)
@@ -23,6 +21,6 @@ export class UpdateUserDto {
   lastName: string;
 
   @IsOptional()
-  @IsString()
+  @IsPhone()
   phone?: string;
 }

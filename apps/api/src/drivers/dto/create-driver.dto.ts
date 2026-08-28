@@ -1,8 +1,13 @@
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import {
+  IsCountryCode,
+  IsEmailFormat,
+  IsPhone,
+} from '../../common/validators/contact.validators';
 
 export class CreateDriverDto {
   @IsOptional()
-  @IsString()
+  @IsCountryCode()
   countryCode?: string;
 
   @IsOptional()
@@ -14,7 +19,7 @@ export class CreateDriverDto {
   lastName?: string;
 
   @IsOptional()
-  @IsString()
+  @IsPhone()
   phone?: string;
 
   @IsOptional()
@@ -26,7 +31,7 @@ export class CreateDriverDto {
   area?: string;
 
   @IsOptional()
-  @IsString()
+  @IsEmailFormat()
   email?: string;
 
   @IsOptional()
@@ -34,7 +39,7 @@ export class CreateDriverDto {
   eventsOnly?: boolean;
 
   @IsOptional()
-  @IsString()
+  @IsCountryCode()
   eventCountry?: string;
 
   @IsOptional()

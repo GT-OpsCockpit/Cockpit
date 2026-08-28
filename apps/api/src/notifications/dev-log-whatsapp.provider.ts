@@ -13,9 +13,8 @@ export class DevLogWhatsAppProvider implements WhatsAppProvider {
   private readonly logger = new Logger('WhatsApp(dev)');
 
   async send(phone: string, body: string): Promise<void> {
-    this.logger.warn(
-      `[not sent — Twilio not configured] to +${phone}: ${body}`,
-    );
+    // `phone` is E.164, plus sign included — no "+" of our own to add.
+    this.logger.warn(`[not sent — Twilio not configured] to ${phone}: ${body}`);
     await Promise.resolve();
   }
 }

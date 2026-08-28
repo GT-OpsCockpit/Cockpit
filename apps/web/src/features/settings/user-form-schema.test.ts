@@ -9,7 +9,7 @@ function validCreate() {
     role: CreateUserDtoRole.DISPATCHER,
     firstName: 'Jane',
     lastName: 'Doe',
-    phone: '0611111111',
+    phone: '+33611111111',
   }
 }
 

@@ -33,7 +33,7 @@ test.describe('Settings — Users tab (ADMIN)', () => {
     await dialog.getByLabel('Surname', { exact: true }).fill('E2E')
     await dialog.getByLabel('Name', { exact: true }).fill(`Settings ${stamp}`)
     await dialog.getByLabel('Email', { exact: true }).fill(email)
-    await dialog.getByLabel('Mobile', { exact: true }).fill('0611111111')
+    await dialog.getByLabel('Mobile', { exact: true }).fill('+33611111111')
     await dialog.getByLabel('Password', { exact: true }).fill('password123')
     await dialog.getByRole('button', { name: 'Create' }).click()
     await expect(toast(page, `User ${email} created.`)).toBeVisible()

@@ -5,6 +5,7 @@ import type { FleetVehicleEntity } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { AreaField } from '@/components/area-field'
+import { useCountryOptions } from '@/hooks/use-country-options'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -101,7 +102,7 @@ export function VehicleFormFields({
     for (let y = meta.data.fleetMaxYear; y >= meta.data.fleetMinYear; y--) years.push(y)
   }
 
-  const countryOptions = (meta.data?.countries ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
+  const countryOptions = useCountryOptions()
 
   const eventOptions = (eventClients.data?.data ?? []).map((c) => ({ value: c.ref, label: `${c.name} (${c.ref})` }))
   const eventSelectedLabel = vehicle?.eventClient ? `${vehicle.eventClient.company} (${vehicle.eventClient.ref})` : undefined

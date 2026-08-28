@@ -183,9 +183,12 @@ export class DriversService {
   async create(dto: CreateDriverDto): Promise<DriverEntity> {
     assertValidDriverFields(dto);
 
-    if (dto.phone) {
+    // null, never '': Driver.phone is a unique column, so several phone-less
+    // partner companies would collide on '' but not on NULL.
+    const phone = normalizePhone(dto.phone);
+    if (phone) {
       const existing = await this.prisma.driver.findUnique({
-        where: { phone: normalizePhone(dto.phone) },
+        where: { phone },
         include: DRIVER_INCLUDE,
       });
       if (existing) return withName(existing);
@@ -211,9 +214,7 @@ export class DriversService {
         countryCode: dto.countryCode || null,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        // null (not '') when absent: phone is a real unique column, and
-        // multiple phone-less partner companies must not collide on ''.
-        phone: dto.phone ? normalizePhone(dto.phone) : null,
+        phone,
         company: dto.company || null,
         email: dto.email || null,
         area: dto.area?.trim() || 'Local',
@@ -231,9 +232,11 @@ export class DriversService {
     const existing = await this.findByRefOrThrow(ref);
     assertValidDriverFields(dto);
 
-    if (dto.phone !== undefined && dto.phone) {
+    if (dto.phone !== undefined) {
       const normalized = normalizePhone(dto.phone);
-      if (normalized !== existing.phone) {
+      // Only a real number can collide — clearing the field writes NULL, and
+      // NULL never equals NULL on a unique index.
+      if (normalized && normalized !== existing.phone) {
         const conflict = await this.prisma.driver.findUnique({
           where: { phone: normalized },
         });
@@ -272,9 +275,7 @@ export class DriversService {
         }),
         ...(dto.firstName !== undefined && { firstName: dto.firstName }),
         ...(dto.lastName !== undefined && { lastName: dto.lastName }),
-        ...(dto.phone !== undefined && {
-          phone: dto.phone ? normalizePhone(dto.phone) : null,
-        }),
+        ...(dto.phone !== undefined && { phone: normalizePhone(dto.phone) }),
         ...(dto.company !== undefined && { company: dto.company || null }),
         ...(dto.email !== undefined && { email: dto.email || null }),
         ...(dto.area !== undefined && { area: dto.area.trim() || 'Local' }),

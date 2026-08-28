@@ -9,9 +9,14 @@ import {
   MinLength,
 } from 'class-validator';
 import { Service, Billing } from '../../../generated/prisma/enums';
+import {
+  IsCountryCode,
+  IsEmailFormat,
+  IsPhone,
+} from '../../common/validators/contact.validators';
 
 export class CreateTripDto {
-  @IsString()
+  @IsCountryCode()
   countryCode: string;
 
   @IsOptional()
@@ -51,11 +56,11 @@ export class CreateTripDto {
   pocName?: string;
 
   @IsOptional()
-  @IsString()
+  @IsPhone()
   pocPhone?: string;
 
   @IsOptional()
-  @IsString()
+  @IsEmailFormat()
   pocEmail?: string;
 
   @IsOptional()

@@ -1,5 +1,6 @@
 import { CalendarPlus, Pencil, RotateCcw, X } from 'lucide-react'
 import type { ClientEntity } from '@cockpit/shared/api'
+import { formatPhoneDisplay } from '@cockpit/shared'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -50,7 +51,7 @@ export function ClientsTable({ clients, loading = false, onEdit, onToggleActive,
                 </TableCell>
                 <TableCell className="text-xs">{clientTypeLabel(client.clientType)}</TableCell>
                 <TableCell className="text-muted-foreground text-xs">{client.email ?? '—'}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">{client.pocPhone ?? '—'}</TableCell>
+                <TableCell className="text-muted-foreground text-xs">{formatPhoneDisplay(client.pocPhone) || '—'}</TableCell>
                 <TableCell className="text-xs">{client.billing ?? '—'}</TableCell>
                 <TableCell className="whitespace-nowrap">
                   <div className="flex gap-1">

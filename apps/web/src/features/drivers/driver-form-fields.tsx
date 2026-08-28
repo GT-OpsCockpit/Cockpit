@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
-import { ClientsControllerListType, useClientsControllerList, useMetaControllerGetMeta } from '@cockpit/shared/api'
+import { ClientsControllerListType, useClientsControllerList } from '@cockpit/shared/api'
 import type { DriverEntity } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { AreaField } from '@/components/area-field'
+import { EmailInput } from '@/components/email-input'
+import { PhoneInput } from '@/components/phone-input'
+import { useCountryOptions } from '@/hooks/use-country-options'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -23,8 +26,6 @@ export function DriverFormFields({
   driver?: DriverEntity | null
   disabled?: boolean
 }) {
-  const meta = useMetaControllerGetMeta()
-
   const [eventSearch, setEventSearch] = useState('')
   const { debounced: debouncedEventSearch, pending: eventSearchPending } = useDebouncedSearch(eventSearch, EVENT_PICKER_DEBOUNCE_MS)
 
@@ -61,7 +62,7 @@ export function DriverFormFields({
     form.setValue('eventRef', '')
   }, [eventsOnly, countryCode, area, form])
 
-  const countryOptions = (meta.data?.countries ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
+  const countryOptions = useCountryOptions()
 
   const eventOptions = (eventClients.data?.data ?? []).map((c) => ({ value: c.ref, label: `${c.name} (${c.ref})` }))
   const eventSelectedLabel = driver?.eventClient ? `${driver.eventClient.company} (${driver.eventClient.ref})` : undefined
@@ -119,7 +120,7 @@ export function DriverFormFields({
               <FormItem>
                 <FormLabel>Phone</FormLabel>
                 <FormControl>
-                  <Input placeholder="+33…" {...field} />
+                  <PhoneInput value={field.value ?? ''} onChange={field.onChange} countryCode={countryCode} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -134,7 +135,7 @@ export function DriverFormFields({
             <FormItem className="max-w-sm">
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="email" {...field} />
+                <EmailInput value={field.value ?? ''} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>

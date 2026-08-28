@@ -72,7 +72,7 @@ test.describe('Public driver/track pages', () => {
     expect(driverViewBody.driver).toBeUndefined()
     // pocPhone is stored digits-only (normalizePhone strips the '+') — see
     // apps/api/src/common/utils/normalize-phone.ts.
-    expect(driverViewBody.pocPhone).toBe('33611112222')
+    expect(driverViewBody.pocPhone).toBe('+33611112222')
     expect(driverViewBody.instructions).toBe('Meet at Terminal 2 arrivals')
 
     await expect(page.getByRole('heading', { name: 'Hello Julien Petit' })).toBeVisible()

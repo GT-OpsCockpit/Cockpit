@@ -184,6 +184,14 @@ export async function seedFixtures(prisma: PrismaClient): Promise<void> {
   // Dedup by phone, same guarantee as DriversService.create().
   for (const d of drivers) {
     const phone = normalizePhone(d.phone);
+    // The seed authors its numbers in E.164 already; a null here means one of
+    // the literals above is wrong, and a driver seeded without a phone would
+    // silently drop out of the dedup.
+    if (!phone) {
+      throw new Error(
+        `Seed driver ${d.firstName} ${d.lastName} has an invalid phone: ${d.phone}`,
+      );
+    }
     const existing = await prisma.driver.findUnique({ where: { phone } });
     if (existing) continue;
     const prefix = driverRefPrefix(d.countryCode, d.area, d.company);

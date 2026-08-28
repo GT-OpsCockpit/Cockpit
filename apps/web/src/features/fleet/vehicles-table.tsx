@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { driverDisplayName } from '@/features/bookings/trip-status'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { CountryLabel } from '@/components/country-label'
 import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { unavailabilityLabel } from './vehicle-status'
@@ -188,7 +189,9 @@ export function VehiclesTable(props: VehiclesTableProps) {
                 external.map((vehicle) => (
                   <TableRow key={vehicle.ref} className={cn(!vehicle.active && 'opacity-50')}>
                     <TableCell className="text-xs font-medium">{vehicle.ref}</TableCell>
-                    <TableCell className="text-xs">{vehicle.countryCode ?? '—'}</TableCell>
+                    <TableCell className="text-xs">
+                      <CountryLabel code={vehicle.countryCode} />
+                    </TableCell>
                     <TableCell className="text-xs">{vehicle.area ?? '—'}</TableCell>
                     <TableCell className="text-xs">{vehicle.partnerCompany ?? '—'}</TableCell>
                     <TableCell className="text-xs">

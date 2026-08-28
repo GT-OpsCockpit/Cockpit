@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Check, ChevronsUpDown, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,12 @@ export interface ComboboxOption {
    * absent option reads as "no such concept", a disabled one as "not here".
    */
   disabled?: boolean
+  /**
+   * Rendered before the label, in the list and on the trigger — the country
+   * pickers' flag. Kept out of `label` because cmdk filters on that string,
+   * and out of the shared `icon` prop because this one varies per option.
+   */
+  prefix?: ReactNode
 }
 
 interface SearchComboboxProps {
@@ -85,26 +91,35 @@ interface SearchComboboxProps {
   'aria-label'?: string
 }
 
+interface RememberedOption {
+  label: string
+  prefix?: ReactNode
+}
+
 /**
- * Remembers the label of every option this combobox has displayed, so the
- * trigger keeps showing the selected item's name after that item falls out
- * of a remote search's results.
+ * Remembers the label (and prefix) of every option this combobox has
+ * displayed, so the trigger keeps showing the selected item's name after that
+ * item falls out of a remote search's results.
  *
  * Deliberately state + effect, not a ref mutated during render: the labels
  * change because a query (an external system) resolved, and this project's
  * React Compiler requires render purity — a memoized render could skip
  * re-running and read a stale ref.
+ *
+ * Freshness is decided on the label alone: `prefix` is a React element, rebuilt
+ * on every render by callers that map their options inline, so comparing it
+ * would report a change every time and loop the effect forever.
  */
-function useLabelMemory(options: ComboboxOption[]): Map<string, string> {
-  const [memory, setMemory] = useState<Map<string, string>>(new Map())
+function useOptionMemory(options: ComboboxOption[]): Map<string, RememberedOption> {
+  const [memory, setMemory] = useState<Map<string, RememberedOption>>(new Map())
 
   useEffect(() => {
     setMemory((prev) => {
       let changed = false
       const next = new Map(prev)
       for (const option of options) {
-        if (next.get(option.value) !== option.label) {
-          next.set(option.value, option.label)
+        if (next.get(option.value)?.label !== option.label) {
+          next.set(option.value, { label: option.label, prefix: option.prefix })
           changed = true
         }
       }
@@ -146,14 +161,17 @@ export function SearchCombobox({
   const remote = onSearchChange !== undefined
   const search = searchValue ?? (allowCustomValue ? ownSearch : undefined)
   const handleSearchChange = onSearchChange ?? (allowCustomValue ? setOwnSearch : undefined)
-  const labelMemory = useLabelMemory(options)
+  const optionMemory = useOptionMemory(options)
+  const selectedOption = options.find((o) => o.value === value)
+  const remembered = optionMemory.get(value)
   // A free-text value is its own label — it is whatever the user typed, and
   // no option carries it.
   const currentLabel =
-    options.find((o) => o.value === value)?.label ??
-    labelMemory.get(value) ??
+    selectedOption?.label ??
+    remembered?.label ??
     selectedLabel ??
     (allowCustomValue && value ? value : undefined)
+  const currentPrefix = selectedOption?.prefix ?? remembered?.prefix
 
   const trimmedSearch = (search ?? '').trim()
   const showCustomValue =
@@ -183,6 +201,7 @@ export function SearchCombobox({
         >
           <span className="flex min-w-0 items-center gap-2">
             {Icon && <Icon className="size-4 shrink-0 opacity-60" aria-hidden="true" />}
+            {currentLabel !== undefined && currentPrefix}
             <span className="min-w-0 truncate">{currentLabel ?? placeholder}</span>
           </span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
@@ -244,6 +263,7 @@ export function SearchCombobox({
                   }}
                 >
                   <Check className={cn('mr-2 size-4', value === option.value ? 'opacity-100' : 'opacity-0')} />
+                  {option.prefix}
                   <div className="flex flex-col">
                     <span>{option.label}</span>
                     {option.description && (

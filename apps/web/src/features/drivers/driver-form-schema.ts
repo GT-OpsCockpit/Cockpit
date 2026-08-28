@@ -1,13 +1,15 @@
 import { z } from 'zod'
+import { optionalEmail, optionalPhone } from '@/lib/contact-fields'
 
 /**
  * Mirrors DriversService's assertValidDriverFields() exactly
  * (apps/api/src/drivers/drivers.service.ts) plus the Country/Area/Event
  * requirements EventLinkService.resolveEventClientId() enforces for an
- * eventsOnly driver. Unlike clientFormSchema, this deliberately does NOT
- * validate email format — the backend never has for drivers, only for
- * clients, and this schema mirrors the backend as it actually is rather than
- * inventing a stricter rule.
+ * eventsOnly driver.
+ *
+ * The superRefine rules below decide *whether* a phone or email is required
+ * (it depends on the kind of driver); the field declarations decide whether
+ * what was typed is a real one, mirroring the API's @IsPhone/@IsEmailFormat.
  */
 export const driverFormSchema = z
   .object({
@@ -15,9 +17,9 @@ export const driverFormSchema = z
     area: z.string().optional(),
     firstName: z.string().optional(),
     lastName: z.string().optional(),
-    phone: z.string().optional(),
+    phone: optionalPhone(),
     company: z.string().optional(),
-    email: z.string().optional(),
+    email: optionalEmail(),
     eventsOnly: z.boolean(),
     eventCountry: z.string().optional(),
     eventArea: z.string().optional(),

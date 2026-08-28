@@ -23,6 +23,16 @@ const ts = require('typescript');
  * `--experimental-vm-modules`, where Jest loads this file as a genuine ES
  * module. Emitting CommonJS there would blow up the other way round
  * ("ReferenceError: exports is not defined"), so follow Jest's lead.
+ *
+ * That split is also why test/jest-e2e.json maps `libphonenumber-js/max` to the
+ * library's CommonJS build, and the unit config does not. Under the ESM branch
+ * above, `validation/phone.js` stays ESM, so its import of that library is
+ * resolved by Jest's ESM registry — which cannot load the library's own
+ * metadata JSON correctly (it arrives double-wrapped, and libphonenumber
+ * rejects it with "`metadata` argument was passed but it's not a valid
+ * metadata"). Pointing at the CommonJS build keeps the library and its metadata
+ * in one registry. The unit config already takes the require() path, because
+ * this transformer has rewritten the shared ESM to CommonJS for it.
  */
 module.exports = {
   process(sourceText, sourcePath, options) {

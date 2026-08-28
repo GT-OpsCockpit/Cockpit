@@ -26,21 +26,33 @@ function issuePaths(values: DriverFormValues): string[] {
 describe('driverFormSchema — conditional validation (mirrors assertValidDriverFields)', () => {
   describe('internal driver — no company: firstName, lastName and phone required', () => {
     it('accepts a fully valid internal driver', () => {
-      expect(driverFormSchema.safeParse(base({ firstName: 'John', lastName: 'Smith', phone: '0611111111' })).success).toBe(
+      expect(driverFormSchema.safeParse(base({ firstName: 'John', lastName: 'Smith', phone: '+33611111111' })).success).toBe(
         true,
       )
     })
 
     it('rejects with any of firstName/lastName/phone blank', () => {
-      expect(issuePaths(base({ lastName: 'Smith', phone: '0611111111' }))).toContain('firstName')
-      expect(issuePaths(base({ firstName: 'John', phone: '0611111111' }))).toContain('lastName')
+      expect(issuePaths(base({ lastName: 'Smith', phone: '+33611111111' }))).toContain('firstName')
+      expect(issuePaths(base({ firstName: 'John', phone: '+33611111111' }))).toContain('lastName')
       expect(issuePaths(base({ firstName: 'John', lastName: 'Smith' }))).toContain('phone')
     })
 
     it('does not require email', () => {
-      expect(driverFormSchema.safeParse(base({ firstName: 'John', lastName: 'Smith', phone: '0611111111' })).success).toBe(
+      expect(driverFormSchema.safeParse(base({ firstName: 'John', lastName: 'Smith', phone: '+33611111111' })).success).toBe(
         true,
       )
+    })
+  })
+
+  describe('contact formats (mirrors the API\'s @IsPhone / @IsEmailFormat)', () => {
+    it('rejects a phone that is not E.164, including the national form it used to store', () => {
+      for (const phone of ['0611111111', 'not-a-phone', '+33400456789']) {
+        expect(issuePaths(base({ firstName: 'John', lastName: 'Smith', phone }))).toContain('phone')
+      }
+    })
+
+    it('rejects an email that is not one', () => {
+      expect(issuePaths(base({ company: 'Uber', email: 'ops@uber' }))).toContain('email')
     })
   })
 
@@ -61,13 +73,13 @@ describe('driverFormSchema — conditional validation (mirrors assertValidDriver
   describe('named partner chauffeur (company + a name) — email AND phone required', () => {
     it('accepts with company, a name, email and phone', () => {
       const result = driverFormSchema.safeParse(
-        base({ company: 'Uber', firstName: 'Bob', email: 'bob@uber.test', phone: '0611111111' }),
+        base({ company: 'Uber', firstName: 'Bob', email: 'bob@uber.test', phone: '+33611111111' }),
       )
       expect(result.success).toBe(true)
     })
 
     it('rejects with email blank', () => {
-      expect(issuePaths(base({ company: 'Uber', firstName: 'Bob', phone: '0611111111' }))).toContain('email')
+      expect(issuePaths(base({ company: 'Uber', firstName: 'Bob', phone: '+33611111111' }))).toContain('email')
     })
 
     it('rejects with phone blank', () => {
@@ -87,7 +99,7 @@ describe('driverFormSchema — conditional validation (mirrors assertValidDriver
         firstName: 'A',
         lastName: 'B',
         email: 'a@b.test',
-        phone: '0611111111',
+        phone: '+33611111111',
         eventCountry: 'MC',
         eventArea: 'Monaco',
         eventRef: 'CE1',

@@ -1,8 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { FleetUnavailabilityEntityType } from '@cockpit/shared/api'
-import { VehiclesTable } from './vehicles-table'
-import { baseVehicle } from './test-fixtures'
+
+// The Country column renders <CountryLabel>, which reads the country catalogue
+// off /meta to spell the code out. Stub just that hook (the rest of the module
+// is kept) so the table stays renderable without a QueryClientProvider.
+vi.mock('@cockpit/shared/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@cockpit/shared/api')>()),
+  useMetaControllerGetMeta: () => ({ data: { countries: [{ code: 'FR', name: 'France' }] } }),
+}))
+
+const { VehiclesTable } = await import('./vehicles-table')
+const { baseVehicle } = await import('./test-fixtures')
 
 afterEach(cleanup)
 
@@ -33,7 +42,7 @@ describe('VehiclesTable', () => {
     render(<VehiclesTable vehicles={[external]} canReactivate {...noop} />)
 
     const externalGroup = screen.getByText('Fleet - External').closest('div')!
-    expect(within(externalGroup).getByText('FR')).toBeInTheDocument()
+    expect(within(externalGroup).getByText('France (FR)')).toBeInTheDocument()
     expect(within(externalGroup).getByText('Paris')).toBeInTheDocument()
     expect(within(externalGroup).getByText('Acme')).toBeInTheDocument()
   })
@@ -121,7 +130,7 @@ describe('VehiclesTable', () => {
         countryCode: 'FR',
         firstName: 'Bob',
         lastName: 'Partner',
-        phone: '0611111111',
+        phone: '+33611111111',
         company: 'Acme',
         email: 'bob@acme.test',
         area: 'Paris',

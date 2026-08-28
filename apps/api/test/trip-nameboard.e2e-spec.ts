@@ -43,7 +43,7 @@ describe('Trip nameboard upload (e2e)', () => {
         clientType: 'INDIVIDUAL',
         contactFirstName: 'Jane',
         contactLastName: 'Doe',
-        pocPhone: '0611111111',
+        pocPhone: '+33611111111',
       })
       .expect(201);
     const trip = await request(server())
@@ -80,7 +80,7 @@ describe('Trip nameboard upload (e2e)', () => {
         clientType: 'INDIVIDUAL',
         contactFirstName: 'Jane',
         contactLastName: 'Doe',
-        pocPhone: '0611111111',
+        pocPhone: '+33611111111',
       })
       .expect(201);
     const trip = await request(server())

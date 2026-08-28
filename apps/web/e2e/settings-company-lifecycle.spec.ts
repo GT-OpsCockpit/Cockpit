@@ -26,7 +26,7 @@ const COMPANY = {
   email: 'contact@cockpit.test',
   ownerSurname: 'Dubois',
   ownerName: 'Marc',
-  mobile: '0611111111',
+  mobile: '+33611111111',
   ownerEmail: 'marc.dubois@cockpit.test',
 }
 

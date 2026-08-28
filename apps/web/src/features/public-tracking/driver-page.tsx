@@ -9,6 +9,7 @@ import {
   TripStepEntityStep,
   type PublicTripEntity,
 } from '@cockpit/shared/api'
+import { formatPhoneDisplay } from '@cockpit/shared'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import { pickupLocalInstant } from '@/features/bookings/trip-status'
@@ -101,7 +102,7 @@ export function DriverPage() {
           label="Passenger"
           value={`${trip.passengerName}${trip.paxCount ? ` · ${trip.paxCount} pax` : ''}`}
         />
-        {trip.tracking && <InfoRow label="POC WhatsApp" value={`${trip.pocName ?? ''} (${trip.pocPhone ?? '—'})`} />}
+        {trip.tracking && <InfoRow label="POC WhatsApp" value={`${trip.pocName ?? ''} (${formatPhoneDisplay(trip.pocPhone) || '—'})`} />}
         <InfoRow label="Date / time" value={`${pickup.toFormat('dd/MM/yyyy')} at ${pickup.toFormat('HH:mm')} (local time)`} />
         <InfoRow label="Pickup" value={trip.pickupLocation} />
         <InfoRow label="Destination" value={trip.dropoffLocation || '—'} />

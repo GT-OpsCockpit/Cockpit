@@ -1,5 +1,10 @@
 import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
 import { ClientType, Billing } from '../../../generated/prisma/enums';
+import {
+  IsCountryCode,
+  IsEmailFormat,
+  IsPhone,
+} from '../../common/validators/contact.validators';
 
 export class CreateClientDto {
   @IsEnum(ClientType)
@@ -38,7 +43,7 @@ export class CreateClientDto {
   city?: string;
 
   @IsOptional()
-  @IsString()
+  @IsCountryCode()
   countryCode?: string;
 
   @IsOptional()
@@ -46,7 +51,7 @@ export class CreateClientDto {
   vatNumber?: string;
 
   @IsOptional()
-  @IsString()
+  @IsEmailFormat()
   email?: string;
 
   @IsOptional()
@@ -58,15 +63,15 @@ export class CreateClientDto {
   pocName?: string;
 
   @IsOptional()
-  @IsString()
+  @IsPhone()
   pocPhone?: string;
 
   @IsOptional()
-  @IsString()
+  @IsEmailFormat()
   pocEmail?: string;
 
   @IsOptional()
-  @IsString()
+  @IsCountryCode()
   eventCountry?: string;
 
   @IsOptional()

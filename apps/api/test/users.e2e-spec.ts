@@ -43,7 +43,7 @@ describe('Users (e2e)', () => {
         role: Role.DISPATCHER,
         firstName: 'Dana',
         lastName: 'Dispatch',
-        phone: '0600000000',
+        phone: '+33600000000',
       })
       .expect(201);
     expect(createRes.body).not.toHaveProperty('passwordHash');

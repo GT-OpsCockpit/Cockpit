@@ -17,7 +17,7 @@ const FULL_PAYLOAD = {
   website: 'https://cockpit.test',
   ownerSurname: 'Doe',
   ownerName: 'John',
-  mobile: '0600000000',
+  mobile: '+33600000000',
   ownerEmail: 'owner@cockpit.test',
 };
 

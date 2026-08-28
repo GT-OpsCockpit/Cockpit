@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { isValidEmail } from '@cockpit/shared'
 import { ClientEntityBilling, ClientEntityClientType } from '@cockpit/shared/api'
+import { optionalEmail, optionalPhone } from '@/lib/contact-fields'
 
 /** Mirrors ClientsService.create()/update()'s conditional validation exactly (apps/api/src/clients/clients.service.ts). */
 export const clientFormSchema = z
@@ -16,11 +16,11 @@ export const clientFormSchema = z
     city: z.string().optional(),
     countryCode: z.string().optional(),
     vatNumber: z.string().optional(),
-    email: z.string().optional(),
+    email: optionalEmail(),
     billing: z.enum([ClientEntityBilling.ACCOUNT, ClientEntityBilling.CASH, ClientEntityBilling.CARD]),
     pocName: z.string().optional(),
-    pocPhone: z.string().optional(),
-    pocEmail: z.string().optional(),
+    pocPhone: optionalPhone(),
+    pocEmail: optionalEmail(),
     eventCountry: z.string().optional(),
     eventArea: z.string().optional(),
     eventStartDate: z.string().optional(),
@@ -54,15 +54,6 @@ export const clientFormSchema = z
       const message = 'First and last name are required for an Individual-type account.'
       ctx.addIssue({ code: 'custom', path: ['contactFirstName'], message })
       ctx.addIssue({ code: 'custom', path: ['contactLastName'], message })
-    }
-
-    // Mirrors ClientsService.create()/update()'s format check exactly — same
-    // isValidEmail() from @cockpit/shared, not a second regex re-derived here.
-    if (data.email?.trim() && !isValidEmail(data.email.trim())) {
-      ctx.addIssue({ code: 'custom', path: ['email'], message: 'Please enter a valid email address.' })
-    }
-    if (data.pocEmail?.trim() && !isValidEmail(data.pocEmail.trim())) {
-      ctx.addIssue({ code: 'custom', path: ['pocEmail'], message: 'Please enter a valid POC email address.' })
     }
   })
 

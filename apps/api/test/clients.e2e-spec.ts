@@ -55,7 +55,7 @@ describe('Clients (e2e)', () => {
     const body = res.body as ClientBody;
     expect(body.ref).toBe('CI1');
     expect(body.name).toBe('Jane Doe');
-    expect(body.pocPhone).toBe('33612345678');
+    expect(body.pocPhone).toBe('+33612345678');
     expect(body.pocName).toBe('Jane Doe');
   });
 
@@ -245,7 +245,7 @@ describe('Clients (e2e)', () => {
         clientType: 'INDIVIDUAL',
         contactFirstName: 'A',
         contactLastName: 'A',
-        pocPhone: '0611111111',
+        pocPhone: '+33611111111',
       })
       .expect(201);
     const ref = (client.body as ClientBody).ref;
@@ -611,7 +611,7 @@ describe('Clients (e2e)', () => {
 
     it('offers the crew of a finished Event at the same location, and nobody else', async () => {
       const lastYear = await createEvent({ company: 'Grand Prix 2026' });
-      const dormant = await createEventsDriver('0611000001', lastYear.ref);
+      const dormant = await createEventsDriver('+33611000001', lastYear.ref);
       await makePast(lastYear.ref);
 
       // Still running, so not dormant.
@@ -620,7 +620,7 @@ describe('Clients (e2e)', () => {
         eventStartDate: '2026-01-01',
         eventEndDate: '2099-01-01',
       });
-      const busy = await createEventsDriver('0611000002', running.ref);
+      const busy = await createEventsDriver('+33611000002', running.ref);
 
       // Same dates, different place.
       const elsewhere = await createEvent({
@@ -628,12 +628,16 @@ describe('Clients (e2e)', () => {
         eventCountry: 'FR',
         eventArea: 'Cannes',
       });
-      const otherPlace = await createEventsDriver('0611000003', elsewhere.ref, {
-        countryCode: 'FR',
-        area: 'Cannes',
-        eventCountry: 'FR',
-        eventArea: 'Cannes',
-      });
+      const otherPlace = await createEventsDriver(
+        '+33611000003',
+        elsewhere.ref,
+        {
+          countryCode: 'FR',
+          area: 'Cannes',
+          eventCountry: 'FR',
+          eventArea: 'Cannes',
+        },
+      );
       await makePast(elsewhere.ref);
 
       const thisYear = await createEvent({ company: 'Grand Prix 2027' });
@@ -650,7 +654,7 @@ describe('Clients (e2e)', () => {
 
     it('never offers the crew already scoped to this very Event', async () => {
       const past = await createEvent({ company: 'Grand Prix 2026' });
-      const driver = await createEventsDriver('0611000004', past.ref);
+      const driver = await createEventsDriver('+33611000004', past.ref);
       await makePast(past.ref);
 
       // Scoped to `past`, which is over — so `past` itself must not offer it
@@ -662,7 +666,7 @@ describe('Clients (e2e)', () => {
 
     it('relinks the chosen records to the new Event in one call', async () => {
       const lastYear = await createEvent({ company: 'Grand Prix 2026' });
-      const driver = await createEventsDriver('0611000005', lastYear.ref);
+      const driver = await createEventsDriver('+33611000005', lastYear.ref);
       await makePast(lastYear.ref);
       const thisYear = await createEvent({ company: 'Grand Prix 2027' });
 
@@ -701,7 +705,7 @@ describe('Clients (e2e)', () => {
         eventStartDate: '2026-01-01',
         eventEndDate: '2099-01-01',
       });
-      const busy = await createEventsDriver('0611000006', running.ref);
+      const busy = await createEventsDriver('+33611000006', running.ref);
       const thisYear = await createEvent({ company: 'Grand Prix 2027' });
 
       await request(server())

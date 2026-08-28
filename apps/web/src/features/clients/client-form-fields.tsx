@@ -1,7 +1,10 @@
 import type { UseFormReturn } from 'react-hook-form'
-import { ClientEntityBilling, ClientEntityClientType, useMetaControllerGetMeta } from '@cockpit/shared/api'
+import { ClientEntityBilling, ClientEntityClientType } from '@cockpit/shared/api'
 import { SearchCombobox } from '@/components/search-combobox'
 import { AreaField } from '@/components/area-field'
+import { EmailInput } from '@/components/email-input'
+import { PhoneInput } from '@/components/phone-input'
+import { useCountryOptions } from '@/hooks/use-country-options'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -17,15 +20,13 @@ export function ClientFormFields({
   /** Locks just the Account-type select (Events creation flow — see features/events/event-client-create-dialog.tsx). */
   typeLocked?: boolean
 }) {
-  const meta = useMetaControllerGetMeta()
-
   const clientType = form.watch('clientType')
   const eventCountry = form.watch('eventCountry') ?? ''
   const isCompany = clientType === ClientEntityClientType.COMPANY
   const isEvent = clientType === ClientEntityClientType.EVENT
   const isIndividual = !isCompany && !isEvent
 
-  const countryOptions = (meta.data?.countries ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
+  const countryOptions = useCountryOptions()
 
   return (
     <fieldset disabled={disabled} className="contents">
@@ -237,7 +238,7 @@ export function ClientFormFields({
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} />
+                  <EmailInput value={field.value ?? ''} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -323,8 +324,13 @@ export function ClientFormFields({
               <FormItem>
                 <FormLabel>POC Mobile</FormLabel>
                 <FormControl>
-                  <Input placeholder="+33…" {...field} />
+                  <PhoneInput
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    countryCode={form.watch('countryCode')}
+                  />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />
@@ -335,7 +341,7 @@ export function ClientFormFields({
               <FormItem>
                 <FormLabel>POC Email</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} />
+                  <EmailInput value={field.value ?? ''} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

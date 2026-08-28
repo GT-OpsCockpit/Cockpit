@@ -1,5 +1,7 @@
 import type { FieldValues, Path, UseFormReturn } from 'react-hook-form'
 import { CreateUserDtoRole } from '@cockpit/shared/api'
+import { EmailInput } from '@/components/email-input'
+import { PhoneInput } from '@/components/phone-input'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -64,7 +66,7 @@ export function UserFormFields<T extends CommonUserFields & FieldValues>({
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} />
+                  <EmailInput value={field.value ?? ''} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -77,7 +79,9 @@ export function UserFormFields<T extends CommonUserFields & FieldValues>({
               <FormItem>
                 <FormLabel>Mobile</FormLabel>
                 <FormControl>
-                  <Input placeholder="+33…" {...field} />
+                  {/* A Cockpit user is staff; the company's own country is the
+                      sensible starting point rather than any record's. */}
+                  <PhoneInput value={field.value ?? ''} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

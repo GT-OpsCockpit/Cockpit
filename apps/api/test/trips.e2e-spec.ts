@@ -48,7 +48,7 @@ describe('Trips (e2e)', () => {
 
   const server = () => app.getHttpServer() as Parameters<typeof request>[0];
 
-  async function createClient(pocPhone = '0611111111'): Promise<ClientBody> {
+  async function createClient(pocPhone = '+33611111111'): Promise<ClientBody> {
     const res = await request(server())
       .post('/api/clients')
       .set('Cookie', cookie)
@@ -56,13 +56,15 @@ describe('Trips (e2e)', () => {
         clientType: 'INDIVIDUAL',
         contactFirstName: 'Jane',
         contactLastName: 'Doe',
-        pocPhone,
+        // "No POC phone" is an omitted field, which is what the web sends for a
+        // blank one — '' would be a value, and not a phone number.
+        ...(pocPhone ? { pocPhone } : {}),
       })
       .expect(201);
     return res.body as ClientBody;
   }
 
-  async function createDriver(phone = '0622222222'): Promise<DriverBody> {
+  async function createDriver(phone = '+33622222222'): Promise<DriverBody> {
     const res = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
@@ -171,10 +173,10 @@ describe('Trips (e2e)', () => {
     const res = await request(server())
       .post('/api/trips')
       .set('Cookie', cookie)
-      .send({ ...BASE_TRIP, clientRef: client.ref, pocPhone: '0699999999' })
+      .send({ ...BASE_TRIP, clientRef: client.ref, pocPhone: '+33699999999' })
       .expect(201);
     expect((res.body as unknown as { pocPhone: string }).pocPhone).toBe(
-      '0699999999',
+      '+33699999999',
     );
   });
 
@@ -252,7 +254,7 @@ describe('Trips (e2e)', () => {
       .set('Cookie', cookie)
       .expect(201);
     expect(whatsapp.sent).toHaveLength(1);
-    expect(whatsapp.sent[0].phone).toBe('0622222222'); // to the driver, not the POC
+    expect(whatsapp.sent[0].phone).toBe('+33622222222'); // to the driver, not the POC
 
     // Public driver page opening the link auto-stamps "received".
     const publicView = await request(server())
@@ -364,8 +366,8 @@ describe('Trips (e2e)', () => {
 
   it('reassigning the driver resets steps/dispatched/assignmentCancelled', async () => {
     const client = await createClient();
-    const driverA = await createDriver('0622222222');
-    const driverB = await createDriver('0633333333');
+    const driverA = await createDriver('+33622222222');
+    const driverB = await createDriver('+33633333333');
     const created = await request(server())
       .post('/api/trips')
       .set('Cookie', cookie)
@@ -499,8 +501,8 @@ describe('Trips (e2e)', () => {
 
   it('clears a stale cancellationFee once the trip is reassigned', async () => {
     const client = await createClient();
-    const driverA = await createDriver('0622222222');
-    const driverB = await createDriver('0633333333');
+    const driverA = await createDriver('+33622222222');
+    const driverB = await createDriver('+33633333333');
     const created = await request(server())
       .post('/api/trips')
       .set('Cookie', cookie)
@@ -548,7 +550,7 @@ describe('Trips (e2e)', () => {
 
   it('sends the partner name (not "null") on a sub-contracted, partner-assigned trip', async () => {
     const client = await createClient();
-    const partner = await createDriver('0644444444');
+    const partner = await createDriver('+33644444444');
     const created = await request(server())
       .post('/api/trips')
       .set('Cookie', cookie)
@@ -581,7 +583,7 @@ describe('Trips (e2e)', () => {
 
   it('auto-stamps RECEIVED (and TRANSMITTED if missing) when a partner opens the public tracking link', async () => {
     const client = await createClient();
-    const partner = await createDriver('0655555555');
+    const partner = await createDriver('+33655555555');
     const created = await request(server())
       .post('/api/trips')
       .set('Cookie', cookie)
@@ -616,7 +618,7 @@ describe('Trips (e2e)', () => {
     }
 
     async function createTrackedTrip() {
-      const client = await createClient('0699999999');
+      const client = await createClient('+33699999999');
       const driver = await createDriver();
       const created = await request(server())
         .post('/api/trips')
@@ -665,7 +667,7 @@ describe('Trips (e2e)', () => {
           .get(`/api/trips/${ref}?viewer=driver`)
           .expect(200)
       ).body as PublicTripBody;
-      expect(driverView.pocPhone).toBe('0699999999');
+      expect(driverView.pocPhone).toBe('+33699999999');
       expect(driverView.instructions).toBe('Handle with care');
     });
 
@@ -810,7 +812,7 @@ describe('Trips (e2e)', () => {
           eventArea: 'Monaco',
           eventStartDate: isoOffsetDays(1),
           eventEndDate: isoOffsetDays(3),
-          pocPhone: '0611111111',
+          pocPhone: '+33611111111',
         })
         .expect(201);
       const trip = await request(server())
@@ -857,7 +859,7 @@ describe('Trips (e2e)', () => {
           eventArea: 'Monaco',
           eventStartDate: isoOffsetDays(1),
           eventEndDate: isoOffsetDays(3),
-          pocPhone: '0611111111',
+          pocPhone: '+33611111111',
         })
         .expect(201);
       return res.body as ClientBody;
@@ -951,8 +953,8 @@ describe('Trips (e2e)', () => {
     // the POC about it. /assign skipped that entirely.
     it('tells the POC when a booking that already had a driver is reassigned', async () => {
       const client = await createClient();
-      const driverA = await createDriver('0622222222');
-      const driverB = await createDriver('0633333333');
+      const driverA = await createDriver('+33622222222');
+      const driverB = await createDriver('+33633333333');
       const created = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
@@ -973,7 +975,7 @@ describe('Trips (e2e)', () => {
 
     it('stays quiet when the booking had no driver to begin with', async () => {
       const client = await createClient();
-      const driver = await createDriver('0644444444');
+      const driver = await createDriver('+33644444444');
       const created = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
@@ -993,8 +995,8 @@ describe('Trips (e2e)', () => {
 
     it('stays quiet when tracking is off for that booking', async () => {
       const client = await createClient();
-      const driverA = await createDriver('0655555555');
-      const driverB = await createDriver('0666666666');
+      const driverA = await createDriver('+33655555555');
+      const driverB = await createDriver('+33666666666');
       const created = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
@@ -1042,8 +1044,8 @@ describe('Trips (e2e)', () => {
 
     it('reassigning the driver via /assign resets steps/dispatched/assignmentCancelled, same as the full PUT', async () => {
       const client = await createClient();
-      const driverA = await createDriver('0622222222');
-      const driverB = await createDriver('0633333333');
+      const driverA = await createDriver('+33622222222');
+      const driverB = await createDriver('+33633333333');
       const created = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
@@ -1173,7 +1175,7 @@ describe('Trips (e2e)', () => {
         .send({
           firstName: 'Res',
           lastName: 'Erved',
-          phone: '0699999999',
+          phone: '+33699999999',
           company: 'Uber Elite',
           email: 'reserved@example.com',
         })
@@ -1324,7 +1326,7 @@ describe('Trips (e2e)', () => {
           clientRef: client.ref,
           driverRef: driver.ref,
           pocName: 'Sophie Durand',
-          pocPhone: '0633333333',
+          pocPhone: '+33633333333',
         })
         .expect(201);
       const trip = created.body as TripBody;
@@ -1356,7 +1358,7 @@ describe('Trips (e2e)', () => {
       clientRef: client.ref,
       driverRef: driver.ref,
       pocName: 'Sophie Durand',
-      pocPhone: '0633333333',
+      pocPhone: '+33633333333',
       ...overrides,
     });
 
@@ -1372,7 +1374,7 @@ describe('Trips (e2e)', () => {
       await request(server())
         .put(`/api/trips/${trip.ref}`)
         .set('Cookie', cookie)
-        .send(putBody(trip, client, driver, { pocPhone: '0644444444' }))
+        .send(putBody(trip, client, driver, { pocPhone: '+33644444444' }))
         .expect(400);
     });
 
@@ -1397,7 +1399,7 @@ describe('Trips (e2e)', () => {
           clientRef: client.ref,
           driverRef: driver.ref,
           pocName: 'Sophie Durand',
-          pocPhone: '0633333333',
+          pocPhone: '+33633333333',
         })
         .expect(201);
       const trip = created.body as TripBody;
@@ -1435,7 +1437,7 @@ describe('Trips (e2e)', () => {
         .send({
           firstName: 'Paul',
           lastName: 'Partner',
-          phone: '0699000001',
+          phone: '+33699000001',
           company: 'Riviera Cars',
           email: 'paul@riviera.test',
           ...overrides,
@@ -1484,7 +1486,7 @@ describe('Trips (e2e)', () => {
     // reachable, and the legacy simply drew no draft in that case.
     it('draws no draft at all when there is no address on file', async () => {
       const client = await createClient();
-      const internal = await createDriver('0699000004');
+      const internal = await createDriver('+33699000004');
       const created = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
@@ -1519,12 +1521,12 @@ describe('Trips (e2e)', () => {
           website: 'https://cockpit.test',
           ownerSurname: 'Dubois',
           ownerName: 'Marc',
-          mobile: '0611111111',
+          mobile: '+33611111111',
           ownerEmail: 'marc@cockpit.test',
         })
         .expect(200);
 
-      const partner = await createPartner({ phone: '0699000005' });
+      const partner = await createPartner({ phone: '+33699000005' });
       const trip = await farmedOutTrip(partner.ref);
 
       const mail = await draft(trip.ref, 'kind=cancelled');
@@ -1536,10 +1538,10 @@ describe('Trips (e2e)', () => {
     // The cancellation draft is read before partnerRef is cleared, but the
     // override exists so the order can't silently produce an empty recipient.
     it('accepts an explicit partnerRef, for a partner the trip no longer holds', async () => {
-      const partner = await createPartner({ phone: '0699000006' });
+      const partner = await createPartner({ phone: '+33699000006' });
       const other = await createPartner({
         company: 'Alpine Cars',
-        phone: '0699000007',
+        phone: '+33699000007',
         email: 'other@alpine.test',
       });
       const trip = await farmedOutTrip(partner.ref);
@@ -1550,7 +1552,7 @@ describe('Trips (e2e)', () => {
     });
 
     it('rejects an unknown kind', async () => {
-      const partner = await createPartner({ phone: '0699000008' });
+      const partner = await createPartner({ phone: '+33699000008' });
       const trip = await farmedOutTrip(partner.ref);
 
       await request(server())

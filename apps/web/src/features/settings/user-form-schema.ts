@@ -1,18 +1,15 @@
 import { z } from 'zod'
-import { isValidEmail } from '@cockpit/shared'
 import { CreateUserDtoRole } from '@cockpit/shared/api'
+import { optionalPhone, requiredEmail } from '@/lib/contact-fields'
 
 const ROLE = z.enum([CreateUserDtoRole.ADMIN, CreateUserDtoRole.DISPATCHER])
 
 const baseShape = {
-  email: z
-    .string()
-    .min(1, 'Email is required.')
-    .refine((v) => isValidEmail(v), { message: 'Enter a valid email address.' }),
+  email: requiredEmail('Email is required.'),
   role: ROLE,
   firstName: z.string().min(1, 'Surname is required.'),
   lastName: z.string().min(1, 'Name is required.'),
-  phone: z.string().optional(),
+  phone: optionalPhone(),
 }
 
 /** Mirrors CreateUserDto exactly (apps/api/src/users/dto/create-user.dto.ts) — email/role/firstName/lastName required, phone optional, password min 8. */

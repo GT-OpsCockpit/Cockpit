@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { AreaField } from '@/components/area-field'
+import { PhoneInput } from '@/components/phone-input'
+import { useCountryOptions } from '@/hooks/use-country-options'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import { Spinner } from '@/components/ui/spinner'
@@ -165,10 +167,7 @@ export function TripFormFields({
     return `Eq. 🕐 Paris : ${paris.toFormat('HH:mm')} (${paris.toFormat('dd/MM')})`
   })()
 
-  const countryOptions = (meta.data?.countries ?? []).map((c) => ({
-    value: c.code,
-    label: `${c.name} (${c.code})`,
-  }))
+  const countryOptions = useCountryOptions()
   const selectedCountry = meta.data?.countries.find((c) => c.code === countryCode)
 
   const clientResults = (clients.data?.data ?? [])
@@ -517,8 +516,14 @@ export function TripFormFields({
             <FormItem>
               <FormLabel>POC Mobile</FormLabel>
               <FormControl>
-                <Input placeholder="+33…" disabled={pocLocked} {...field} />
+                <PhoneInput
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  countryCode={countryCode}
+                  disabled={pocLocked}
+                />
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />

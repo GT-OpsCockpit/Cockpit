@@ -79,7 +79,7 @@ describe('Permissions (e2e)', () => {
     await app.close();
   });
 
-  async function createClient(pocPhone = '0611111111'): Promise<ClientBody> {
+  async function createClient(pocPhone = '+33611111111'): Promise<ClientBody> {
     const res = await request(server())
       .post('/api/clients')
       .set('Cookie', adminCookie)
@@ -93,7 +93,9 @@ describe('Permissions (e2e)', () => {
     return res.body as ClientBody;
   }
 
-  async function createDriver(phone = '0622222222'): Promise<{ ref: string }> {
+  async function createDriver(
+    phone = '+33622222222',
+  ): Promise<{ ref: string }> {
     const res = await request(server())
       .post('/api/drivers')
       .set('Cookie', adminCookie)
@@ -295,7 +297,7 @@ describe('Permissions (e2e)', () => {
     const created = await request(server())
       .post('/api/drivers')
       .set('Cookie', adminCookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '0611112222' })
+      .send({ firstName: 'John', lastName: 'Smith', phone: '+33611112222' })
       .expect(201);
     const ref = (created.body as { ref: string }).ref;
 

@@ -91,7 +91,7 @@ describe('Geo (e2e, network-independent routes only)', () => {
         clientType: 'INDIVIDUAL',
         contactFirstName: 'Jane',
         contactLastName: 'Doe',
-        pocPhone: '0611111111',
+        pocPhone: '+33611111111',
       })
       .expect(201);
 
@@ -100,7 +100,7 @@ describe('Geo (e2e, network-independent routes only)', () => {
       .set('Cookie', cookie)
       .expect(200);
     expect((res.body as { results: { name: string }[] }).results).toEqual([
-      { name: 'Jane Doe', phone: '0611111111' },
+      { name: 'Jane Doe', phone: '+33611111111' },
     ]);
 
     const none = await request(server())
