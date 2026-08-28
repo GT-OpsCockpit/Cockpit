@@ -16,6 +16,12 @@ export const PERMISSIONS = {
   'driver:reactivate': [Role.ADMIN],
   'vehicle:reactivate': [Role.ADMIN],
   'client:create-past-event': [Role.ADMIN],
+  // Permanent hard-delete of a client / driver / fleet vehicle / vehicle
+  // type. One permission for all four, mirroring the legacy: every one of
+  // them went through openRecordModal's single onPermanentDelete gate
+  // (common.js:385-395, "Type the Manager password to permanently delete
+  // this record — this cannot be undone").
+  'record:delete': [Role.ADMIN],
 } satisfies Record<string, Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

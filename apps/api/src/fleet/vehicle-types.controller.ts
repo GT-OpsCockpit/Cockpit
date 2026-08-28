@@ -14,6 +14,7 @@ import { UpdateVehicleTypeDto } from './dto/update-vehicle-type.dto';
 import { SetActiveDto } from '../common/dto/set-active.dto';
 import { VehicleTypeEntity } from './dto/vehicle-type.entity';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 
 @Controller('vehicles')
 export class VehicleTypesController {
@@ -37,6 +38,9 @@ export class VehicleTypesController {
     return this.vehicleTypesService.update(ref, dto);
   }
 
+  // Permanent, unrecoverable — the legacy put every hard-delete behind the
+  // Manager password (common.js:385-395). See docs/agents/permissions.md.
+  @RequirePermission('record:delete')
   @Delete(':ref')
   delete(@Param('ref') ref: string): Promise<OkResponseEntity> {
     return this.vehicleTypesService.delete(ref);

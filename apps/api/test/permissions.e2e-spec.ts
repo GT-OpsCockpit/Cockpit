@@ -115,6 +115,7 @@ describe('Permissions (e2e)', () => {
         'client:edit',
         'company:edit',
         'user:manage',
+        'record:delete',
       ]),
     );
 
@@ -391,5 +392,50 @@ describe('Permissions (e2e)', () => {
         eventEndDate: '2026-01-03',
       })
       .expect(201);
+  });
+  // The legacy gated every permanent hard-delete behind one Manager-password
+  // prompt (openRecordModal's onPermanentDelete, common.js:385-395) — a
+  // single gate, so a single v2 permission covers all four routes.
+  it('record:delete is unconditional on every permanent delete — a DISPATCHER is blocked, an ADMIN is allowed', async () => {
+    const client = await request(server())
+      .post('/api/clients')
+      .set('Cookie', adminCookie)
+      .send({ clientType: 'COMPANY', company: 'Deletable SA' })
+      .expect(201);
+    const driver = await request(server())
+      .post('/api/drivers')
+      .set('Cookie', adminCookie)
+      .send({ firstName: 'Del', lastName: 'Etable', phone: '+33600000042', countryCode: 'FR' })
+      .expect(201);
+    const vehicleType = await request(server())
+      .post('/api/vehicles')
+      .set('Cookie', adminCookie)
+      .send({ name: 'Deletable Class', maxPax: 3 })
+      .expect(201);
+    const fleetVehicle = await request(server())
+      .post('/api/fleet-vehicles')
+      .set('Cookie', adminCookie)
+      .send({ category: 'Business', regNbr: 'DEL-42-ZZ', make: 'Mercedes-Benz', model: 'E-Class', yearOfBuild: new Date().getFullYear() - 1, fourWD: false, nbPax: 3 })
+      .expect(201);
+
+    const targets: [string, string][] = [
+      ['/api/clients', (client.body as { ref: string }).ref],
+      ['/api/drivers', (driver.body as { ref: string }).ref],
+      ['/api/fleet-vehicles', (fleetVehicle.body as { ref: string }).ref],
+      ['/api/vehicles', (vehicleType.body as { ref: string }).ref],
+    ];
+
+    for (const [base, ref] of targets) {
+      await request(server())
+        .delete(`${base}/${ref}`)
+        .set('Cookie', dispatcherCookie)
+        .expect(403);
+    }
+    for (const [base, ref] of targets) {
+      await request(server())
+        .delete(`${base}/${ref}`)
+        .set('Cookie', adminCookie)
+        .expect(200);
+    }
   });
 });

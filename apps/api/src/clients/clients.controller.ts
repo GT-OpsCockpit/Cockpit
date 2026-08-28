@@ -53,6 +53,9 @@ export class ClientsController {
     return this.clientsService.update(ref, dto);
   }
 
+  // Permanent, unrecoverable — the legacy put every hard-delete behind the
+  // Manager password (common.js:385-395). See docs/agents/permissions.md.
+  @RequirePermission('record:delete')
   @Delete(':ref')
   delete(@Param('ref') ref: string): Promise<OkResponseEntity> {
     return this.clientsService.delete(ref);

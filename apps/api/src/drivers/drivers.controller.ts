@@ -23,6 +23,7 @@ import { DriverListEntity } from './dto/driver-list.entity';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 
 @Controller('drivers')
 export class DriversController {
@@ -46,6 +47,9 @@ export class DriversController {
     return this.driversService.update(ref, dto);
   }
 
+  // Permanent, unrecoverable — the legacy put every hard-delete behind the
+  // Manager password (common.js:385-395). See docs/agents/permissions.md.
+  @RequirePermission('record:delete')
   @Delete(':ref')
   delete(@Param('ref') ref: string): Promise<OkResponseEntity> {
     return this.driversService.delete(ref);

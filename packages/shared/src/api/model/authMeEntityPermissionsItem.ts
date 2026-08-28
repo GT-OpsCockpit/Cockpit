@@ -19,4 +19,5 @@ export const AuthMeEntityPermissionsItem = {
   'driver:reactivate': 'driver:reactivate',
   'vehicle:reactivate': 'vehicle:reactivate',
   'client:create-past-event': 'client:create-past-event',
+  'record:delete': 'record:delete',
 } as const;

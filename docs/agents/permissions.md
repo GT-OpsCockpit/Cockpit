@@ -96,7 +96,7 @@ same `PERMISSIONS` map (add an entry, it likely already exists — check first).
 | `owner.html:271`/`300` — unlock/reveal Company info | always | `company:edit` | ✅ wired (`CompanyController`, predates this doc) |
 | `owner.html:435` — create an Access record with role=Admin | role selected = Admin | `user:manage` | ✅ wired, but broader than legacy: v2 requires it for creating *any* user, not just an Admin one (`UsersController`) |
 | `common.js:3423` — edit a customer account | always | `client:edit` | ✅ wired (`ClientsController.update`) |
-| `common.js:388` — permanent hard-delete of a record (`onPermanentDelete`) | whenever offered | *(none yet)* | ❌ not built — no v2 UI exposes a hard-delete yet |
+| `common.js:388` — permanent hard-delete of a record (`onPermanentDelete`) | whenever offered | `record:delete` | ✅ wired on all four routes (`DELETE /clients/:ref`, `/drivers/:ref`, `/fleet-vehicles/:ref`, `/vehicles/:ref`). One permission for all four because the legacy had one gate for all four. No v2 UI calls them yet, so there is nothing to mirror with `usePermission()` — do it when a hard-delete control is built. |
 | `common.js:3596` — reactivate a deactivated driver/partner | always | *(none yet)* | ❌ not built. Suggested name: `driver:reactivate` |
 | `vehicles.html:574` — reactivate a deactivated fleet vehicle | always | *(none yet)* | ❌ not built. Suggested name: `vehicle:reactivate` |
 | `clients.html:474` / `events.html:439` — create an Events client / Event with a past start date | start date in the past | `client:create-past-event` | ✅ wired (`ClientsService.create`) |
