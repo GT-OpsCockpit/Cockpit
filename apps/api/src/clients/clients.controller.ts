@@ -20,6 +20,9 @@ import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
+import { ReactivateDto } from './dto/reactivate.dto';
+import { ReactivateResponseEntity } from './dto/reactivate-response.entity';
+import { ReactivationCandidatesEntity } from './dto/reactivation-candidates.entity';
 
 @Controller('clients')
 export class ClientsController {
@@ -67,5 +70,23 @@ export class ClientsController {
     @Body() dto: SetActiveDto,
   ): Promise<ClientEntity> {
     return this.clientsService.setActive(ref, dto.active);
+  }
+
+  // Offered right after an Events account is created: the crew already set up
+  // for this location under a previous, now-finished Event
+  // (offerEventReactivation, common.js:3912).
+  @Get(':ref/reactivation-candidates')
+  listReactivationCandidates(
+    @Param('ref') ref: string,
+  ): Promise<ReactivationCandidatesEntity> {
+    return this.clientsService.listReactivationCandidates(ref);
+  }
+
+  @Post(':ref/reactivate')
+  reactivate(
+    @Param('ref') ref: string,
+    @Body() dto: ReactivateDto,
+  ): Promise<ReactivateResponseEntity> {
+    return this.clientsService.reactivate(ref, dto);
   }
 }

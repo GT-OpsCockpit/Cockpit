@@ -30,6 +30,9 @@ import type {
   ClientsControllerListParams,
   CreateClientDto,
   OkResponseEntity,
+  ReactivateDto,
+  ReactivateResponseEntity,
+  ReactivationCandidatesEntity,
   SetActiveDto,
   UpdateClientDto
 } from '../../model';
@@ -436,4 +439,170 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getClientsControllerSetActiveMutationOptions(options), queryClient);
+    }
+    export const getClientsControllerListReactivationCandidatesUrl = (ref: string,) => {
+
+
+
+
+  return `/api/clients/${ref}/reactivation-candidates`
+}
+
+export const clientsControllerListReactivationCandidates = async (ref: string, options?: Parameters<typeof fetcher>[1]): Promise<ReactivationCandidatesEntity> => {
+
+  return fetcher<ReactivationCandidatesEntity>(getClientsControllerListReactivationCandidatesUrl(ref),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getClientsControllerListReactivationCandidatesQueryKey = (ref: string,) => {
+    return [
+    `/api/clients/${ref}/reactivation-candidates`
+    ] as const;
+    }
+
+
+export const getClientsControllerListReactivationCandidatesQueryOptions = <TData = Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError = unknown>(ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getClientsControllerListReactivationCandidatesQueryKey(ref);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>> = ({ signal }) => clientsControllerListReactivationCandidates(ref, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ref !== null && ref !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ClientsControllerListReactivationCandidatesQueryResult = NonNullable<Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>>
+export type ClientsControllerListReactivationCandidatesQueryError = unknown
+
+
+export function useClientsControllerListReactivationCandidates<TData = Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError = unknown>(
+ ref: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>,
+          TError,
+          Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useClientsControllerListReactivationCandidates<TData = Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError = unknown>(
+ ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>,
+          TError,
+          Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useClientsControllerListReactivationCandidates<TData = Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError = unknown>(
+ ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useClientsControllerListReactivationCandidates<TData = Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError = unknown>(
+ ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListReactivationCandidates>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getClientsControllerListReactivationCandidatesQueryOptions(ref,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getClientsControllerReactivateUrl = (ref: string,) => {
+
+
+
+
+  return `/api/clients/${ref}/reactivate`
+}
+
+export const clientsControllerReactivate = async (ref: string,
+    reactivateDto: ReactivateDto, options?: Parameters<typeof fetcher>[1]): Promise<ReactivateResponseEntity> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+return fetcher<ReactivateResponseEntity>(getClientsControllerReactivateUrl(ref),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reactivateDto)
+  }
+);}
+
+
+
+
+
+export const getClientsControllerReactivateMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerReactivate>>, TError,ClientsControllerReactivateMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof clientsControllerReactivate>>, TError,ClientsControllerReactivateMutationVariables, TContext> => {
+
+const mutationKey = ['clientsControllerReactivate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clientsControllerReactivate>>, ClientsControllerReactivateMutationVariables> = (props) => {
+          const {ref,data} = props ?? {};
+
+          return  clientsControllerReactivate(ref,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClientsControllerReactivateMutationResult = NonNullable<Awaited<ReturnType<typeof clientsControllerReactivate>>>
+    export type ClientsControllerReactivateMutationBody = ReactivateDto
+    export type ClientsControllerReactivateMutationError = unknown
+    export type ClientsControllerReactivateMutationVariables = {ref: string;data: ReactivateDto}
+
+    export const useClientsControllerReactivate = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerReactivate>>, TError,ClientsControllerReactivateMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof clientsControllerReactivate>>,
+        TError,
+        ClientsControllerReactivateMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClientsControllerReactivateMutationOptions(options), queryClient);
     }

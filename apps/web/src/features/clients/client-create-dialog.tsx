@@ -3,7 +3,12 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
-import { getClientsControllerListQueryKey, useClientsControllerCreate } from '@cockpit/shared/api'
+import {
+  ClientEntityClientType,
+  getClientsControllerListQueryKey,
+  useClientsControllerCreate,
+} from '@cockpit/shared/api'
+import type { ClientEntity } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
@@ -13,6 +18,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { ClientFormFields } from './client-form-fields'
 import { clientFormDefaults, clientFormSchema, type ClientFormValues } from './client-form-schema'
 import { toCreateClientDto } from './client-form-mapping'
+import { EventReactivationDialog } from '../events/event-reactivation-dialog'
 
 export function ClientCreateDialog() {
   const [open, setOpen] = useState(false)
@@ -22,6 +28,7 @@ export function ClientCreateDialog() {
   })
 
   const createClient = useClientsControllerCreate()
+  const [reactivationTarget, setReactivationTarget] = useState<ClientEntity | null>(null)
 
   const onOpenChange = (next: boolean) => {
     setOpen(next)
@@ -34,12 +41,16 @@ export function ClientCreateDialog() {
       toast.success(`Account ${client.ref} created.`)
       onOpenChange(false)
       void queryClient.invalidateQueries({ queryKey: getClientsControllerListQueryKey() })
+      // A returning event often has a crew already on file from its previous
+      // edition — offer to relink it (offerEventReactivation, common.js:3912).
+      if (client.clientType === ClientEntityClientType.EVENT) setReactivationTarget(client)
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Error creating account.'))
     }
   })
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button>
@@ -67,5 +78,7 @@ export function ClientCreateDialog() {
         </Form>
       </DialogContent>
     </Dialog>
+    <EventReactivationDialog event={reactivationTarget} onClose={() => setReactivationTarget(null)} />
+    </>
   )
 }

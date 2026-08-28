@@ -11,7 +11,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { searchTokensFilter } from '../common/utils/search-tokens';
-import { todayUtcMidnight } from '../common/business/assignability';
+import {
+  outsideEventWindowFilter,
+  todayUtcMidnight,
+} from '../common/business/assignability';
+import { computeDriverName } from '../common/utils/driver-name';
+import { ReactivateDto } from './dto/reactivate.dto';
+import { ReactivateResponseEntity } from './dto/reactivate-response.entity';
+import { ReactivationCandidatesEntity } from './dto/reactivation-candidates.entity';
 import { can } from '../common/permissions/permissions';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -381,6 +388,127 @@ export class ClientsService {
     const client = await this.prisma.client.findUnique({ where: { ref } });
     if (!client) throw new NotFoundException('Account not found');
     return client;
+  }
+
+  /**
+   * Dormant Events drivers and vehicles that could be relinked to this Event.
+   *
+   * A venue or a region often hosts a returning event — the same Gala every
+   * year — and the crew set up for last year's edition is still on file,
+   * scoped to it and therefore inactive. The legacy offered to relink them in
+   * one step right after the new Events account was created, rather than
+   * having them re-entered from scratch (offerEventReactivation,
+   * common.js:3912).
+   *
+   * A candidate is: an Events record based where this Event happens, still
+   * scoped to a *different* Event, and currently outside that Event's dates.
+   * Matched on the record's own Country/Area, which since the §4.3 port is
+   * the same thing as its event link's location (see EventLinkService).
+   */
+  async listReactivationCandidates(
+    ref: string,
+  ): Promise<ReactivationCandidatesEntity> {
+    const event = await this.findByRefOrThrow(ref);
+    if (event.clientType !== ClientType.EVENT) {
+      throw new BadRequestException('This account is not an Events account.');
+    }
+    if (!event.eventCountry || !event.eventArea?.trim()) {
+      return { drivers: [], fleetVehicles: [] };
+    }
+
+    const where = {
+      active: true,
+      countryCode: event.eventCountry,
+      area: { equals: event.eventArea.trim(), mode: 'insensitive' as const },
+      NOT: { eventClientId: event.id },
+      ...outsideEventWindowFilter(todayUtcMidnight()),
+    };
+
+    const [drivers, fleetVehicles] = await Promise.all([
+      this.prisma.driver.findMany({
+        where,
+        include: { eventClient: true },
+        orderBy: { ref: 'asc' },
+      }),
+      this.prisma.fleetVehicle.findMany({
+        where,
+        include: { eventClient: true, category: true },
+        orderBy: { ref: 'asc' },
+      }),
+    ]);
+
+    const previous = (client: { ref: string; company: string | null }) => ({
+      previousEventRef: client.ref,
+      previousEventName: client.company ?? client.ref,
+    });
+
+    return {
+      drivers: drivers.map((d) => ({
+        ref: d.ref,
+        label: computeDriverName(d),
+        ...previous(d.eventClient!),
+      })),
+      fleetVehicles: fleetVehicles.map((v) => ({
+        ref: v.ref,
+        label: `${v.regNbr} (${v.category.name})`,
+        ...previous(v.eventClient!),
+      })),
+    };
+  }
+
+  /**
+   * Relinks the chosen candidates to this Event. One transaction rather than
+   * the legacy's N sequential PUTs, so a half-applied batch can't happen.
+   * Only records listReactivationCandidates would have offered are accepted —
+   * the refs come from a form, so they are re-checked, not trusted.
+   */
+  async reactivate(
+    ref: string,
+    dto: ReactivateDto,
+  ): Promise<ReactivateResponseEntity> {
+    const event = await this.findByRefOrThrow(ref);
+    const candidates = await this.listReactivationCandidates(ref);
+
+    const keep = (asked: string[] | undefined, offered: { ref: string }[]) => {
+      const allowed = new Set(offered.map((c) => c.ref));
+      const requested = asked ?? [];
+      const kept = requested.filter((r) => allowed.has(r));
+      if (kept.length !== requested.length) {
+        throw new BadRequestException(
+          'One of the selected records can no longer be relinked to this Event — reopen the list.',
+        );
+      }
+      return kept;
+    };
+
+    const driverRefs = keep(dto.driverRefs, candidates.drivers);
+    const fleetVehicleRefs = keep(
+      dto.fleetVehicleRefs,
+      candidates.fleetVehicles,
+    );
+    const link = {
+      eventsOnly: true,
+      eventCountry: event.eventCountry,
+      eventArea: event.eventArea,
+      eventClientId: event.id,
+    };
+
+    await this.prisma.$transaction([
+      this.prisma.driver.updateMany({
+        where: { ref: { in: driverRefs } },
+        data: link,
+      }),
+      this.prisma.fleetVehicle.updateMany({
+        where: { ref: { in: fleetVehicleRefs } },
+        data: link,
+      }),
+    ]);
+
+    return {
+      ok: true,
+      drivers: driverRefs.length,
+      fleetVehicles: fleetVehicleRefs.length,
+    };
   }
 
   private assertValidEmailFormat(email: string, fieldLabel: string): void {

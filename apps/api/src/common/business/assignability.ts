@@ -48,6 +48,29 @@ function withinEventWindow(today: Date) {
   };
 }
 
+/**
+ * The negation of withinEventWindow, as a filter: records that ARE scoped to
+ * an Event, that Event has dates on file, and today falls outside them — the
+ * dormant Events drivers/vehicles offerEventReactivation proposed relinking
+ * (common.js:3912). A record with no event link, or one whose event has no
+ * dates, is never dormant: it is simply always available.
+ */
+export function outsideEventWindowFilter(today: Date) {
+  return {
+    eventsOnly: true,
+    eventClient: {
+      is: {
+        eventStartDate: { not: null },
+        eventEndDate: { not: null },
+        OR: [
+          { eventStartDate: { gt: today } },
+          { eventEndDate: { lt: today } },
+        ],
+      },
+    },
+  };
+}
+
 /** Blocked by a date range covering today (startDate ≤ today ≤ endDate). */
 function outsideRange(today: Date) {
   return {

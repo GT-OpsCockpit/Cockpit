@@ -534,4 +534,196 @@ describe('Clients (e2e)', () => {
       ).toContain(ref);
     });
   });
+  // A venue often hosts a returning event — the same Gala every year — and
+  // the crew set up for last year's edition is still on file, scoped to it
+  // and therefore dormant. The legacy offered to relink them in one step
+  // right after the new Events account was created (offerEventReactivation,
+  // common.js:3912).
+  describe('Event reactivation', () => {
+    const MONACO = { countryCode: 'MC', area: 'Monaco' };
+
+    async function createEvent(overrides: Record<string, unknown> = {}) {
+      const res = await request(server())
+        .post('/api/clients')
+        .set('Cookie', cookie)
+        .send({
+          clientType: 'EVENT',
+          company: 'Grand Prix',
+          eventCountry: 'MC',
+          eventArea: 'Monaco',
+          eventStartDate: '2027-05-20',
+          eventEndDate: '2027-05-24',
+          ...overrides,
+        })
+        .expect(201);
+      return res.body as { ref: string };
+    }
+
+    async function createEventsDriver(
+      phone: string,
+      eventRef: string,
+      overrides = {},
+    ) {
+      const res = await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({
+          firstName: 'Even',
+          lastName: 'Tor',
+          phone,
+          company: 'Acme Crew',
+          email: `crew${phone}@example.test`,
+          eventsOnly: true,
+          ...MONACO,
+          eventCountry: 'MC',
+          eventArea: 'Monaco',
+          eventRef,
+          ...overrides,
+        })
+        .expect(201);
+      return res.body as { ref: string };
+    }
+
+    /**
+     * Moves an Event into the past. It has to be built this way round: a
+     * record can only be linked to an Event that hasn't ended (§4.3), so
+     * "last year's crew" is linked while the Event is still upcoming and the
+     * Event is aged afterwards — which is what actually happens over time.
+     */
+    async function makePast(ref: string) {
+      await request(server())
+        .put(`/api/clients/${ref}`)
+        .set('Cookie', cookie)
+        .send({ eventStartDate: '2026-05-20', eventEndDate: '2026-05-24' })
+        .expect(200);
+    }
+
+    async function candidates(ref: string) {
+      const res = await request(server())
+        .get(`/api/clients/${ref}/reactivation-candidates`)
+        .set('Cookie', cookie)
+        .expect(200);
+      return res.body as {
+        drivers: { ref: string; label: string; previousEventName: string }[];
+        fleetVehicles: { ref: string }[];
+      };
+    }
+
+    it('offers the crew of a finished Event at the same location, and nobody else', async () => {
+      const lastYear = await createEvent({ company: 'Grand Prix 2026' });
+      const dormant = await createEventsDriver('0611000001', lastYear.ref);
+      await makePast(lastYear.ref);
+
+      // Still running, so not dormant.
+      const running = await createEvent({
+        company: 'Ongoing Residency',
+        eventStartDate: '2026-01-01',
+        eventEndDate: '2099-01-01',
+      });
+      const busy = await createEventsDriver('0611000002', running.ref);
+
+      // Same dates, different place.
+      const elsewhere = await createEvent({
+        company: 'Cannes 2026',
+        eventCountry: 'FR',
+        eventArea: 'Cannes',
+      });
+      const otherPlace = await createEventsDriver('0611000003', elsewhere.ref, {
+        countryCode: 'FR',
+        area: 'Cannes',
+        eventCountry: 'FR',
+        eventArea: 'Cannes',
+      });
+      await makePast(elsewhere.ref);
+
+      const thisYear = await createEvent({ company: 'Grand Prix 2027' });
+      const offered = await candidates(thisYear.ref);
+      const refs = offered.drivers.map((d) => d.ref);
+
+      expect(refs).toContain(dormant.ref);
+      expect(refs).not.toContain(busy.ref);
+      expect(refs).not.toContain(otherPlace.ref);
+      expect(
+        offered.drivers.find((d) => d.ref === dormant.ref)?.previousEventName,
+      ).toBe('Grand Prix 2026');
+    });
+
+    it('never offers the crew already scoped to this very Event', async () => {
+      const past = await createEvent({ company: 'Grand Prix 2026' });
+      const driver = await createEventsDriver('0611000004', past.ref);
+      await makePast(past.ref);
+
+      // Scoped to `past`, which is over — so `past` itself must not offer it
+      // back to itself, however dormant it looks.
+      expect(
+        (await candidates(past.ref)).drivers.map((d) => d.ref),
+      ).not.toContain(driver.ref);
+    });
+
+    it('relinks the chosen records to the new Event in one call', async () => {
+      const lastYear = await createEvent({ company: 'Grand Prix 2026' });
+      const driver = await createEventsDriver('0611000005', lastYear.ref);
+      await makePast(lastYear.ref);
+      const thisYear = await createEvent({ company: 'Grand Prix 2027' });
+
+      const res = await request(server())
+        .post(`/api/clients/${thisYear.ref}/reactivate`)
+        .set('Cookie', cookie)
+        .send({ driverRefs: [driver.ref] })
+        .expect(201);
+      expect(res.body).toMatchObject({
+        ok: true,
+        drivers: 1,
+        fleetVehicles: 0,
+      });
+
+      const after = await request(server())
+        .get(`/api/drivers?search=${driver.ref}`)
+        .set('Cookie', cookie)
+        .expect(200);
+      const relinked = (
+        after.body as {
+          data: { ref: string; eventClient: { ref: string } | null }[];
+        }
+      ).data.find((d) => d.ref === driver.ref);
+      expect(relinked?.eventClient?.ref).toBe(thisYear.ref);
+
+      // And it is no longer dormant, so it drops off the list.
+      expect(
+        (await candidates(thisYear.ref)).drivers.map((d) => d.ref),
+      ).not.toContain(driver.ref);
+    });
+
+    // The refs come from a form, so they are re-checked rather than trusted.
+    it('refuses a record it would not have offered', async () => {
+      const running = await createEvent({
+        company: 'Ongoing Residency',
+        eventStartDate: '2026-01-01',
+        eventEndDate: '2099-01-01',
+      });
+      const busy = await createEventsDriver('0611000006', running.ref);
+      const thisYear = await createEvent({ company: 'Grand Prix 2027' });
+
+      await request(server())
+        .post(`/api/clients/${thisYear.ref}/reactivate`)
+        .set('Cookie', cookie)
+        .send({ driverRefs: [busy.ref] })
+        .expect(400);
+    });
+
+    it('refuses to look for candidates on an account that is not an Event', async () => {
+      const company = await request(server())
+        .post('/api/clients')
+        .set('Cookie', cookie)
+        .send({ clientType: 'COMPANY', company: 'Not An Event' })
+        .expect(201);
+
+      await request(server())
+        .get(
+          `/api/clients/${(company.body as { ref: string }).ref}/reactivation-candidates`,
+        )
+        .set('Cookie', cookie)
+        .expect(400);
+    });
+  });
 });

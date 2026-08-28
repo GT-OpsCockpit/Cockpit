@@ -12,6 +12,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { ClientFormFields } from '../clients/client-form-fields'
+import { EventReactivationDialog } from './event-reactivation-dialog'
 import { clientFormDefaults, clientFormSchema, type ClientFormValues } from '../clients/client-form-schema'
 import { toCreateClientDto } from '../clients/client-form-mapping'
 
@@ -29,6 +30,7 @@ function eventClientDefaults(): ClientFormValues {
  */
 export function EventClientCreateDialog({ onCreated }: { onCreated: (client: ClientEntity) => void }) {
   const [open, setOpen] = useState(false)
+  const [reactivationTarget, setReactivationTarget] = useState<ClientEntity | null>(null)
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientFormSchema),
     defaultValues: eventClientDefaults(),
@@ -48,12 +50,16 @@ export function EventClientCreateDialog({ onCreated }: { onCreated: (client: Cli
       onOpenChange(false)
       void queryClient.invalidateQueries({ queryKey: getClientsControllerListQueryKey() })
       onCreated(client)
+      // A returning event often has a crew already on file from its previous
+      // edition — offer to relink it (offerEventReactivation, common.js:3912).
+      setReactivationTarget(client)
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Error creating event account.'))
     }
   })
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button type="button" variant="secondary">
@@ -81,5 +87,7 @@ export function EventClientCreateDialog({ onCreated }: { onCreated: (client: Cli
         </Form>
       </DialogContent>
     </Dialog>
+    <EventReactivationDialog event={reactivationTarget} onClose={() => setReactivationTarget(null)} />
+    </>
   )
 }
