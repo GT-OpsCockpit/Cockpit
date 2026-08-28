@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { DateTime } from 'luxon'
+import { CalendarDays, CircleCheck, Clock, Info, LocateFixed, MapPin, Plane, TriangleAlert, User } from 'lucide-react'
 import type { UseFormReturn } from 'react-hook-form'
 import {
+  geoControllerFboLookup,
   geoControllerFlightCheck,
   geoControllerFxRate,
   geoControllerGeocodeTz,
@@ -13,10 +16,12 @@ import {
 } from '@cockpit/shared/api'
 import type { TripEntity } from '@cockpit/shared/api'
 import { getApiErrorMessage } from '@/lib/api-error'
-import { useDebouncedValue } from '@/lib/use-debounced-value'
-import { useOptionMemory } from '@/lib/use-option-memory'
+import { cn } from '@/lib/utils'
+import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { Input } from '@/components/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
+import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
@@ -35,7 +40,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import type { TripFormValues } from './trip-form-schema'
-import { clientDisplayName, driverDisplayName } from './trip-status'
+import { asdTotal, isLocalTrip, marginPercent } from '@cockpit/shared'
+import { clientDisplayName, driverDisplayName, PARIS_ZONE } from './trip-status'
 
 const HOURS_OPTIONS = Array.from({ length: 47 }, (_, i) => i + 2) // 2..48
 const PICKER_LIMIT = 20
@@ -49,6 +55,9 @@ export function TripFormFields({
   priceDisabledReason,
   clientFieldDisabled = false,
   clientSeedOption = null,
+  driverSeedOption = null,
+  partnerSeedOption = null,
+  regNbrSeedOption = null,
 }: {
   form: UseFormReturn<TripFormValues>
   /**
@@ -56,7 +65,7 @@ export function TripFormFields({
    * the Customer/Driver/Partner/Reg Nbr comboboxes so the current selection's
    * label survives a fresh remote search that no longer includes it — these
    * are request-on-demand now (limit 20/query), not preloaded with the full
-   * roster, see useOptionMemory.
+   * roster, see SearchCombobox's `selectedLabel`.
    */
   trip?: TripEntity | null
   /** Locks every field (edit dialog only — see docs/agents/permissions.md, trip:edit-past). */
@@ -64,40 +73,88 @@ export function TripFormFields({
   /** Locks just the price fields (edit dialog only — trip:edit-price). Redundant once `disabled` is set. */
   priceDisabled?: boolean
   priceDisabledReason?: string
-  /** Locks just the Customer field (Events creation bar, once an event is confirmed — see event-select-panel.tsx). */
+  /** Locks just the Customer field (Events creation dialog, once an event is confirmed — see event-select-panel.tsx). */
   clientFieldDisabled?: boolean
   /**
    * Seeds the Customer combobox with an option outside the normal (non-Event)
-   * client search — the Events creation bar's confirmed event is an
+   * client search — the Events creation dialog's confirmed event is an
    * Events-type client, deliberately excluded from that search. Ignored once
    * `trip` is set (the edit dialog's own seed takes priority).
    */
   clientSeedOption?: { value: string; label: string } | null
+  /** Seeds the Driver/Partner/Reg Nbr comboboxes the same way — used by BookingCreateDialog's row-level prefill (Drivers/Vehicles pages). Ignored once `trip` is set. */
+  driverSeedOption?: { value: string; label: string } | null
+  partnerSeedOption?: { value: string; label: string } | null
+  regNbrSeedOption?: { value: string; label: string } | null
 }) {
   const meta = useMetaControllerGetMeta()
 
   const [clientSearch, setClientSearch] = useState('')
-  const debouncedClientSearch = useDebouncedValue(clientSearch, PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedClientSearch, pending: clientSearchPending } = useDebouncedSearch(clientSearch, PICKER_DEBOUNCE_MS)
   const clients = useClientsControllerList({ search: debouncedClientSearch || undefined, limit: PICKER_LIMIT })
 
   const [driverSearch, setDriverSearch] = useState('')
-  const debouncedDriverSearch = useDebouncedValue(driverSearch, PICKER_DEBOUNCE_MS)
-  const drivers = useDriversControllerList({ search: debouncedDriverSearch || undefined, limit: PICKER_LIMIT })
+  const { debounced: debouncedDriverSearch, pending: driverSearchPending } = useDebouncedSearch(driverSearch, PICKER_DEBOUNCE_MS)
 
   const [partnerSearch, setPartnerSearch] = useState('')
-  const debouncedPartnerSearch = useDebouncedValue(partnerSearch, PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedPartnerSearch, pending: partnerSearchPending } = useDebouncedSearch(partnerSearch, PICKER_DEBOUNCE_MS)
   const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT })
 
   const [regNbrSearch, setRegNbrSearch] = useState('')
-  const debouncedRegNbrSearch = useDebouncedValue(regNbrSearch, PICKER_DEBOUNCE_MS)
-  const fleetVehicles = useFleetVehiclesControllerList({ search: debouncedRegNbrSearch || undefined, limit: PICKER_LIMIT })
+  const { debounced: debouncedRegNbrSearch, pending: regNbrSearchPending } = useDebouncedSearch(regNbrSearch, PICKER_DEBOUNCE_MS)
 
   const service = form.watch('service')
   const subContractor = form.watch('subContractor')
   const countryCode = form.watch('countryCode')
   const vehicleType = form.watch('vehicleType')
+  const clientRef = form.watch('clientRef')
+  const area = form.watch('area')
+  const pickupLocation = form.watch('pickupLocation')
+  const dropoffLocation = form.watch('dropoffLocation')
   const pickupIata = form.watch('pickupIata')
   const dropoffIata = form.watch('dropoffIata')
+  const pickupDate = form.watch('pickupDate')
+  const pickupTime = form.watch('pickupTime')
+  const pickupTimezone = form.watch('pickupTimezone')
+
+  // Assignment rules (who may take this job, who's available today, which
+  // cars can service this Category) are resolved by the API — see
+  // apps/api/src/common/business/assignability.ts. The picker sends the
+  // booking's current draft, exactly as the legacy's
+  // draftTripForEligibility() fed its client-side filter.
+  const drivers = useDriversControllerList({
+    search: debouncedDriverSearch || undefined,
+    limit: PICKER_LIMIT,
+    availableOnly: true,
+    tripClientRef: clientRef || undefined,
+    tripArea: area || undefined,
+    tripCountryCode: countryCode || undefined,
+    tripPickupLocation: pickupLocation || undefined,
+    tripDropoffLocation: dropoffLocation || undefined,
+  })
+
+  const fleetVehicles = useFleetVehiclesControllerList({
+    search: debouncedRegNbrSearch || undefined,
+    limit: PICKER_LIMIT,
+    availableOnly: true,
+    compatibleWith: vehicleType || undefined,
+  })
+
+  // Reg Nbr only makes sense for a local booking served by our own fleet — a
+  // farmed-out job has no vehicle of ours attached (legacy
+  // refreshFleetRegAvailability, common.js:1078).
+  const regNbrApplies = isLocalTrip({ area, countryCode, pickupLocation, dropoffLocation })
+
+  // Lets a Paris-based dispatcher read the pickup time without doing the
+  // timezone math themselves — always shown in Paris regardless of the
+  // trip's own timezone, the conversion can shift the day either way.
+  const parisHint = (() => {
+    if (!pickupTimezone || !pickupDate || !pickupTime) return 'Eq. 🕐 Paris'
+    const local = DateTime.fromISO(`${pickupDate}T${pickupTime}`, { zone: pickupTimezone })
+    if (!local.isValid) return 'Eq. 🕐 Paris'
+    const paris = local.setZone(PARIS_ZONE)
+    return `Eq. 🕐 Paris : ${paris.toFormat('HH:mm')} (${paris.toFormat('dd/MM')})`
+  })()
 
   const countryOptions = (meta.data?.countries ?? []).map((c) => ({
     value: c.code,
@@ -108,44 +165,53 @@ export function TripFormFields({
   const clientResults = (clients.data?.data ?? [])
     .filter((c) => c.active && c.clientType !== 'EVENT')
     .map((c) => ({ value: c.ref, label: `${c.name} (${c.ref})` }))
-  const clientOptions = useOptionMemory(
-    clientResults,
-    trip?.client
-      ? { value: trip.client.ref, label: `${clientDisplayName(trip.client)} (${trip.client.ref})` }
-      : clientSeedOption,
-  )
+  const clientOptions = clientResults
+  const clientSelectedLabel = trip?.client
+    ? `${clientDisplayName(trip.client)} (${trip.client.ref})`
+    : (clientSeedOption?.label ?? undefined)
 
-  const driverResults = (drivers.data?.data ?? [])
-    .filter((d) => d.active)
-    .map((d) => ({ value: d.ref, label: `${d.name} (${d.ref})` }))
-  const driverOptions = useOptionMemory(
-    driverResults,
-    trip?.driver ? { value: trip.driver.ref, label: `${driverDisplayName(trip.driver)} (${trip.driver.ref})` } : null,
-  )
+  const driverResults = (drivers.data?.data ?? []).map((d) => ({
+    value: d.ref,
+    label: `${d.name} (${d.ref})`,
+  }))
+  const driverOptions = driverResults
+  const driverSelectedLabel = trip?.driver
+    ? `${driverDisplayName(trip.driver)} (${trip.driver.ref})`
+    : (driverSeedOption?.label ?? undefined)
 
   const partnerResults = (partners.data?.data ?? [])
     .filter((d) => d.active && d.company)
     .map((d) => ({ value: d.ref, label: `${d.name} — ${d.company}` }))
-  const partnerOptions = useOptionMemory(
-    partnerResults,
-    trip?.partner
-      ? { value: trip.partner.ref, label: `${driverDisplayName(trip.partner)} — ${trip.partner.company ?? ''}` }
-      : null,
-  )
+  const partnerOptions = partnerResults
+  const partnerSelectedLabel = trip?.partner
+    ? `${driverDisplayName(trip.partner)} — ${trip.partner.company ?? ''}`
+    : (partnerSeedOption?.label ?? undefined)
 
   const selectedVehicleType = meta.data?.vehicleTypes.find((v) => v.name === vehicleType)
-  const compatibleCategories = vehicleType
-    ? (meta.data?.vehicleCompatibility[vehicleType] ?? [vehicleType])
-    : []
-  const regNbrResults = (fleetVehicles.data?.data ?? [])
-    .filter((v) => v.active && v.isLocal && (!vehicleType || compatibleCategories.includes(v.category.name)))
-    .map((v) => ({ value: v.regNbr, label: `${v.regNbr} — ${v.category.name}` }))
-  const regNbrOptions = useOptionMemory(
-    regNbrResults,
-    trip?.fleetVehicle
-      ? { value: trip.fleetVehicle.regNbr, label: `${trip.fleetVehicle.regNbr} — ${trip.fleetVehicle.category.name}` }
-      : null,
-  )
+  // active / availability / category compatibility are all applied by the
+  // API now (availableOnly + compatibleWith) — nothing left to re-filter here.
+  const regNbrResults = (fleetVehicles.data?.data ?? []).map((v) => ({
+    value: v.regNbr,
+    label: `${v.regNbr} — ${v.category.name}`,
+  }))
+  const regNbrOptions = regNbrResults
+  const regNbrSelectedLabel = trip?.fleetVehicle
+    ? `${trip.fleetVehicle.regNbr} — ${trip.fleetVehicle.category.name}`
+    : (regNbrSeedOption?.label ?? undefined)
+
+  const priceEur = form.watch('priceEur')
+  const partnerRateEur = form.watch('partnerRateEur')
+  const hours = form.watch('hours')
+
+  // Restored from the legacy (updateMarginHint / updateAsdTotalHints); the
+  // formulas live in @cockpit/shared rather than behind an endpoint because
+  // both are live hints recomputed as the dispatcher types — a round trip
+  // per keystroke would be the wrong trade.
+  const margin = marginPercent({ priceEur, partnerRateEur, countryCode })
+  const formatTotal = (total: number | null) =>
+    total === null ? undefined : `Total net: ${total.toFixed(2)} €`
+  const retailAsdTotal = formatTotal(asdTotal({ rate: priceEur, hours, service }))
+  const partnerAsdTotal = formatTotal(asdTotal({ rate: partnerRateEur, hours, service }))
 
   const showAirportInfo = !!pickupIata || !!dropoffIata
 
@@ -194,7 +260,10 @@ export function TripFormFields({
           name="pickupDate"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>📅 Date</FormLabel>
+              <FormLabel>
+                <CalendarDays className="size-4" aria-hidden="true" />
+                Date
+              </FormLabel>
               <FormControl>
                 <Input type="date" {...field} />
               </FormControl>
@@ -207,10 +276,19 @@ export function TripFormFields({
           name="pickupTime"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>PU 🕐 (local)</FormLabel>
-              <FormControl>
-                <Input type="time" {...field} />
-              </FormControl>
+              <FormLabel>
+                <Clock className="size-4" aria-hidden="true" />
+                PU (local)
+              </FormLabel>
+              <InputGroup>
+                <InputGroupAddon align="inline-start">
+                  <Clock />
+                </InputGroupAddon>
+                <FormControl>
+                  <InputGroupInput type="time" {...field} />
+                </FormControl>
+              </InputGroup>
+              <p className="text-muted-foreground text-xs whitespace-nowrap">{parisHint}</p>
               <FormMessage />
             </FormItem>
           )}
@@ -325,6 +403,7 @@ export function TripFormFields({
               <FormLabel>Customer</FormLabel>
               <FormControl>
                 <SearchCombobox
+                  icon={User}
                   value={field.value}
                   onChange={field.onChange}
                   options={clientOptions}
@@ -332,6 +411,8 @@ export function TripFormFields({
                   searchPlaceholder="Search customer…"
                   searchValue={clientSearch}
                   onSearchChange={setClientSearch}
+                  loading={clientSearchPending || clients.isFetching}
+                  selectedLabel={clientSelectedLabel}
                   disabled={clientFieldDisabled}
                 />
               </FormControl>
@@ -377,16 +458,19 @@ export function TripFormFields({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <LocationField form={form} name="pickupLocation" label="📍 PU" iataField="pickupIata" />
+        <LocationField form={form} name="pickupLocation" label="PU" iataField="pickupIata" />
         {service !== TripEntityService.ASD && (
-          <LocationField form={form} name="dropoffLocation" label="📍 DO" iataField="dropoffIata" />
+          <LocationField form={form} name="dropoffLocation" label="DO" iataField="dropoffIata" />
         )}
         <FormField
           control={form.control}
           name="instructions"
           render={({ field }) => (
             <FormItem className="sm:col-span-2">
-              <FormLabel>📝 Info</FormLabel>
+              <FormLabel>
+                <Info className="size-4" aria-hidden="true" />
+                Info
+              </FormLabel>
               <FormControl>
                 <Textarea rows={1} placeholder="Instructions" {...field} />
               </FormControl>
@@ -441,6 +525,8 @@ export function TripFormFields({
                   searchPlaceholder="Search driver…"
                   searchValue={driverSearch}
                   onSearchChange={setDriverSearch}
+                  loading={driverSearchPending || drivers.isFetching}
+                  selectedLabel={driverSelectedLabel}
                 />
               </FormControl>
             </FormItem>
@@ -457,10 +543,13 @@ export function TripFormFields({
                   value={field.value ?? ''}
                   onChange={field.onChange}
                   options={regNbrOptions}
-                  placeholder="—"
+                  disabled={!regNbrApplies}
+                  placeholder={regNbrApplies ? '—' : 'Local bookings only'}
                   searchPlaceholder="Search reg nbr…"
                   searchValue={regNbrSearch}
                   onSearchChange={setRegNbrSearch}
+                  loading={regNbrSearchPending || fleetVehicles.isFetching}
+                  selectedLabel={regNbrSelectedLabel}
                 />
               </FormControl>
             </FormItem>
@@ -494,6 +583,8 @@ export function TripFormFields({
                     searchPlaceholder="Search partner…"
                     searchValue={partnerSearch}
                     onSearchChange={setPartnerSearch}
+                    loading={partnerSearchPending || partners.isFetching}
+                    selectedLabel={partnerSelectedLabel}
                   />
                 </FormControl>
               </FormItem>
@@ -510,6 +601,7 @@ export function TripFormFields({
           currency={selectedCountry?.currency}
           disabled={priceDisabled}
           disabledReason={priceDisabledReason}
+          totalHint={retailAsdTotal}
         />
         {subContractor && (
           <PriceField
@@ -519,6 +611,8 @@ export function TripFormFields({
             currency={selectedCountry?.currency}
             disabled={priceDisabled}
             disabledReason={priceDisabledReason}
+            totalHint={partnerAsdTotal}
+            marginHint={margin === null ? undefined : `% Margin: ${margin.toFixed(1)} %`}
           />
         )}
         <FormField
@@ -562,9 +656,24 @@ function LocationField({
       const result = await geoControllerGeocodeTz({ q: value })
       form.setValue(iataField, result.iata ?? '')
       if (name === 'pickupLocation') form.setValue('pickupTimezone', result.tz)
+
+      // Airport pickup: pre-fill the handling agent's (FBO) address from the
+      // directory, as the legacy's Flight info popup did (common.js:1544).
+      // The endpoint existed but nothing called it. `found: false` just means
+      // this airport isn't in the directory yet — the field stays editable,
+      // and an address already typed is never overwritten.
+      let fboName: string | null = null
+      if (name === 'pickupLocation' && result.isAirport) {
+        const fbo = await geoControllerFboLookup({ q: value })
+        if (fbo.found && fbo.fbo && !form.getValues('fboAddress')?.trim()) {
+          form.setValue('fboAddress', fbo.fbo)
+          fboName = fbo.name
+        }
+      }
+
       setHint(
         result.isAirport
-          ? `✈️ Airport detected${result.iata ? ` (${result.iata})` : ''} — ${result.tz}`
+          ? `Airport detected${result.iata ? ` (${result.iata})` : ''} — ${result.tz}${fboName ? ` · FBO pre-filled (${fboName})` : ''}`
           : result.tz,
       )
     } catch (error) {
@@ -580,15 +689,33 @@ function LocationField({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
-          <div className="flex gap-1">
+          <FormLabel>
+            <MapPin className="size-4" aria-hidden="true" />
+            {label}
+          </FormLabel>
+          <InputGroup>
+            <InputGroupAddon align="inline-start">
+              <MapPin />
+            </InputGroupAddon>
             <FormControl>
-              <Input placeholder="E.g. JFK, CDG, address…" {...field} />
+              <InputGroupInput placeholder="E.g. JFK, CDG, address…" {...field} />
             </FormControl>
-            <Button type="button" variant="outline" size="sm" disabled={resolving} onClick={resolve}>
-              {resolving ? '…' : '📍'}
-            </Button>
-          </div>
+            {/* Was a bare 📍 button floating next to the field, with nothing
+                saying what it did. Same action, now inside the field and
+                labelled: it geocodes what's typed to fill the IATA code and
+                (for pickup) the trip's timezone. */}
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                size="icon-xs"
+                aria-label="Detect airport code and timezone"
+                title="Detect airport code and timezone from this address"
+                disabled={resolving}
+                onClick={resolve}
+              >
+                {resolving ? <Spinner /> : <LocateFixed />}
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
           {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
           <FormMessage />
         </FormItem>
@@ -599,7 +726,7 @@ function LocationField({
 
 function FlightInfoFields({ form }: { form: UseFormReturn<TripFormValues> }) {
   const [checking, setChecking] = useState(false)
-  const [result, setResult] = useState<string | null>(null)
+  const [result, setResult] = useState<{ tone: 'ok' | 'warn' | 'info'; message: string } | null>(null)
 
   const checkFlight = async () => {
     const flightNumber = form.getValues('flightNumber')
@@ -611,16 +738,16 @@ function FlightInfoFields({ form }: { form: UseFormReturn<TripFormValues> }) {
     try {
       const response = await geoControllerFlightCheck({ flightNumber, pickupDate, pickupTime })
       if (!response.configured) {
-        setResult(response.message ?? 'Flight verification is not configured.')
+        setResult({ tone: 'info', message: response.message ?? 'Flight verification is not configured.' })
       } else {
         setResult(
           response.match
-            ? '✅ Flight schedule matches the pickup time.'
-            : '⚠️ Flight schedule does not match — double-check the pickup time.',
+            ? { tone: 'ok', message: 'Flight schedule matches the pickup time.' }
+            : { tone: 'warn', message: 'Flight schedule does not match — double-check the pickup time.' },
         )
       }
     } catch (error) {
-      setResult(getApiErrorMessage(error, 'Flight verification unavailable.'))
+      setResult({ tone: 'info', message: getApiErrorMessage(error, 'Flight verification unavailable.') })
     } finally {
       setChecking(false)
     }
@@ -633,7 +760,10 @@ function FlightInfoFields({ form }: { form: UseFormReturn<TripFormValues> }) {
         name="flightNumber"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>✈️ Flight number</FormLabel>
+            <FormLabel>
+              <Plane className="size-4" aria-hidden="true" />
+              Flight number
+            </FormLabel>
             <div className="flex gap-1">
               <FormControl>
                 <Input placeholder="AF1234" {...field} />
@@ -687,7 +817,36 @@ function FlightInfoFields({ form }: { form: UseFormReturn<TripFormValues> }) {
           </FormItem>
         )}
       />
-      {result && <p className="text-muted-foreground col-span-full text-xs">{result}</p>}
+      {/* The name to write on the pickup sign — the optional attached file
+          (logo, photo of the board) is uploaded separately, see
+          nameboard-upload-dialog.tsx. */}
+      <FormField
+        control={form.control}
+        name="nameboard"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Nameboard</FormLabel>
+            <FormControl>
+              <Input placeholder="Name on the sign" {...field} />
+            </FormControl>
+          </FormItem>
+        )}
+      />
+      {result && (
+        <p
+          className={cn(
+            'col-span-full flex items-center gap-1.5 text-xs',
+            result.tone === 'ok' && 'text-success',
+            result.tone === 'warn' && 'text-warning',
+            result.tone === 'info' && 'text-muted-foreground',
+          )}
+        >
+          {result.tone === 'ok' && <CircleCheck className="size-3.5" aria-hidden="true" />}
+          {result.tone === 'warn' && <TriangleAlert className="size-3.5" aria-hidden="true" />}
+          {result.tone === 'info' && <Info className="size-3.5" aria-hidden="true" />}
+          {result.message}
+        </p>
+      )}
     </div>
   )
 }
@@ -699,6 +858,8 @@ function PriceField({
   currency,
   disabled = false,
   disabledReason,
+  totalHint,
+  marginHint,
 }: {
   form: UseFormReturn<TripFormValues>
   name: 'priceEur' | 'partnerRateEur'
@@ -706,6 +867,10 @@ function PriceField({
   currency?: string
   disabled?: boolean
   disabledReason?: string
+  /** ASD grand total (rate × Nb H) — the field holds an hourly rate for that service. */
+  totalHint?: string
+  /** Booking margin, shown under the Partner rate the legacy computed it beside. */
+  marginHint?: string
 }) {
   const [hint, setHint] = useState<string | null>(null)
 
@@ -757,6 +922,8 @@ function PriceField({
           ) : (
             hint && <p className="text-muted-foreground text-xs">{hint}</p>
           )}
+          {totalHint && <p className="text-muted-foreground text-xs">{totalHint}</p>}
+          {marginHint && <p className="text-xs font-medium">{marginHint}</p>}
         </FormItem>
       )}
     />

@@ -72,8 +72,8 @@ test.describe('Events — select/create event, bulk-create bookings', () => {
     await form.locator('input[type="time"]').fill('10:00')
     await selectFromDropdown(page, 'Vehicle', 'Business')
     await page.getByLabel('Pax Name').fill('E2E Playwright Passenger')
-    await page.getByLabel('📍 PU').fill('Nice Airport')
-    await page.getByLabel('📍 DO').fill('Hotel Negresco')
+    await page.getByLabel('PU', { exact: true }).fill('Nice Airport')
+    await page.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
     await page.getByLabel('POC Mobile').fill('+33612345678')
 
     await page.getByRole('button', { name: 'Create', exact: true }).click()
@@ -92,8 +92,8 @@ test.describe('Events — select/create event, bulk-create bookings', () => {
     await form.locator('input[type="time"]').fill('10:00')
     await selectFromDropdown(page, 'Vehicle', 'Business')
     await page.getByLabel('Pax Name').fill('E2E Bulk Passenger')
-    await page.getByLabel('📍 PU').fill('Nice Airport')
-    await page.getByLabel('📍 DO').fill('Hotel Negresco')
+    await page.getByLabel('PU', { exact: true }).fill('Nice Airport')
+    await page.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
     await page.getByLabel('POC Mobile').fill('+33612345678')
 
     const bulkButton = page.getByRole('button', { name: 'Create bulk' })
@@ -123,7 +123,7 @@ test.describe('Events — select/create event, bulk-create bookings', () => {
     const bulkDay2Row = page.getByRole('row').filter({ hasText: 'Hotel Negresco → Hotel Negresco' })
     await bulkDay2Row.getByRole('button', { name: 'Edit' }).click()
     const editDialog = page.getByRole('dialog', { name: /^Edit booking/ })
-    await expect(editDialog.getByLabel('📝 Info', { exact: true })).toHaveValue('Ref: PO-E2E-001')
+    await expect(editDialog.getByLabel('Info', { exact: true })).toHaveValue('Ref: PO-E2E-001')
     await editDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
 
     // --- A non-matching event name filters everything out ---

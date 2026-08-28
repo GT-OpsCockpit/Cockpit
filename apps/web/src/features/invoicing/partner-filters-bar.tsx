@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ClientsControllerListType, useClientsControllerList, useDriversControllerList } from '@cockpit/shared/api'
-import { useDebouncedValue } from '@/lib/use-debounced-value'
-import { useOptionMemory } from '@/lib/use-option-memory'
+import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { Input } from '@/components/ui/input'
 import type { PartnerFilters } from './partner-filters'
@@ -18,22 +17,25 @@ export function PartnerFiltersBar({
   onChange: (filters: PartnerFilters) => void
 }) {
   const [partnerSearch, setPartnerSearch] = useState('')
-  const debouncedPartnerSearch = useDebouncedValue(partnerSearch, PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedPartnerSearch, pending: partnerSearchPending } = useDebouncedSearch(partnerSearch, PICKER_DEBOUNCE_MS)
   // The "partner" pool is the same split used everywhere else in the app: a driver record with a non-empty Company.
   const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT })
-  const partnerResults = (partners.data?.data ?? [])
-    .filter((d) => d.company)
-    .map((d) => ({ value: d.ref, label: `${d.name} — ${d.company}` }))
-  const partnerOptions = [{ value: '', label: 'All partners' }, ...useOptionMemory(partnerResults)]
+  const partnerOptions = [
+    { value: '', label: 'All partners' },
+    ...(partners.data?.data ?? []).filter((d) => d.company).map((d) => ({ value: d.ref, label: `${d.name} — ${d.company}` })),
+  ]
 
   const [eventSearch, setEventSearch] = useState('')
-  const debouncedEventSearch = useDebouncedValue(eventSearch, PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedEventSearch, pending: eventSearchPending } = useDebouncedSearch(eventSearch, PICKER_DEBOUNCE_MS)
   const events = useClientsControllerList({
     type: ClientsControllerListType.EVENT,
     search: debouncedEventSearch || undefined,
     limit: PICKER_LIMIT,
   })
-  const eventOptions = [{ value: '', label: 'All events' }, ...useOptionMemory((events.data?.data ?? []).map((c) => ({ value: c.ref, label: c.name })))]
+  const eventOptions = [
+    { value: '', label: 'All events' },
+    ...(events.data?.data ?? []).map((c) => ({ value: c.ref, label: c.name })),
+  ]
 
   const set = <K extends keyof PartnerFilters>(key: K, value: PartnerFilters[K]) => onChange({ ...filters, [key]: value })
 
@@ -53,6 +55,7 @@ export function PartnerFiltersBar({
         searchPlaceholder="Search partner…"
         searchValue={partnerSearch}
         onSearchChange={setPartnerSearch}
+        loading={partnerSearchPending || partners.isFetching}
       />
 
       <Input
@@ -87,6 +90,7 @@ export function PartnerFiltersBar({
         searchPlaceholder="Search event…"
         searchValue={eventSearch}
         onSearchChange={setEventSearch}
+        loading={eventSearchPending || events.isFetching}
       />
     </div>
   )

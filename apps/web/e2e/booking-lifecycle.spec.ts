@@ -59,8 +59,8 @@ test.describe('Booking lifecycle', () => {
     await selectFromDropdown(page, 'Vehicle', 'Business')
     await selectSearchCombobox(page, 'Customer', 'Marc', 'Marc Dubois')
     await page.getByLabel('Pax Name').fill('E2E Playwright Passenger')
-    await page.getByLabel('📍 PU').fill('Nice Airport')
-    await page.getByLabel('📍 DO').fill('Hotel Negresco')
+    await page.getByLabel('PU', { exact: true }).fill('Nice Airport')
+    await page.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
     await page.getByLabel('POC Name').fill('Sophie Durand')
     await page.getByLabel('POC Mobile').fill('+33612345678')
     await selectSearchCombobox(page, 'Driver', 'Julien', 'Julien Petit')
@@ -87,7 +87,7 @@ test.describe('Booking lifecycle', () => {
       await page.getByRole('alertdialog', { name: 'Valid step?' }).getByRole('button', { name: 'Valid step' }).click()
       await expect(toast(page, `Trip ${ref} moved to the next step.`)).toBeVisible()
     }
-    await expect(row.getByText('✅ Done')).toBeVisible()
+    await expect(row.getByText('Done', { exact: true })).toBeVisible()
 
     // --- Upload a nameboard ---
     await row.getByRole('button', { name: 'Upload nameboard' }).click()
@@ -116,6 +116,6 @@ test.describe('Booking lifecycle', () => {
     await cancelDialog.getByRole('button', { name: 'Cancel booking' }).click()
 
     await expect(toast(page, `Trip ${ref} cancelled (50% fee) — assignment cleared.`)).toBeVisible()
-    await expect(row.getByText('🛑 Stop')).toBeVisible()
+    await expect(row.getByText('Stop', { exact: true })).toBeVisible()
   })
 })

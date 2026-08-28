@@ -1,9 +1,11 @@
-import { Image, Pencil, Send, X } from 'lucide-react'
+import { Check, Image, Pencil, Send, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { TripEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableCard } from '@/components/table-card'
+import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { StatusBadge } from './status-badge'
 import {
   clientAccountLabel,
@@ -57,6 +59,8 @@ export function DispatchButton({
 interface BookingsTableProps {
   trips: TripEntity[]
   variant: 'local' | 'farmout'
+  /** First (uncached) load of the trips query — shows skeleton rows instead of the empty-state line. */
+  loading?: boolean
   onEdit: (trip: TripEntity) => void
   onCancel: (trip: TripEntity) => void
   onDispatch: (trip: TripEntity) => void
@@ -64,12 +68,12 @@ interface BookingsTableProps {
   onNameboard: (trip: TripEntity) => void
 }
 
-export function BookingsTable({ trips, variant, onEdit, onCancel, onDispatch, onAdvance, onNameboard }: BookingsTableProps) {
+export function BookingsTable({ trips, variant, loading = false, onEdit, onCancel, onDispatch, onAdvance, onNameboard }: BookingsTableProps) {
   const isLocal = variant === 'local'
   const colSpan = isLocal ? 10 : 9
 
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <TableCard>
       <Table>
         <TableHeader>
           <TableRow>
@@ -86,7 +90,9 @@ export function BookingsTable({ trips, variant, onEdit, onCancel, onDispatch, on
           </TableRow>
         </TableHeader>
         <TableBody>
-          {trips.length === 0 ? (
+          {loading ? (
+            <TableSkeletonRows columns={colSpan} />
+          ) : trips.length === 0 ? (
             <TableRow>
               <TableCell colSpan={colSpan} className="text-muted-foreground text-center">
                 No bookings to display.
@@ -119,7 +125,9 @@ export function BookingsTable({ trips, variant, onEdit, onCancel, onDispatch, on
                   {isLocal && (
                     <TableCell className="text-xs whitespace-nowrap">{trip.fleetVehicle?.acronym ?? '—'}</TableCell>
                   )}
-                  <TableCell className="text-center text-xs">{trip.subContractor ? '✓' : '—'}</TableCell>
+                  <TableCell className="text-center text-xs">
+                    {trip.subContractor ? <Check className="mx-auto size-3.5" aria-label="Sub-contracted" /> : '—'}
+                  </TableCell>
                   <TableCell className="text-xs whitespace-nowrap">
                     {isLocal ? shortDriverName(driverName) : (driverName ?? '—')}
                   </TableCell>
@@ -155,6 +163,6 @@ export function BookingsTable({ trips, variant, onEdit, onCancel, onDispatch, on
           )}
         </TableBody>
       </Table>
-    </div>
+    </TableCard>
   )
 }

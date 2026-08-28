@@ -1,5 +1,6 @@
 import { FleetUnavailabilityEntityType } from '@cockpit/shared/api'
-import type { FleetUnavailabilityEntity } from '@cockpit/shared/api'
+import type { FleetUnavailabilityEntity, FleetVehicleEntity } from '@cockpit/shared/api'
+import type { BookingPrefill } from '@/features/bookings/booking-create-dialog'
 
 export interface VehicleFilters {
   search: string
@@ -8,6 +9,15 @@ export interface VehicleFilters {
 
 export function defaultVehicleFilters(): VehicleFilters {
   return { search: '', showInactive: false }
+}
+
+/** Seeds a "New booking" modal opened from this vehicle's row — see booking-create-dialog.tsx. */
+export function vehicleBookingPrefill(vehicle: FleetVehicleEntity): BookingPrefill {
+  return {
+    vehicleType: vehicle.category.name,
+    fleetRegNbr: vehicle.regNbr,
+    regNbrLabel: `${vehicle.regNbr} — ${vehicle.category.name}`,
+  }
 }
 
 function formatDate(iso: string): string {

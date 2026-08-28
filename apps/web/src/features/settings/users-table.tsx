@@ -3,6 +3,7 @@ import type { PublicUserEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableCard } from '@/components/table-card'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString()
@@ -18,7 +19,7 @@ interface UsersTableProps {
 
 export function UsersTable({ users, onEdit, onDeactivate, canManage }: UsersTableProps) {
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <TableCard>
       <Table>
         <TableHeader>
           <TableRow>
@@ -81,6 +82,6 @@ export function UsersTable({ users, onEdit, onDeactivate, canManage }: UsersTabl
           )}
         </TableBody>
       </Table>
-    </div>
+    </TableCard>
   )
 }

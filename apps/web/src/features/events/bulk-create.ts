@@ -99,6 +99,7 @@ export function buildBulkTripDto(
     bufferTime: legValues.bufferTime,
     fboAddress: legValues.fboAddress || undefined,
     tailNbr: legValues.tailNbr || undefined,
+    nameboard: legValues.nameboard || undefined,
     pickupIata: legValues.pickupIata || undefined,
     dropoffIata: legValues.dropoffIata || undefined,
   }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { TripEntity } from '@cockpit/shared/api'
 import { useInvoicesControllerList, useTripsControllerList } from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
+import { FileSpreadsheet, ReceiptText } from 'lucide-react'
 import { AdvanceStepConfirmDialog } from '../bookings/advance-step-confirm-dialog'
 import { BookingCancelDialog } from '../bookings/booking-cancel-dialog'
 import { BookingEditDialog } from '../bookings/booking-edit-dialog'
@@ -67,14 +68,16 @@ export function CustomerTab() {
               disabled={pendingTrips.length === 0}
               onClick={() => void downloadCustomerPendingExcel(pendingTrips, targetLabel, filters.dateStart, filters.dateEnd)}
             >
-              ⬇️ Export to Excel
+              <FileSpreadsheet />
+              Export to Excel
             </Button>
             <Button
               disabled={!canInvoice}
               title={canInvoice ? undefined : 'Turn the trips currently shown here into one invoice line (requires a specific Client or Event selected above)'}
               onClick={() => setConfirmOpen(true)}
             >
-              🧾 Invoice
+              <ReceiptText />
+              Invoice
             </Button>
           </div>
         </div>
@@ -99,7 +102,8 @@ export function CustomerTab() {
             disabled={filteredInvoices.length === 0}
             onClick={() => void downloadInvoicesExcel(filteredInvoices, filters.dateStart, filters.dateEnd)}
           >
-            ⬇️ Export to Excel
+            <FileSpreadsheet />
+            Export to Excel
           </Button>
         </div>
         <InvoicedTable invoices={filteredInvoices} />

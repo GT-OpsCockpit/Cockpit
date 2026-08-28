@@ -11,6 +11,7 @@ import {
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -103,6 +104,7 @@ export function NameboardUploadDialog({
             Close
           </Button>
           <Button type="button" disabled={!file || upload.isPending} onClick={() => void confirm()}>
+            {upload.isPending && <Spinner />}
             Upload
           </Button>
         </DialogFooter>

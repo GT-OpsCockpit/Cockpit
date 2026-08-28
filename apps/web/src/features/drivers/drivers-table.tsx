@@ -1,22 +1,27 @@
-import { CalendarClock, Lock, Pencil, RotateCcw, X } from 'lucide-react'
+import { CalendarClock, CalendarPlus, Lock, Pencil, RotateCcw, X } from 'lucide-react'
 import type { DriverEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableCard } from '@/components/table-card'
+import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { isPartner, unavailabilityLabel } from './driver-status'
 
 interface DriversTableProps {
   drivers: DriverEntity[]
+  /** First (uncached) load of the drivers query — shows skeleton rows instead of the empty-state line. */
+  loading?: boolean
   onEdit: (driver: DriverEntity) => void
   onUnavailability: (driver: DriverEntity) => void
   onToggleActive: (driver: DriverEntity) => void
   /** Ported from the legacy's padlock (common.js:3538) — only ever set for the Partners table, a local chauffeur never has a reserved External vehicle. */
   onUnlinkVehicle: (driver: DriverEntity) => void
+  onNewBooking: (driver: DriverEntity) => void
   /** UX-layer mirror of driver:reactivate (see docs/agents/permissions.md) — deactivating stays ungated. */
   canReactivate: boolean
 }
 
-export function DriversTable({ drivers, onEdit, onUnavailability, onToggleActive, onUnlinkVehicle, canReactivate }: DriversTableProps) {
+export function DriversTable({ drivers, loading = false, onEdit, onUnavailability, onToggleActive, onUnlinkVehicle, onNewBooking, canReactivate }: DriversTableProps) {
   const chauffeurs = drivers.filter((d) => !isPartner(d))
   const partners = drivers.filter(isPartner)
 
@@ -25,19 +30,23 @@ export function DriversTable({ drivers, onEdit, onUnavailability, onToggleActive
       <DriverGroup
         title="Chauffeurs"
         drivers={chauffeurs}
+        loading={loading}
         onEdit={onEdit}
         onUnavailability={onUnavailability}
         onToggleActive={onToggleActive}
         onUnlinkVehicle={onUnlinkVehicle}
+        onNewBooking={onNewBooking}
         canReactivate={canReactivate}
       />
       <DriverGroup
         title="Partenaires"
         drivers={partners}
+        loading={loading}
         onEdit={onEdit}
         onUnavailability={onUnavailability}
         onToggleActive={onToggleActive}
         onUnlinkVehicle={onUnlinkVehicle}
+        onNewBooking={onNewBooking}
         canReactivate={canReactivate}
       />
     </div>
@@ -47,16 +56,18 @@ export function DriversTable({ drivers, onEdit, onUnavailability, onToggleActive
 function DriverGroup({
   title,
   drivers,
+  loading,
   onEdit,
   onUnavailability,
   onToggleActive,
   onUnlinkVehicle,
+  onNewBooking,
   canReactivate,
 }: DriversTableProps & { title: string }) {
   return (
     <div className="grid gap-2">
       <h2 className="text-sm font-medium">{title}</h2>
-      <div className="overflow-x-auto rounded-md border">
+      <TableCard>
         <Table>
           <TableHeader>
             <TableRow>
@@ -70,7 +81,9 @@ function DriverGroup({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {drivers.length === 0 ? (
+            {loading ? (
+              <TableSkeletonRows columns={7} />
+            ) : drivers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-muted-foreground text-center">
                   No records to display.
@@ -107,6 +120,9 @@ function DriverGroup({
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" title="New booking" onClick={() => onNewBooking(driver)}>
+                          <CalendarPlus className="size-3.5" />
+                        </Button>
                         <Button variant="ghost" size="icon" title="Edit" onClick={() => onEdit(driver)}>
                           <Pencil className="size-3.5" />
                         </Button>
@@ -136,7 +152,7 @@ function DriverGroup({
             )}
           </TableBody>
         </Table>
-      </div>
+      </TableCard>
     </div>
   )
 }

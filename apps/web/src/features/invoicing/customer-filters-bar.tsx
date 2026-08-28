@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ClientsControllerListType, useClientsControllerList } from '@cockpit/shared/api'
-import { useDebouncedValue } from '@/lib/use-debounced-value'
-import { useOptionMemory } from '@/lib/use-option-memory'
+import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -20,21 +19,24 @@ export function CustomerFiltersBar({
   onChange: (filters: CustomerFilters) => void
 }) {
   const [clientSearch, setClientSearch] = useState('')
-  const debouncedClientSearch = useDebouncedValue(clientSearch, PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedClientSearch, pending: clientSearchPending } = useDebouncedSearch(clientSearch, PICKER_DEBOUNCE_MS)
   const clients = useClientsControllerList({ search: debouncedClientSearch || undefined, limit: PICKER_LIMIT })
-  const clientResults = (clients.data?.data ?? [])
-    .filter((c) => c.clientType !== 'EVENT')
-    .map((c) => ({ value: c.ref, label: c.name }))
-  const clientOptions = [{ value: '', label: 'All clients' }, ...useOptionMemory(clientResults)]
+  const clientOptions = [
+    { value: '', label: 'All clients' },
+    ...(clients.data?.data ?? []).filter((c) => c.clientType !== 'EVENT').map((c) => ({ value: c.ref, label: c.name })),
+  ]
 
   const [eventSearch, setEventSearch] = useState('')
-  const debouncedEventSearch = useDebouncedValue(eventSearch, PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedEventSearch, pending: eventSearchPending } = useDebouncedSearch(eventSearch, PICKER_DEBOUNCE_MS)
   const events = useClientsControllerList({
     type: ClientsControllerListType.EVENT,
     search: debouncedEventSearch || undefined,
     limit: PICKER_LIMIT,
   })
-  const eventOptions = [{ value: '', label: 'All events' }, ...useOptionMemory((events.data?.data ?? []).map((c) => ({ value: c.ref, label: c.name })))]
+  const eventOptions = [
+    { value: '', label: 'All events' },
+    ...(events.data?.data ?? []).map((c) => ({ value: c.ref, label: c.name })),
+  ]
 
   const set = <K extends keyof CustomerFilters>(key: K, value: CustomerFilters[K]) => onChange({ ...filters, [key]: value })
 
@@ -55,6 +57,7 @@ export function CustomerFiltersBar({
           searchPlaceholder="Search event…"
           searchValue={eventSearch}
           onSearchChange={setEventSearch}
+          loading={eventSearchPending || events.isFetching}
         />
       ) : (
         <SearchCombobox
@@ -68,6 +71,7 @@ export function CustomerFiltersBar({
           searchPlaceholder="Search client…"
           searchValue={clientSearch}
           onSearchChange={setClientSearch}
+          loading={clientSearchPending || clients.isFetching}
         />
       )}
 

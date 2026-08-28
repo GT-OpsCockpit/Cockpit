@@ -4,6 +4,7 @@ import { CustomerTab } from './customer-tab'
 import { DriverLogTab } from './driver-log-tab'
 import { HistoryTab } from './history-tab'
 import { PartnerLogTab } from './partner-log-tab'
+import { PageTitle } from '@/components/layout/page-title'
 
 /** Tabs mirror the legacy's #inv-tab (Customer / Driver log / Partner log / History — invoicing.html:38-43). */
 export function InvoicingPage() {
@@ -11,7 +12,7 @@ export function InvoicingPage() {
 
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">Invoicing</h1>
+      <PageTitle>Invoicing</PageTitle>
 
       <Tabs defaultValue="customer">
         <TabsList>

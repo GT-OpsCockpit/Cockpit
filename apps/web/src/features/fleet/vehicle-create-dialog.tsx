@@ -7,6 +7,7 @@ import { getFleetVehiclesControllerListQueryKey, useFleetVehiclesControllerCreat
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { VehicleFormFields } from './vehicle-form-fields'
@@ -58,6 +59,7 @@ export function VehicleCreateDialog() {
                 Cancel
               </Button>
               <Button type="submit" disabled={createVehicle.isPending}>
+                {createVehicle.isPending && <Spinner />}
                 Create
               </Button>
             </DialogFooter>

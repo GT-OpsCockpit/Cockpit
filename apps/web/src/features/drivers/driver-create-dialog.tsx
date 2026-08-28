@@ -8,6 +8,7 @@ import { getDriversControllerListQueryKey, useDriversControllerCreate } from '@c
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -96,6 +97,7 @@ export function DriverCreateDialog() {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={createDriver.isPending}>
+                  {createDriver.isPending && <Spinner />}
                   Create
                 </Button>
               </DialogFooter>

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, ChevronsUpDown, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,6 +9,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandLoading,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -28,8 +29,28 @@ interface SearchComboboxProps {
   /** Controlled search text — pass this + onSearchChange to drive an async/remote search (address, POC…). */
   searchValue?: string
   onSearchChange?: (value: string) => void
+  /**
+   * Remote searches only: true while a query for the current search text is
+   * in flight (typically `query.isFetching`, debounce included — see
+   * `pendingSearch` below). Without it the list silently keeps showing the
+   * *previous* search's results, which reads as "the search did nothing".
+   */
+  loading?: boolean
+  /** Remote searches only: shown while `loading` and no result is on screen yet. */
+  loadingText?: string
+  /**
+   * Fallback label for `value` when it isn't in `options` — a remote search
+   * only ever holds the current slice of results, so the selected item drops
+   * out of it as soon as the user searches for something else. The combobox
+   * already remembers every label it has itself displayed; this covers the
+   * one case it cannot know, a value selected before this component mounted
+   * (editing a trip whose client/driver no search has returned yet).
+   */
+  selectedLabel?: string
   disabled?: boolean
   className?: string
+  /** Optional lucide icon rendered before the value, the way <InputGroupAddon align="inline-start"> does on plain inputs. */
+  icon?: LucideIcon
   /**
    * Forwarded onto the trigger button so this composes with shadcn's <FormControl> the same way
    * <SelectTrigger> does elsewhere in the form — without these, <FormLabel>'s htmlFor pointed at
@@ -48,6 +69,36 @@ interface SearchComboboxProps {
   'aria-label'?: string
 }
 
+/**
+ * Remembers the label of every option this combobox has displayed, so the
+ * trigger keeps showing the selected item's name after that item falls out
+ * of a remote search's results.
+ *
+ * Deliberately state + effect, not a ref mutated during render: the labels
+ * change because a query (an external system) resolved, and this project's
+ * React Compiler requires render purity — a memoized render could skip
+ * re-running and read a stale ref.
+ */
+function useLabelMemory(options: ComboboxOption[]): Map<string, string> {
+  const [memory, setMemory] = useState<Map<string, string>>(new Map())
+
+  useEffect(() => {
+    setMemory((prev) => {
+      let changed = false
+      const next = new Map(prev)
+      for (const option of options) {
+        if (next.get(option.value) !== option.label) {
+          next.set(option.value, option.label)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [options])
+
+  return memory
+}
+
 /** Generic searchable combobox (Popover + Command) — the shared primitive behind Country/Customer/Driver/Address/POC pickers. */
 export function SearchCombobox({
   value,
@@ -58,15 +109,21 @@ export function SearchCombobox({
   searchPlaceholder = 'Search…',
   searchValue,
   onSearchChange,
+  loading = false,
+  loadingText = 'Searching…',
+  selectedLabel,
   disabled,
   className,
+  icon: Icon,
   id,
   'aria-describedby': ariaDescribedBy,
   'aria-invalid': ariaInvalid,
   'aria-label': ariaLabel,
 }: SearchComboboxProps) {
   const [open, setOpen] = useState(false)
-  const selected = options.find((o) => o.value === value)
+  const remote = onSearchChange !== undefined
+  const labelMemory = useLabelMemory(options)
+  const currentLabel = options.find((o) => o.value === value)?.label ?? labelMemory.get(value) ?? selectedLabel
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -81,26 +138,47 @@ export function SearchCombobox({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn('w-full min-w-0 justify-between font-normal', !selected && 'text-muted-foreground', className)}
+          className={cn('w-full min-w-0 justify-between font-normal', !currentLabel && 'text-muted-foreground', className)}
         >
-          <span className="min-w-0 truncate">{selected ? selected.label : placeholder}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            {Icon && <Icon className="size-4 shrink-0 opacity-60" aria-hidden="true" />}
+            <span className="min-w-0 truncate">{currentLabel ?? placeholder}</span>
+          </span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter={onSearchChange === undefined}>
+        <Command shouldFilter={!remote}>
           <CommandInput
             placeholder={searchPlaceholder}
             value={searchValue}
             onValueChange={onSearchChange}
+            loading={loading}
           />
-          <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup>
+          {/*
+            While a remote search is in flight the rows below still hold the
+            *previous* query's results — dim them and show cmdk's <Command.Loading>
+            so a search that returns the same (or no) rows still visibly does
+            something. aria-busy lets a screen reader hear the same thing.
+          */}
+          <CommandList aria-busy={loading}>
+            {loading && <CommandLoading>{loadingText}</CommandLoading>}
+            {/* cmdk's <Command.Empty> renders on its own whenever nothing matched — gate it
+                off while loading so an in-flight search never reads as "No results." */}
+            {!loading && <CommandEmpty>{emptyText}</CommandEmpty>}
+            <CommandGroup className={cn(loading && 'opacity-50 transition-opacity')}>
               {options.map((option) => (
                 <CommandItem
+                  // cmdk matches on this string when it does the filtering
+                  // (local mode) — but labels aren't unique in remote results
+                  // (two drivers can share a name), and same-value items
+                  // highlight as one, so key off the real value there.
+                  // Falls back to the label for the ""-valued "All …" reset
+                  // row the filter bars prepend: cmdk treats an empty
+                  // data-value as "no item", which would make that row
+                  // unreachable by keyboard.
                   key={option.value}
-                  value={option.label}
+                  value={remote ? option.value || option.label : option.label}
                   onSelect={() => {
                     onChange(option.value)
                     setOpen(false)

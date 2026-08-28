@@ -1,3 +1,4 @@
+import { CalendarOff, Wrench } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import type { DriverEntity, FleetVehicleEntity, TripEntity } from '@cockpit/shared/api'
@@ -25,6 +26,7 @@ import { PlanningFiltersBar } from './planning-filters-bar'
 import { PlanningList } from './planning-list'
 import { coversDate, defaultPlanningFilters, vehicleTypeColor, type PlanningResource } from './planning-status'
 import { PlanningTimeline, type TimelineRow } from './planning-timeline'
+import { PageTitle } from '@/components/layout/page-title'
 
 // The backend caps `limit` at 100 on every paginated list endpoint (see
 // e.g. ListDriversQueryDto) — the Gantt's row roster reuses that same bound
@@ -99,7 +101,7 @@ export function PlanningPage() {
         label: driverDisplayName(d),
         subLabel: d.phone ?? undefined,
         icon: {
-          symbol: '🫥',
+          icon: CalendarOff,
           title: 'Day off / Holidays / Sickness leave',
           placement: 'inline',
           dimmed: !active,
@@ -120,7 +122,7 @@ export function PlanningPage() {
         subLabel: [v.make, v.model].filter(Boolean).join(' '),
         icon: v.isLocal
           ? {
-              symbol: '🔧',
+              icon: Wrench,
               title: 'Repair shop / Manufacturer service / Bodywork',
               placement: 'thirdLine',
               dimmed: !active,
@@ -134,7 +136,7 @@ export function PlanningPage() {
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Planning</h1>
+        <PageTitle>Planning</PageTitle>
         <Tabs value={filters.resource} onValueChange={(v) => handleResourceChange(v as PlanningResource)}>
           <TabsList>
             <TabsTrigger value="drivers">Drivers</TabsTrigger>

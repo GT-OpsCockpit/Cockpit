@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import type { TripEntity } from '@cockpit/shared/api'
@@ -14,7 +15,7 @@ import {
 } from './planning-timeline-math'
 
 export interface TimelineRowIcon {
-  symbol: string
+  icon: LucideIcon
   title: string
   /** Driver rows show the icon inline on the label's first line; vehicle rows show it on its own third line (common.js:2189-2225). */
   placement: 'inline' | 'thirdLine'
@@ -122,7 +123,11 @@ export function PlanningTimeline({
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-xl border bg-card shadow-sm">
+      {/* No `overflow-hidden` here (unlike <TableCard>): the grid below scrolls
+          horizontally with a `sticky left-0` name column, and clipping on an
+          ancestor turns that ancestor into the sticky containing block, which
+          staggers the column out of alignment. */}
+      <div className="rounded-xl bg-card ring-1 ring-foreground/10">
         {legend && legend.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b px-4 py-2.5">
             {legend.map((item) => (
@@ -135,6 +140,12 @@ export function PlanningTimeline({
         )}
 
         <div className="overflow-x-auto">
+          {/* Every cell states its row AND column explicitly. The "Now" overlay
+              below is definitely placed across column 2 of every data row, which
+              reserves those cells: auto-placed label/lane pairs then had nowhere
+              to go but column 1, one per row, and the whole chart came out
+              staggered. Explicit placement also lets the overlay legitimately sit
+              on top of the lanes instead of competing with them for a cell. */}
           <div
             className="grid min-w-[900px]"
             style={{ gridTemplateColumns: `${LABEL_COL} 1fr` }}
@@ -142,8 +153,8 @@ export function PlanningTimeline({
             {/* --- Header: optional day labels, then hour ticks --- */}
             {window_.daysCount > 1 && (
               <>
-                <div className="sticky left-0 z-20 border-b bg-card" />
-                <div className="relative h-6 border-b bg-muted/40">
+                <div className="col-start-1 row-start-1 sticky left-0 z-20 border-b bg-card" />
+                <div className="col-start-2 row-start-1 relative h-6 border-b bg-muted/40">
                   {window_.dateList.map((d, i) => (
                     <div
                       key={d}
@@ -156,8 +167,8 @@ export function PlanningTimeline({
                 </div>
               </>
             )}
-            <div className="sticky left-0 z-20 border-b bg-card" />
-            <div className="relative h-6 border-b bg-muted/40">
+            <div className="col-start-1 sticky left-0 z-20 border-b bg-card" style={{ gridRow: headerRows }} />
+            <div className="col-start-2 relative h-6 border-b bg-muted/40" style={{ gridRow: headerRows }}>
               {hourLabels.map((tick) => (
                 <div
                   key={tick.key}
@@ -174,7 +185,12 @@ export function PlanningTimeline({
 
             {/* --- One row per driver/vehicle --- */}
             {rows.length === 0 ? (
-              <div className="col-span-2 p-8 text-center text-sm text-muted-foreground">No rows to display.</div>
+              <div
+                className="col-span-2 col-start-1 p-8 text-center text-sm text-muted-foreground"
+                style={{ gridRow: headerRows + 1 }}
+              >
+                No rows to display.
+              </div>
             ) : (
               rows.map((row, rowIndex) => {
                 const rowTrips = assignedTrips.filter((t) => getRowKey(t) === row.key)
@@ -184,10 +200,11 @@ export function PlanningTimeline({
                   <div key={row.key} className="group contents">
                     <div
                       className={cn(
-                        'sticky left-0 z-10 flex flex-col justify-center gap-0.5 border-r bg-card px-3 py-2 text-xs transition-colors group-hover:bg-muted/40',
+                        'col-start-1 sticky left-0 z-10 flex flex-col justify-center gap-0.5 border-r bg-card px-3 py-2 text-xs transition-colors group-hover:bg-muted/40',
                         !isLast && 'border-b',
                         row.statusLabel && 'bg-destructive/[0.03]',
                       )}
+                      style={{ gridRow: headerRows + 1 + rowIndex }}
                     >
                       <div className="flex items-center gap-1 font-medium text-foreground">
                         {row.icon?.placement === 'inline' && <RowIcon icon={row.icon} />}
@@ -209,10 +226,11 @@ export function PlanningTimeline({
                     <div
                       data-row-key={row.key}
                       className={cn(
-                        'relative h-16 transition-colors group-hover:bg-muted/20',
+                        'col-start-2 relative h-16 transition-colors group-hover:bg-muted/20',
                         !isLast && 'border-b',
                         isDragOver && 'bg-primary/10 outline outline-2 -outline-offset-2 outline-primary/40',
                       )}
+                      style={{ gridRow: headerRows + 1 + rowIndex }}
                       onDragOver={(e) => {
                         e.preventDefault()
                         setDragOverRowKey(row.key)
@@ -348,13 +366,13 @@ function RowIcon({ icon }: { icon: TimelineRowIcon }) {
       variant="ghost"
       size="icon-xs"
       title={icon.title}
-      className={cn('-ml-1 text-sm', icon.dimmed && 'opacity-35 hover:opacity-100')}
+      className={cn('-ml-1', icon.dimmed && 'opacity-35 hover:opacity-100')}
       onClick={(e) => {
         e.stopPropagation()
         icon.onClick()
       }}
     >
-      {icon.symbol}
+      <icon.icon />
     </Button>
   )
 }

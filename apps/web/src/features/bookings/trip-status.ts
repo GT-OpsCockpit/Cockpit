@@ -17,17 +17,22 @@ export const STEP_ORDER = [
   TripStepEntityStep.DROPPED,
 ] as const
 
+// Text only — the leading emoji the legacy used are lucide icons now, rendered
+// alongside the label by StatusBadge (see docs/UI_REFRESH_PLAN.md). Keeping the
+// labels plain also keeps them usable outside React (the invoice Excel export).
 export const STEP_LABELS: Record<TripStepEntityStep, string> = {
-  TRANSMITTED: '📤 Sent ✅',
-  RECEIVED: '📥 Received',
-  ACCEPTED: '✔️ Confirmed',
-  ENROUTE: '🛣️ OTW',
-  ARRIVED: '📍 IP',
-  ONBOARD: '🟢 POB',
-  DROPPED: '✅ Done',
+  TRANSMITTED: 'Sent',
+  RECEIVED: 'Received',
+  ACCEPTED: 'Confirmed',
+  ENROUTE: 'OTW',
+  ARRIVED: 'IP',
+  ONBOARD: 'POB',
+  DROPPED: 'Done',
 }
 
-export const CANCELLED_LABEL = '🛑 Stop'
+export const CANCELLED_LABEL = 'Stop'
+
+export const NO_STATUS_LABEL = 'Send ?'
 
 // Steps kept as a solid badge; everything else is plain colored text (matches
 // the legacy's HIGHLIGHTED_STEPS distinction).
@@ -67,7 +72,7 @@ export function isStatusLocked(trip: TripEntity): boolean {
 }
 
 export function statusLabel(status: TripStatus): string {
-  if (!status) return '📤 Send ?'
+  if (!status) return NO_STATUS_LABEL
   if (status === 'CANCELLED') return CANCELLED_LABEL
   return STEP_LABELS[status]
 }

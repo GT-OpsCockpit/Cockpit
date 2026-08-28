@@ -1,6 +1,7 @@
 import type { TripEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableCard } from '@/components/table-card'
 import { StatusBadge } from '../bookings/status-badge'
 import { clientAccountLabel, displayPickup, itineraryLabel, tripDriverName, urgencyRowClass } from '../bookings/trip-status'
 
@@ -17,7 +18,7 @@ interface PlanningListProps {
  */
 export function PlanningList({ trips, onEdit, onAdvance }: PlanningListProps) {
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <TableCard>
       <Table>
         <TableHeader>
           <TableRow>
@@ -72,6 +73,6 @@ export function PlanningList({ trips, onEdit, onAdvance }: PlanningListProps) {
           )}
         </TableBody>
       </Table>
-    </div>
+    </TableCard>
   )
 }

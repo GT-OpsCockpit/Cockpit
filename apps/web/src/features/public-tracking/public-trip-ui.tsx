@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
+import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card } from '@/components/ui/card'
+import { STEP_ICONS } from '@/features/bookings/trip-step-icons'
 
 /** Shared mobile-card shell for /driver/:ref and /track/:ref — no auth, no app nav. */
 export function PublicPageShell({ children }: { children: ReactNode }) {
@@ -24,15 +26,17 @@ export function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-export function StepIcon({ done, icon }: { done: boolean; icon: string }) {
+/** Same lucide vocabulary as the dispatcher's status badge — one glyph per step, app-wide. */
+export function StepIcon({ done, step }: { done: boolean; step: string }) {
+  const Icon = STEP_ICONS[step]
   return (
     <div
       className={cn(
-        'flex size-8 shrink-0 items-center justify-center rounded-full text-sm transition-colors',
+        'flex size-8 shrink-0 items-center justify-center rounded-full transition-colors [&>svg]:size-4',
         done ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
       )}
     >
-      {done ? '✓' : icon}
+      {done ? <Check aria-hidden="true" /> : Icon ? <Icon aria-hidden="true" /> : null}
     </div>
   )
 }

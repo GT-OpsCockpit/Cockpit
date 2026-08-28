@@ -6,7 +6,7 @@ import { baseDriver } from './test-fixtures'
 
 afterEach(cleanup)
 
-const noop = { onEdit: vi.fn(), onUnavailability: vi.fn(), onToggleActive: vi.fn(), onUnlinkVehicle: vi.fn() }
+const noop = { onEdit: vi.fn(), onUnavailability: vi.fn(), onToggleActive: vi.fn(), onUnlinkVehicle: vi.fn(), onNewBooking: vi.fn() }
 
 describe('DriversTable', () => {
   it('shows a placeholder row in both groups when there are no drivers', () => {
@@ -66,6 +66,7 @@ describe('DriversTable', () => {
         onUnavailability={onUnavailability}
         onToggleActive={onToggleActive}
         onUnlinkVehicle={noop.onUnlinkVehicle}
+        onNewBooking={noop.onNewBooking}
         canReactivate
       />,
     )
@@ -115,7 +116,7 @@ describe('DriversTable', () => {
         updatedAt: '2026-01-01T00:00:00.000Z',
       },
     })
-    render(<DriversTable drivers={[driver]} canReactivate onEdit={noop.onEdit} onUnavailability={noop.onUnavailability} onToggleActive={noop.onToggleActive} onUnlinkVehicle={onUnlinkVehicle} />)
+    render(<DriversTable drivers={[driver]} canReactivate onEdit={noop.onEdit} onUnavailability={noop.onUnavailability} onToggleActive={noop.onToggleActive} onUnlinkVehicle={onUnlinkVehicle} onNewBooking={noop.onNewBooking} />)
 
     expect(screen.getByText('AB-123-CD')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Unlink this vehicle from the chauffeur' }))

@@ -1,9 +1,10 @@
-import { FileDown, FileSpreadsheet, PenSquare, Send } from 'lucide-react'
+import { Check, FileDown, FileSpreadsheet, PenSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import type { InvoiceEntity } from '@cockpit/shared/api'
 import { useMetaControllerGetMeta } from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableCard } from '@/components/table-card'
 import { clientDisplayName } from '../bookings/trip-status'
 import { downloadInvoiceDetailExcel } from './invoice-excel'
 import { downloadInvoicePdf } from './invoice-pdf'
@@ -33,7 +34,7 @@ export function InvoicedTable({ invoices }: { invoices: InvoiceEntity[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <TableCard>
       <Table>
         <TableHeader>
           <TableRow>
@@ -69,7 +70,9 @@ export function InvoicedTable({ invoices }: { invoices: InvoiceEntity[] }) {
                     {invoice.trips.length}
                   </TableCell>
                   <TableCell className="text-xs">{invoice.refPo || '–'}</TableCell>
-                  <TableCell className="text-center text-xs">{invoice.isEvent ? '✅' : '–'}</TableCell>
+                  <TableCell className="text-center text-xs">
+                    {invoice.isEvent ? <Check className="mx-auto size-3.5" aria-label="Event" /> : '–'}
+                  </TableCell>
                   <TableCell className="text-xs whitespace-nowrap">{invoice.createdAt.slice(0, 10)}</TableCell>
                   <TableCell className="text-xs whitespace-nowrap">
                     <div>{Number(invoice.totalTTC).toFixed(2)} € TTC</div>
@@ -102,6 +105,6 @@ export function InvoicedTable({ invoices }: { invoices: InvoiceEntity[] }) {
           )}
         </TableBody>
       </Table>
-    </div>
+    </TableCard>
   )
 }

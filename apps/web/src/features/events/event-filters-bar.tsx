@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ClientsControllerListType, useClientsControllerList, useMetaControllerGetMeta } from '@cockpit/shared/api'
-import { useDebouncedValue } from '@/lib/use-debounced-value'
-import { useOptionMemory } from '@/lib/use-option-memory'
+import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -22,14 +21,16 @@ export function EventFiltersBar({
   const meta = useMetaControllerGetMeta()
 
   const [clientSearch, setClientSearch] = useState('')
-  const debouncedClientSearch = useDebouncedValue(clientSearch, PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedClientSearch, pending: clientSearchPending } = useDebouncedSearch(clientSearch, PICKER_DEBOUNCE_MS)
   const clients = useClientsControllerList({
     type: ClientsControllerListType.EVENT,
     search: debouncedClientSearch || undefined,
     limit: PICKER_LIMIT,
   })
-  const clientMemory = useOptionMemory((clients.data?.data ?? []).map((c) => ({ value: c.ref, label: c.name })))
-  const clientOptions = [{ value: '', label: 'All clients' }, ...clientMemory]
+  const clientOptions = [
+    { value: '', label: 'All clients' },
+    ...(clients.data?.data ?? []).map((c) => ({ value: c.ref, label: c.name })),
+  ]
 
   const set = <K extends keyof EventFilters>(key: K, value: EventFilters[K]) => onChange({ ...filters, [key]: value })
 
@@ -44,6 +45,7 @@ export function EventFiltersBar({
         searchPlaceholder="Search event client…"
         searchValue={clientSearch}
         onSearchChange={setClientSearch}
+        loading={clientSearchPending || clients.isFetching}
       />
 
       <Select value={filters.countryCode || ALL} onValueChange={(v) => set('countryCode', v === ALL ? '' : v)}>

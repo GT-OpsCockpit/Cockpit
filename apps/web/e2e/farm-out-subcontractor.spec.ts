@@ -54,7 +54,7 @@ test.describe('Farm-out sub-contractor', () => {
 
     // --- Sub-contracted with no partner on file: pinned at Sent, badge not clickable ---
     const unassignedRow = page.getByRole('row').filter({ hasText: unassignedTrip.ref })
-    await expect(unassignedRow.getByText('📤 Sent ✅')).toBeVisible()
+    await expect(unassignedRow.getByText('Sent', { exact: true })).toBeVisible()
     await expect(unassignedRow.getByTitle('Click to validate the next step')).toHaveCount(0)
 
     const directAdvance = await request.post(`${API_BASE_URL}/api/trips/${unassignedTrip.ref}/advance-step`)
@@ -63,18 +63,18 @@ test.describe('Farm-out sub-contractor', () => {
 
     // --- Sub-contracted with a partner: dispatches and advances like a normal job ---
     const assignedRow = page.getByRole('row').filter({ hasText: assignedTrip.ref })
-    await expect(assignedRow.getByText('📤 Send ?')).toBeVisible()
+    await expect(assignedRow.getByText('Send ?', { exact: true })).toBeVisible()
 
     await assignedRow.getByTitle('Dispatch to the driver').click()
     await page.getByRole('alertdialog', { name: 'Dispatch to the driver?' }).getByRole('button', { name: 'Yes' }).click()
     await expect(page.getByText(`Trip ${assignedTrip.ref} dispatched to the driver.`).first()).toBeVisible()
 
-    await expect(assignedRow.getByText('📤 Sent ✅')).toBeVisible()
+    await expect(assignedRow.getByText('Sent', { exact: true })).toBeVisible()
     const advanceButton = assignedRow.getByTitle('Click to validate the next step')
     await expect(advanceButton).toBeVisible()
     await advanceButton.click()
     await page.getByRole('alertdialog', { name: 'Valid step?' }).getByRole('button', { name: 'Valid step' }).click()
     await expect(page.getByText(`Trip ${assignedTrip.ref} moved to the next step.`).first()).toBeVisible()
-    await expect(assignedRow.getByText('📥 Received')).toBeVisible()
+    await expect(assignedRow.getByText('Received', { exact: true })).toBeVisible()
   })
 })

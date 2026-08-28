@@ -7,6 +7,7 @@ import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { driverDisplayName } from '@/features/bookings/trip-status'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { VehicleFormFields } from './vehicle-form-fields'
@@ -66,6 +67,7 @@ export function LinkVehicleToPartnerDialog({
                 Discard
               </Button>
               <Button type="submit" disabled={createVehicle.isPending}>
+                {createVehicle.isPending && <Spinner />}
                 Link
               </Button>
             </DialogFooter>

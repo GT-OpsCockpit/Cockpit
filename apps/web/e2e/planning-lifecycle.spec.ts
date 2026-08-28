@@ -149,7 +149,7 @@ test.describe('Planning — lifecycle (ADMIN)', () => {
 
       expect((await fetchAssignmentState(request, trip.ref)).driverId).toBe(julien.id)
 
-      // --- The 🫥 icon reuses the exact same dialog the /drivers vertical built. ---
+      // --- The day-off icon reuses the exact same dialog the /drivers vertical built. ---
       await julienRow.locator('..').getByTitle('Day off / Holidays / Sickness leave').click()
       await expect(page.getByRole('dialog', { name: `Unavailability — ${julien.ref}` })).toBeVisible()
       await page.keyboard.press('Escape')
@@ -214,7 +214,7 @@ test.describe('Planning — lifecycle (ADMIN)', () => {
 
       expect((await fetchAssignmentState(request, trip.ref)).fleetVehicleId).not.toBeNull()
 
-      // --- The 🔧 icon (Internal vehicles only) reuses the /vehicles vertical's dialog. ---
+      // --- The wrench icon (Internal vehicles only) reuses the /vehicles vertical's dialog. ---
       await businessRow.locator('..').getByTitle('Repair shop / Manufacturer service / Bodywork').click()
       await expect(page.getByRole('dialog', { name: 'Unavailability — F' })).toBeVisible()
       await page.keyboard.press('Escape')

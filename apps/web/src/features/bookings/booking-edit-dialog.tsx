@@ -6,6 +6,7 @@ import { getTripsControllerListQueryKey, useTripsControllerUpdate } from '@cockp
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePermission } from '@/features/auth/use-permission'
@@ -87,6 +88,7 @@ export function BookingEditDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={updateTrip.isPending || pastLockout}>
+                {updateTrip.isPending && <Spinner />}
                 {hadDriver ? 'Confirm and send' : 'Confirm'}
               </Button>
             </DialogFooter>

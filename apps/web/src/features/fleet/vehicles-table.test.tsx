@@ -6,7 +6,7 @@ import { baseVehicle } from './test-fixtures'
 
 afterEach(cleanup)
 
-const noop = { onEdit: vi.fn(), onUnavailability: vi.fn(), onToggleActive: vi.fn() }
+const noop = { onEdit: vi.fn(), onUnavailability: vi.fn(), onToggleActive: vi.fn(), onNewBooking: vi.fn() }
 
 describe('VehiclesTable', () => {
   it('shows a placeholder row in both groups when there are no vehicles', () => {
@@ -79,6 +79,7 @@ describe('VehiclesTable', () => {
         onEdit={onEdit}
         onUnavailability={onUnavailability}
         onToggleActive={onToggleActive}
+        onNewBooking={noop.onNewBooking}
         canReactivate
       />,
     )

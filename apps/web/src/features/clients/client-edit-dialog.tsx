@@ -6,6 +6,7 @@ import { getClientsControllerListQueryKey, useClientsControllerUpdate } from '@c
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePermission } from '@/features/auth/use-permission'
@@ -60,6 +61,7 @@ export function ClientEditDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={updateClient.isPending || !canEdit}>
+                {updateClient.isPending && <Spinner />}
                 Confirm
               </Button>
             </DialogFooter>

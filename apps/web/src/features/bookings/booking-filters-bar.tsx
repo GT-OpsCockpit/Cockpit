@@ -5,8 +5,7 @@ import {
   useMetaControllerGetMeta,
   TripEntityService,
 } from '@cockpit/shared/api'
-import { useDebouncedValue } from '@/lib/use-debounced-value'
-import { useOptionMemory } from '@/lib/use-option-memory'
+import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -34,23 +33,23 @@ export function BookingFiltersBar({
   const meta = useMetaControllerGetMeta()
 
   const [clientSearch, setClientSearch] = useState('')
-  const debouncedClientSearch = useDebouncedValue(clientSearch, PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedClientSearch, pending: clientSearchPending } = useDebouncedSearch(clientSearch, PICKER_DEBOUNCE_MS)
   const clients = useClientsControllerList({ search: debouncedClientSearch || undefined, limit: PICKER_LIMIT })
-  const clientResults = (clients.data?.data ?? [])
-    .filter((c) => c.clientType !== 'EVENT')
-    .map((c) => ({ value: c.ref, label: c.name }))
-  const clientMemory = useOptionMemory(clientResults)
   // A remote-search combobox has no built-in "clear selection" affordance
   // (unlike the plain <Select> this replaced, whose sentinel ALL item let
   // the user click back to "no filter") — always show this first, unfiltered.
-  const clientOptions = [{ value: '', label: 'All clients' }, ...clientMemory]
+  const clientOptions = [
+    { value: '', label: 'All clients' },
+    ...(clients.data?.data ?? []).filter((c) => c.clientType !== 'EVENT').map((c) => ({ value: c.ref, label: c.name })),
+  ]
 
   const [driverSearch, setDriverSearch] = useState('')
-  const debouncedDriverSearch = useDebouncedValue(driverSearch, PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedDriverSearch, pending: driverSearchPending } = useDebouncedSearch(driverSearch, PICKER_DEBOUNCE_MS)
   const drivers = useDriversControllerList({ search: debouncedDriverSearch || undefined, limit: PICKER_LIMIT })
-  const driverResults = (drivers.data?.data ?? []).map((d) => ({ value: d.ref, label: d.name }))
-  const driverMemory = useOptionMemory(driverResults)
-  const driverOptions = [{ value: '', label: 'All drivers' }, ...driverMemory]
+  const driverOptions = [
+    { value: '', label: 'All drivers' },
+    ...(drivers.data?.data ?? []).map((d) => ({ value: d.ref, label: d.name })),
+  ]
 
   const set = <K extends keyof BookingFilters>(key: K, value: BookingFilters[K]) =>
     onChange({ ...filters, [key]: value })
@@ -86,6 +85,7 @@ export function BookingFiltersBar({
           searchPlaceholder="Search customer…"
           searchValue={clientSearch}
           onSearchChange={setClientSearch}
+          loading={clientSearchPending || clients.isFetching}
         />
 
         <SearchCombobox
@@ -97,6 +97,7 @@ export function BookingFiltersBar({
           searchPlaceholder="Search driver…"
           searchValue={driverSearch}
           onSearchChange={setDriverSearch}
+          loading={driverSearchPending || drivers.isFetching}
         />
 
         <Input

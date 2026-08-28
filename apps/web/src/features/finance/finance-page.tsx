@@ -5,10 +5,12 @@
  * scope to build toward here; this closes out the page inventory in
  * docs/FRONTEND_PLAN.md, nothing more.
  */
+import { PageTitle } from '@/components/layout/page-title'
+
 export function FinancePage() {
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">Finance</h1>
+      <PageTitle>Finance</PageTitle>
       <p className="text-muted-foreground text-sm">Coming soon.</p>
     </div>
   )

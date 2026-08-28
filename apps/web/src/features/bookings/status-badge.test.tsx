@@ -11,7 +11,7 @@ describe('StatusBadge', () => {
     const onAdvance = vi.fn()
     render(<StatusBadge trip={baseTrip()} onAdvance={onAdvance} />)
 
-    expect(screen.getByText('📤 Send ?')).toBeInTheDocument()
+    expect(screen.getByText('Send ?')).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
@@ -20,7 +20,7 @@ describe('StatusBadge', () => {
     const trip = baseTrip({ assignmentCancelled: true, steps: [step(TripStepEntityStep.ENROUTE)] })
     render(<StatusBadge trip={trip} onAdvance={onAdvance} />)
 
-    expect(screen.getByText('🛑 Stop')).toBeInTheDocument()
+    expect(screen.getByText('Stop')).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
@@ -29,7 +29,7 @@ describe('StatusBadge', () => {
     const trip = baseTrip({ steps: [step(TripStepEntityStep.TRANSMITTED)] })
     render(<StatusBadge trip={trip} onAdvance={onAdvance} />)
 
-    const badge = screen.getByRole('button', { name: '📤 Sent ✅' })
+    const badge = screen.getByRole('button', { name: 'Sent' })
     fireEvent.click(badge)
     expect(onAdvance).toHaveBeenCalledWith(trip)
   })
@@ -39,7 +39,7 @@ describe('StatusBadge', () => {
     const trip = baseTrip({ steps: [step(TripStepEntityStep.ENROUTE)] })
     render(<StatusBadge trip={trip} onAdvance={onAdvance} />)
 
-    const badge = screen.getByRole('button', { name: '🛣️ OTW' })
+    const badge = screen.getByRole('button', { name: 'OTW' })
     fireEvent.click(badge)
     expect(onAdvance).toHaveBeenCalledWith(trip)
   })
@@ -49,7 +49,7 @@ describe('StatusBadge', () => {
     const trip = baseTrip({ steps: Object.values(TripStepEntityStep).map((s) => step(s)) })
     render(<StatusBadge trip={trip} onAdvance={onAdvance} />)
 
-    const badge = screen.getByText('✅ Done')
+    const badge = screen.getByText('Done')
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     fireEvent.click(badge)
     expect(onAdvance).not.toHaveBeenCalled()
@@ -64,7 +64,7 @@ describe('StatusBadge', () => {
     })
     render(<StatusBadge trip={trip} onAdvance={onAdvance} />)
 
-    const badge = screen.getByText('📤 Sent ✅')
+    const badge = screen.getByText('Sent')
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     fireEvent.click(badge)
     expect(onAdvance).not.toHaveBeenCalled()
@@ -74,7 +74,7 @@ describe('StatusBadge', () => {
     const trip = baseTrip({ steps: [step(TripStepEntityStep.ENROUTE)] })
     render(<StatusBadge trip={trip} />)
 
-    expect(screen.getByText('🛣️ OTW')).toBeInTheDocument()
+    expect(screen.getByText('OTW')).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 })

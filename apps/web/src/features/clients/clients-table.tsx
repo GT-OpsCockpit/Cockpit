@@ -1,19 +1,24 @@
-import { Pencil, RotateCcw, X } from 'lucide-react'
+import { CalendarPlus, Pencil, RotateCcw, X } from 'lucide-react'
 import type { ClientEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableCard } from '@/components/table-card'
+import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { clientTypeLabel } from './client-status'
 
 interface ClientsTableProps {
   clients: ClientEntity[]
+  /** First (uncached) load of the clients query — shows skeleton rows instead of the empty-state line. */
+  loading?: boolean
   onEdit: (client: ClientEntity) => void
   onToggleActive: (client: ClientEntity) => void
+  onNewBooking: (client: ClientEntity) => void
 }
 
-export function ClientsTable({ clients, onEdit, onToggleActive }: ClientsTableProps) {
+export function ClientsTable({ clients, loading = false, onEdit, onToggleActive, onNewBooking }: ClientsTableProps) {
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <TableCard>
       <Table>
         <TableHeader>
           <TableRow>
@@ -27,7 +32,9 @@ export function ClientsTable({ clients, onEdit, onToggleActive }: ClientsTablePr
           </TableRow>
         </TableHeader>
         <TableBody>
-          {clients.length === 0 ? (
+          {loading ? (
+            <TableSkeletonRows columns={7} />
+          ) : clients.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7} className="text-muted-foreground text-center">
                 No accounts to display.
@@ -47,6 +54,9 @@ export function ClientsTable({ clients, onEdit, onToggleActive }: ClientsTablePr
                 <TableCell className="text-xs">{client.billing ?? '—'}</TableCell>
                 <TableCell className="whitespace-nowrap">
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" title="New booking" onClick={() => onNewBooking(client)}>
+                      <CalendarPlus className="size-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" title="Edit" onClick={() => onEdit(client)}>
                       <Pencil className="size-3.5" />
                     </Button>
@@ -65,6 +75,6 @@ export function ClientsTable({ clients, onEdit, onToggleActive }: ClientsTablePr
           )}
         </TableBody>
       </Table>
-    </div>
+    </TableCard>
   )
 }

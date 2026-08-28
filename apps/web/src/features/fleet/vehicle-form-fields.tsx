@@ -2,8 +2,7 @@ import { useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { ClientsControllerListType, useClientsControllerList, useMetaControllerGetMeta } from '@cockpit/shared/api'
 import type { FleetVehicleEntity } from '@cockpit/shared/api'
-import { useDebouncedValue } from '@/lib/use-debounced-value'
-import { useOptionMemory } from '@/lib/use-option-memory'
+import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -38,7 +37,7 @@ export function VehicleFormFields({
   lockExternal = false,
 }: {
   form: UseFormReturn<VehicleFormValues>
-  /** The vehicle being edited, if any (omit when creating) — seeds the Event combobox, see useOptionMemory. */
+  /** The vehicle being edited, if any (omit when creating) — labels the Event combobox before any search has run. */
   vehicle?: FleetVehicleEntity | null
   disabled?: boolean
   lockExternal?: boolean
@@ -46,7 +45,7 @@ export function VehicleFormFields({
   const meta = useMetaControllerGetMeta()
 
   const [eventSearch, setEventSearch] = useState('')
-  const debouncedEventSearch = useDebouncedValue(eventSearch, EVENT_PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedEventSearch, pending: eventSearchPending } = useDebouncedSearch(eventSearch, EVENT_PICKER_DEBOUNCE_MS)
   const eventClients = useClientsControllerList({
     type: ClientsControllerListType.EVENT,
     search: debouncedEventSearch || undefined,
@@ -72,11 +71,8 @@ export function VehicleFormFields({
 
   const countryOptions = (meta.data?.countries ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
 
-  const eventResults = (eventClients.data?.data ?? []).map((c) => ({ value: c.ref, label: `${c.name} (${c.ref})` }))
-  const eventOptions = useOptionMemory(
-    eventResults,
-    vehicle?.eventClient ? { value: vehicle.eventClient.ref, label: `${vehicle.eventClient.company} (${vehicle.eventClient.ref})` } : null,
-  )
+  const eventOptions = (eventClients.data?.data ?? []).map((c) => ({ value: c.ref, label: `${c.name} (${c.ref})` }))
+  const eventSelectedLabel = vehicle?.eventClient ? `${vehicle.eventClient.company} (${vehicle.eventClient.ref})` : undefined
 
   // Category -> Make -> Model are chained (same cascading-select idiom as the
   // Vehicle field in trip-form-fields.tsx): each onValueChange below recomputes
@@ -438,6 +434,8 @@ export function VehicleFormFields({
                       searchPlaceholder="Search event…"
                       searchValue={eventSearch}
                       onSearchChange={setEventSearch}
+                      loading={eventSearchPending || eventClients.isFetching}
+                      selectedLabel={eventSelectedLabel}
                     />
                   </FormControl>
                   <FormMessage />

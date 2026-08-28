@@ -8,13 +8,15 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
 import { ListPagination } from '@/components/list-pagination'
 import { usePermission } from '@/features/auth/use-permission'
+import { BookingCreateDialog, type BookingPrefill } from '@/features/bookings/booking-create-dialog'
 import { DriverCreateDialog } from './driver-create-dialog'
 import { DriverEditDialog } from './driver-edit-dialog'
 import { DriverFiltersBar } from './driver-filters-bar'
 import { DriversTable } from './drivers-table'
 import { DriverUnavailabilityDialog } from './driver-unavailability-dialog'
 import { UnlinkVehicleDialog } from './unlink-vehicle-dialog'
-import { defaultDriverFilters, type DriverFilters } from './driver-status'
+import { defaultDriverFilters, driverBookingPrefill, type DriverFilters } from './driver-status'
+import { PageTitle } from '@/components/layout/page-title'
 
 const PAGE_SIZE = 20
 
@@ -24,6 +26,7 @@ export function DriversPage() {
   const [editTarget, setEditTarget] = useState<DriverEntity | null>(null)
   const [unavailabilityTarget, setUnavailabilityTarget] = useState<DriverEntity | null>(null)
   const [unlinkTarget, setUnlinkTarget] = useState<DriverEntity | null>(null)
+  const [bookingPrefill, setBookingPrefill] = useState<BookingPrefill | null>(null)
 
   // Debounced so typing doesn't fire a request per keystroke — search/showInactive
   // are resolved server-side (DriversService.list()), not filtered in the browser.
@@ -64,7 +67,7 @@ export function DriversPage() {
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Drivers</h1>
+        <PageTitle>Drivers</PageTitle>
         <DriverCreateDialog />
       </div>
 
@@ -72,10 +75,12 @@ export function DriversPage() {
 
       <DriversTable
         drivers={drivers.data?.data ?? []}
+        loading={drivers.isLoading}
         onEdit={setEditTarget}
         onUnavailability={setUnavailabilityTarget}
         onToggleActive={(d) => void handleToggleActive(d)}
         onUnlinkVehicle={setUnlinkTarget}
+        onNewBooking={(d) => setBookingPrefill(driverBookingPrefill(d))}
         canReactivate={canReactivate}
       />
 
@@ -84,6 +89,12 @@ export function DriversPage() {
       <DriverEditDialog driver={editTarget} onOpenChange={(open) => !open && setEditTarget(null)} />
       <DriverUnavailabilityDialog driver={unavailabilityTarget} onOpenChange={(open) => !open && setUnavailabilityTarget(null)} />
       <UnlinkVehicleDialog driver={unlinkTarget} onOpenChange={(open) => !open && setUnlinkTarget(null)} />
+      <BookingCreateDialog
+        open={bookingPrefill !== null}
+        onOpenChange={(open) => !open && setBookingPrefill(null)}
+        draftKey="newBookingDraft:drivers"
+        prefill={bookingPrefill ?? undefined}
+      />
     </div>
   )
 }

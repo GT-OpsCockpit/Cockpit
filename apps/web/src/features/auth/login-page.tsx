@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -13,6 +14,14 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Form,
   FormControl,
@@ -77,6 +86,7 @@ export function LoginPage() {
 }
 
 function CredentialsForm({ onCodeSent }: { onCodeSent: (step: Step) => void }) {
+  const [passwordVisible, setPasswordVisible] = useState(false)
   const form = useForm({
     resolver: zodResolver(credentialsSchema),
     defaultValues: { email: '', password: '' },
@@ -114,9 +124,25 @@ function CredentialsForm({ onCodeSent }: { onCodeSent: (step: Step) => void }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input type="password" autoComplete="current-password" {...field} />
-              </FormControl>
+              <InputGroup>
+                <FormControl>
+                  <InputGroupInput
+                    type={passwordVisible ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    {...field}
+                  />
+                </FormControl>
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+                    aria-pressed={passwordVisible}
+                    onClick={() => setPasswordVisible((visible) => !visible)}
+                  >
+                    {passwordVisible ? <EyeOffIcon /> : <EyeIcon />}
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
               <FormMessage />
             </FormItem>
           )}
@@ -125,6 +151,7 @@ function CredentialsForm({ onCodeSent }: { onCodeSent: (step: Step) => void }) {
           <p className="text-destructive text-sm">{form.formState.errors.root.message}</p>
         )}
         <Button type="submit" disabled={login.isPending} className="w-full">
+          {login.isPending && <Spinner />}
           {login.isPending ? 'Signing in…' : 'Continue'}
         </Button>
       </form>
@@ -183,14 +210,19 @@ function OtpForm({
             <FormItem>
               <FormLabel>Verification code</FormLabel>
               <FormControl>
-                <Input
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
+                <InputOTP
                   maxLength={6}
+                  autoComplete="one-time-code"
                   autoFocus
                   disabled={expired}
                   {...field}
-                />
+                >
+                  <InputOTPGroup>
+                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                      <InputOTPSlot key={index} index={index} />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -213,6 +245,7 @@ function OtpForm({
             Back
           </Button>
           <Button type="submit" disabled={expired || verify.isPending}>
+            {verify.isPending && <Spinner />}
             {verify.isPending ? 'Verifying…' : 'Verify'}
           </Button>
         </div>

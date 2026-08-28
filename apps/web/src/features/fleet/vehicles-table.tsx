@@ -1,16 +1,21 @@
-import { Pencil, RotateCcw, Wrench, X } from 'lucide-react'
+import { CalendarPlus, Pencil, RotateCcw, Wrench, X } from 'lucide-react'
 import type { FleetColorEntity, FleetVehicleEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { driverDisplayName } from '@/features/bookings/trip-status'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableCard } from '@/components/table-card'
+import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { unavailabilityLabel } from './vehicle-status'
 
 interface VehiclesTableProps {
   vehicles: FleetVehicleEntity[]
+  /** First (uncached) load of the vehicles query — shows skeleton rows instead of the empty-state line. */
+  loading?: boolean
   onEdit: (vehicle: FleetVehicleEntity) => void
   onUnavailability: (vehicle: FleetVehicleEntity) => void
   onToggleActive: (vehicle: FleetVehicleEntity) => void
+  onNewBooking: (vehicle: FleetVehicleEntity) => void
   /** UX-layer mirror of vehicle:reactivate (see docs/agents/permissions.md) — deactivating stays ungated. */
   canReactivate: boolean
   /** For the Color swatch's dot — kept as a prop (fetched by the page) rather than an internal useMetaControllerGetMeta() call, so this stays a plain presentational component like DriversTable. */
@@ -42,6 +47,7 @@ function ActionCell({
   onEdit,
   onUnavailability,
   onToggleActive,
+  onNewBooking,
   canReactivate,
   showUnavailability,
 }: VehiclesTableProps & { vehicle: FleetVehicleEntity; showUnavailability: boolean }) {
@@ -49,6 +55,9 @@ function ActionCell({
   return (
     <TableCell className="whitespace-nowrap">
       <div className="flex gap-1">
+        <Button variant="ghost" size="icon" title="New booking" onClick={() => onNewBooking(vehicle)}>
+          <CalendarPlus className="size-3.5" />
+        </Button>
         {showUnavailability && (
           <Button variant="ghost" size="icon" title="Repair shop / Manufacturer service / Bodywork" onClick={() => onUnavailability(vehicle)}>
             <Wrench className="size-3.5" />
@@ -87,7 +96,7 @@ export function VehiclesTable(props: VehiclesTableProps) {
     <div className="grid gap-6">
       <div className="grid gap-2">
         <h2 className="text-sm font-medium">Fleet - Internal</h2>
-        <div className="overflow-x-auto rounded-md border">
+        <TableCard>
           <Table>
             <TableHeader>
               <TableRow>
@@ -105,7 +114,9 @@ export function VehiclesTable(props: VehiclesTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {internal.length === 0 ? (
+              {props.loading ? (
+                <TableSkeletonRows columns={11} />
+              ) : internal.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={11} className="text-muted-foreground text-center">
                     No internal vehicles yet.
@@ -139,12 +150,12 @@ export function VehiclesTable(props: VehiclesTableProps) {
               )}
             </TableBody>
           </Table>
-        </div>
+        </TableCard>
       </div>
 
       <div className="grid gap-2">
         <h2 className="text-sm font-medium">Fleet - External</h2>
-        <div className="overflow-x-auto rounded-md border">
+        <TableCard>
           <Table>
             <TableHeader>
               <TableRow>
@@ -165,7 +176,9 @@ export function VehiclesTable(props: VehiclesTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {external.length === 0 ? (
+              {props.loading ? (
+                <TableSkeletonRows columns={14} />
+              ) : external.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={14} className="text-muted-foreground text-center">
                     No external vehicles yet.
@@ -202,7 +215,7 @@ export function VehiclesTable(props: VehiclesTableProps) {
               )}
             </TableBody>
           </Table>
-        </div>
+        </TableCard>
       </div>
     </div>
   )

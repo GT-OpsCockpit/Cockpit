@@ -9,10 +9,10 @@ import { retryPublicQuery } from './retry-public-query'
 // Fewer steps than the driver page: no "enroute" — matches the legacy
 // dashboard.html, which never surfaced that intermediate step to the client.
 const TRACK_STEPS = [
-  { key: NotifyStepDtoStep.ACCEPTED, icon: '👍', title: 'Trip accepted', sub: 'The driver has accepted the trip' },
-  { key: NotifyStepDtoStep.ARRIVED, icon: '📍', title: 'In position', sub: 'The driver has arrived' },
-  { key: NotifyStepDtoStep.ONBOARD, icon: '🧍', title: 'Passenger picked up', sub: 'On the way to the destination' },
-  { key: NotifyStepDtoStep.DROPPED, icon: '🏁', title: 'Dropped off', sub: 'Trip completed' },
+  { key: NotifyStepDtoStep.ACCEPTED, title: 'Trip accepted', sub: 'The driver has accepted the trip' },
+  { key: NotifyStepDtoStep.ARRIVED, title: 'In position', sub: 'The driver has arrived' },
+  { key: NotifyStepDtoStep.ONBOARD, title: 'Passenger picked up', sub: 'On the way to the destination' },
+  { key: NotifyStepDtoStep.DROPPED, title: 'Dropped off', sub: 'Trip completed' },
 ] as const
 
 function stepTime(steps: PublicTripEntity['steps'], step: string): string | null {
@@ -72,7 +72,7 @@ export function TrackPage() {
           const time = stepTime(trip.steps, step.key)
           return (
             <div key={step.key} className="flex items-center gap-3.5 border-b py-3.5 last:border-b-0">
-              <StepIcon done={done} icon={step.icon} />
+              <StepIcon done={done} step={step.key} />
               <div className="flex-1">
                 <p className="text-sm font-semibold">{step.title}</p>
                 <p className="text-muted-foreground text-xs">{step.sub}</p>

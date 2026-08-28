@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
 import type { ClientEntity, TripEntity } from '@cockpit/shared/api'
 import { useTripsControllerList } from '@cockpit/shared/api'
 import { AdvanceStepConfirmDialog } from '../bookings/advance-step-confirm-dialog'
@@ -8,15 +9,18 @@ import { BookingsTable } from '../bookings/bookings-table'
 import { DispatchConfirmDialog } from '../bookings/dispatch-confirm-dialog'
 import { NameboardUploadDialog } from '../bookings/nameboard-upload-dialog'
 import { useTripEvents } from '../bookings/use-trip-events'
-import { EventCreationBar } from './event-creation-bar'
+import { EventCreateDialog } from './event-create-dialog'
 import { EventFiltersBar } from './event-filters-bar'
 import { applyEventFilters, defaultEventFilters } from './event-filters'
 import { EventSelectPanel } from './event-select-panel'
+import { Button } from '@/components/ui/button'
+import { PageTitle } from '@/components/layout/page-title'
 
 export function EventsPage() {
   useTripEvents()
 
   const [confirmedEvent, setConfirmedEvent] = useState<ClientEntity | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
   const [filters, setFilters] = useState(defaultEventFilters())
 
   // Bounded by the server-side `category` filter (same mechanism Planning's
@@ -34,10 +38,15 @@ export function EventsPage() {
 
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">Events</h1>
+      <div className="flex items-center justify-between">
+        <PageTitle>Events</PageTitle>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="size-4" />
+          New booking
+        </Button>
+      </div>
 
       <EventSelectPanel confirmedEvent={confirmedEvent} onConfirm={setConfirmedEvent} />
-      <EventCreationBar confirmedEvent={confirmedEvent} />
 
       <div className="grid gap-3">
         <h2 className="text-lg font-semibold">Search</h2>
@@ -57,6 +66,7 @@ export function EventsPage() {
         />
       </div>
 
+      <EventCreateDialog open={createOpen} onOpenChange={setCreateOpen} confirmedEvent={confirmedEvent} />
       <DispatchConfirmDialog trip={dispatchTarget} onOpenChange={(open) => !open && setDispatchTarget(null)} />
       <BookingEditDialog trip={editTarget} onOpenChange={(open) => !open && setEditTarget(null)} />
       <BookingCancelDialog trip={cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)} />

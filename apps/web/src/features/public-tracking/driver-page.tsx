@@ -19,16 +19,16 @@ import { retryPublicQuery } from './retry-public-query'
 // Auto-recorded server-side (no button: transmitted as soon as the driver is
 // assigned, received as soon as this page is opened) — see TripsService.getPublic.
 const AUTO_STEPS = [
-  { key: TripStepEntityStep.TRANSMITTED, icon: '✈️', title: 'Sent to driver' },
-  { key: TripStepEntityStep.RECEIVED, icon: '📨', title: 'Received by driver' },
+  { key: TripStepEntityStep.TRANSMITTED, title: 'Sent to driver' },
+  { key: TripStepEntityStep.RECEIVED, title: 'Received by driver' },
 ] as const
 
 const ACTION_STEPS = [
-  { key: NotifyStepDtoStep.ACCEPTED, icon: '👍', title: 'Accepted by driver', sub: 'Confirm that you are taking this trip' },
-  { key: NotifyStepDtoStep.ENROUTE, icon: '🚗', title: 'On the way', sub: 'Heading to the pickup point' },
-  { key: NotifyStepDtoStep.ARRIVED, icon: '📍', title: 'In position', sub: 'Arrived at the pickup point' },
-  { key: NotifyStepDtoStep.ONBOARD, icon: '🧍', title: 'Passenger on board', sub: 'Departing for the destination' },
-  { key: NotifyStepDtoStep.DROPPED, icon: '🏁', title: 'Drop-off completed', sub: 'Trip completed' },
+  { key: NotifyStepDtoStep.ACCEPTED, title: 'Accepted by driver', sub: 'Confirm that you are taking this trip' },
+  { key: NotifyStepDtoStep.ENROUTE, title: 'On the way', sub: 'Heading to the pickup point' },
+  { key: NotifyStepDtoStep.ARRIVED, title: 'In position', sub: 'Arrived at the pickup point' },
+  { key: NotifyStepDtoStep.ONBOARD, title: 'Passenger on board', sub: 'Departing for the destination' },
+  { key: NotifyStepDtoStep.DROPPED, title: 'Drop-off completed', sub: 'Trip completed' },
 ] as const
 
 function stepTime(steps: PublicTripEntity['steps'], step: string): string | null {
@@ -115,7 +115,7 @@ export function DriverPage() {
           const time = stepTime(trip.steps, step.key)
           return (
             <div key={step.key} className="flex items-center gap-3.5 border-b py-3.5 opacity-70 last:border-b-0">
-              <StepIcon done={done} icon={step.icon} />
+              <StepIcon done={done} step={step.key} />
               <div className="flex-1">
                 <p className="text-sm font-semibold">{step.title}</p>
                 <p className="text-muted-foreground text-xs">{done ? time : 'Automatic'}</p>
@@ -129,7 +129,7 @@ export function DriverPage() {
           const actionLabel = done ? 'Resend' : trip.tracking ? 'Notify' : 'Mark'
           return (
             <div key={step.key} className="flex items-center gap-3.5 border-b py-3.5 last:border-b-0">
-              <StepIcon done={done} icon={step.icon} />
+              <StepIcon done={done} step={step.key} />
               <div className="flex-1">
                 <p className="text-sm font-semibold">{step.title}</p>
                 <p className="text-muted-foreground text-xs">{step.sub}</p>

@@ -96,6 +96,7 @@ export function baseTrip(overrides: Partial<TripEntity> = {}): TripEntity {
     bufferTime: null,
     fboAddress: null,
     tailNbr: null,
+    nameboard: null,
     nameboardUrl: null,
     pickupIata: null,
     dropoffIata: null,

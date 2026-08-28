@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { useAuthControllerLogout, useAuthControllerMe } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
@@ -12,7 +13,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Separator } from '@/components/ui/separator'
 import { Toaster } from '@/components/ui/sonner'
+import { NAV_ITEMS } from './nav-items'
 
 function initials(firstName: string, lastName: string): string {
   return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
@@ -35,27 +38,24 @@ export function AppShell() {
       <header className="border-border bg-card sticky top-0 z-10 border-b">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
           <span className="text-primary text-lg font-semibold">Cockpit</span>
-          <nav className="flex gap-4 text-sm font-medium">
-            {[
-              { to: '/bookings', label: 'Bookings' },
-              { to: '/clients', label: 'Clients' },
-              { to: '/drivers', label: 'Drivers' },
-              { to: '/vehicles', label: 'Vehicles' },
-              { to: '/planning', label: 'Planning' },
-              { to: '/events', label: 'Events' },
-              { to: '/invoicing', label: 'Invoicing' },
-              { to: '/finance', label: 'Finance' },
-              { to: '/settings', label: 'Settings' },
-            ].map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  cn('text-muted-foreground hover:text-foreground', isActive && 'text-foreground')
-                }
-              >
-                {item.label}
-              </NavLink>
+          <nav className="flex items-center text-sm font-medium">
+            {NAV_ITEMS.map((item, index) => (
+              <Fragment key={item.to}>
+                {index > 0 && <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />}
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) =>
+                    cn(
+                      'text-muted-foreground flex items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors',
+                      'hover:bg-accent hover:text-accent-foreground',
+                      isActive && 'bg-accent/60 text-accent-foreground',
+                    )
+                  }
+                >
+                  <item.icon className="size-4" />
+                  {item.label}
+                </NavLink>
+              </Fragment>
             ))}
           </nav>
           {me && (

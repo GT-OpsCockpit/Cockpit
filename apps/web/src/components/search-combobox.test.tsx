@@ -54,4 +54,79 @@ describe('SearchCombobox', () => {
 
     expect(onChange).toHaveBeenCalledWith('gb')
   })
+
+  // Regression coverage for the bug reported on /events and /invoicing: the
+  // remote-search pickers used to append every option ever seen to the live
+  // results (the old useOptionMemory), so typing a query left the previous
+  // 20 rows sitting in the list — the dropdown looked like it had ignored
+  // the search entirely. Only the labels are remembered now, and only to
+  // keep the trigger readable.
+  it('shows only the options it is given, in remote-search mode', () => {
+    const { rerender } = render(
+      <SearchCombobox value="" onChange={vi.fn()} options={OPTIONS} onSearchChange={vi.fn()} searchValue="" />,
+    )
+    fireEvent.click(screen.getByRole('combobox'))
+    expect(screen.getAllByRole('option')).toHaveLength(2)
+
+    rerender(
+      <SearchCombobox
+        value=""
+        onChange={vi.fn()}
+        options={[{ value: 'gb', label: 'United Kingdom (GB)' }]}
+        onSearchChange={vi.fn()}
+        searchValue="United"
+      />,
+    )
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['United Kingdom (GB)'])
+  })
+
+  it('keeps showing the selected label after that option drops out of the results', async () => {
+    const { rerender } = render(
+      <SearchCombobox value="fr" onChange={vi.fn()} options={OPTIONS} onSearchChange={vi.fn()} searchValue="" />,
+    )
+    // The label memory fills from an effect, so let it flush before the option disappears.
+    await screen.findByRole('combobox')
+
+    rerender(
+      <SearchCombobox
+        value="fr"
+        onChange={vi.fn()}
+        options={[{ value: 'gb', label: 'United Kingdom (GB)' }]}
+        onSearchChange={vi.fn()}
+        searchValue="United"
+      />,
+    )
+    expect(screen.getByRole('combobox')).toHaveTextContent('France (FR)')
+  })
+
+  it('falls back to selectedLabel for a value no search has returned yet', () => {
+    render(
+      <SearchCombobox
+        value="fr"
+        onChange={vi.fn()}
+        options={[]}
+        selectedLabel="France (FR)"
+        onSearchChange={vi.fn()}
+        searchValue=""
+      />,
+    )
+    expect(screen.getByRole('combobox')).toHaveTextContent('France (FR)')
+  })
+
+  it('announces an in-flight search instead of claiming there are no results', () => {
+    render(
+      <SearchCombobox
+        value=""
+        onChange={vi.fn()}
+        options={[]}
+        loading
+        onSearchChange={vi.fn()}
+        searchValue="Fra"
+        emptyText="No results."
+      />,
+    )
+    fireEvent.click(screen.getByRole('combobox'))
+    expect(screen.getByText('Searching…')).toBeInTheDocument()
+    expect(screen.queryByText('No results.')).not.toBeInTheDocument()
+  })
 })

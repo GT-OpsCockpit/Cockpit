@@ -7,6 +7,7 @@ import { getUsersControllerListQueryKey, useUsersControllerCreate } from '@cockp
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -73,6 +74,7 @@ export function UserCreateDialog() {
                 Cancel
               </Button>
               <Button type="submit" disabled={createUser.isPending}>
+                {createUser.isPending && <Spinner />}
                 Create
               </Button>
             </DialogFooter>

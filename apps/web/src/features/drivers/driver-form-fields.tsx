@@ -2,8 +2,7 @@ import { useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { ClientsControllerListType, useClientsControllerList, useMetaControllerGetMeta } from '@cockpit/shared/api'
 import type { DriverEntity } from '@cockpit/shared/api'
-import { useDebouncedValue } from '@/lib/use-debounced-value'
-import { useOptionMemory } from '@/lib/use-option-memory'
+import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -19,14 +18,14 @@ export function DriverFormFields({
   disabled = false,
 }: {
   form: UseFormReturn<DriverFormValues>
-  /** The driver being edited, if any (omit when creating) — seeds the Event combobox, see useOptionMemory. */
+  /** The driver being edited, if any (omit when creating) — labels the Event combobox before any search has run. */
   driver?: DriverEntity | null
   disabled?: boolean
 }) {
   const meta = useMetaControllerGetMeta()
 
   const [eventSearch, setEventSearch] = useState('')
-  const debouncedEventSearch = useDebouncedValue(eventSearch, EVENT_PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedEventSearch, pending: eventSearchPending } = useDebouncedSearch(eventSearch, EVENT_PICKER_DEBOUNCE_MS)
   const eventClients = useClientsControllerList({
     type: ClientsControllerListType.EVENT,
     search: debouncedEventSearch || undefined,
@@ -37,11 +36,8 @@ export function DriverFormFields({
 
   const countryOptions = (meta.data?.countries ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
 
-  const eventResults = (eventClients.data?.data ?? []).map((c) => ({ value: c.ref, label: `${c.name} (${c.ref})` }))
-  const eventOptions = useOptionMemory(
-    eventResults,
-    driver?.eventClient ? { value: driver.eventClient.ref, label: `${driver.eventClient.company} (${driver.eventClient.ref})` } : null,
-  )
+  const eventOptions = (eventClients.data?.data ?? []).map((c) => ({ value: c.ref, label: `${c.name} (${c.ref})` }))
+  const eventSelectedLabel = driver?.eventClient ? `${driver.eventClient.company} (${driver.eventClient.ref})` : undefined
 
   return (
     <fieldset disabled={disabled} className="contents">
@@ -213,6 +209,8 @@ export function DriverFormFields({
                       searchPlaceholder="Search event…"
                       searchValue={eventSearch}
                       onSearchChange={setEventSearch}
+                      loading={eventSearchPending || eventClients.isFetching}
+                      selectedLabel={eventSelectedLabel}
                     />
                   </FormControl>
                   <FormMessage />

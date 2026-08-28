@@ -9,6 +9,7 @@ import {
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -110,6 +111,7 @@ export function BookingCancelDialog({
             disabled={cancelAssignment.isPending || !canCancel}
             onClick={() => void confirm()}
           >
+            {cancelAssignment.isPending && <Spinner />}
             Cancel booking
           </Button>
         </DialogFooter>

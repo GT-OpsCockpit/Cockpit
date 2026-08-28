@@ -51,8 +51,8 @@ test.describe('Invoicing — Customer tab lifecycle', () => {
     await selectFromDropdown(page, 'Vehicle', 'Business')
     await selectSearchCombobox(page, 'Customer', clientName, clientName)
     await page.getByLabel('Pax Name').fill('E2E Invoicing Passenger')
-    await page.getByLabel('📍 PU').fill('Nice Airport')
-    await page.getByLabel('📍 DO').fill('Cannes')
+    await page.getByLabel('PU', { exact: true }).fill('Nice Airport')
+    await page.getByLabel('DO', { exact: true }).fill('Cannes')
     await page.getByLabel('POC Mobile').fill('+33612345678')
     await page.getByLabel('Retail net').fill('100')
 
@@ -76,12 +76,12 @@ test.describe('Invoicing — Customer tab lifecycle', () => {
     // --- Pending export downloads a real file (Pending's button is the first
     // of the two "Export to Excel" buttons on the page, Invoiced's the second) ---
     const pendingExportPromise = page.waitForEvent('download')
-    await page.getByRole('button', { name: '⬇️ Export to Excel' }).first().click()
+    await page.getByRole('button', { name: 'Export to Excel' }).first().click()
     const pendingExport = await pendingExportPromise
     expect(pendingExport.suggestedFilename()).toMatch(/^Invoicing_Customer_Pending_.*\.xlsx$/)
 
     // --- Invoice creation ---
-    const invoiceButton = page.getByRole('button', { name: '🧾 Invoice' })
+    const invoiceButton = page.getByRole('button', { name: 'Invoice', exact: true })
     await expect(invoiceButton).toBeEnabled()
     await invoiceButton.click()
     await expect(
@@ -122,7 +122,7 @@ test.describe('Invoicing — Customer tab lifecycle', () => {
 
     // --- Invoiced panel's own export ---
     const invoicesExportPromise = page.waitForEvent('download')
-    await page.getByRole('button', { name: '⬇️ Export to Excel' }).last().click()
+    await page.getByRole('button', { name: 'Export to Excel' }).last().click()
     const invoicesExport = await invoicesExportPromise
     expect(invoicesExport.suggestedFilename()).toMatch(/^Invoicing_Invoiced_.*\.xlsx$/)
 

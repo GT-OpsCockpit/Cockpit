@@ -9,6 +9,7 @@ import {
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -147,10 +148,12 @@ export function VehicleUnavailabilityDialog({
           </Button>
           {existing ? (
             <Button type="button" variant="destructive" disabled={setUnavailability.isPending} onClick={() => void clear()}>
+              {setUnavailability.isPending && <Spinner />}
               Clear
             </Button>
           ) : (
             <Button type="button" disabled={setUnavailability.isPending || !type} onClick={() => void save()}>
+              {setUnavailability.isPending && <Spinner />}
               Save
             </Button>
           )}

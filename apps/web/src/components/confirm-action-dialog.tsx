@@ -9,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Spinner } from '@/components/ui/spinner'
 
 /**
  * The "are you sure?" step every destructive/irreversible action in the app puts
@@ -45,6 +46,7 @@ export function ConfirmActionDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction disabled={pending} onClick={() => void onConfirm()}>
+            {pending && <Spinner />}
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>

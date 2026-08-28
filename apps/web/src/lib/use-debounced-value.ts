@@ -11,3 +11,14 @@ export function useDebouncedValue<T>(value: T, delayMs: number): T {
 
   return debounced
 }
+
+/**
+ * Same debounce, plus a `pending` flag for the window between a keystroke and
+ * the query it will trigger — a remote-search combobox has to look busy from
+ * the first character typed, not only once the request is actually in flight,
+ * otherwise the debounce delay reads as a dead UI.
+ */
+export function useDebouncedSearch(value: string, delayMs: number): { debounced: string; pending: boolean } {
+  const debounced = useDebouncedValue(value, delayMs)
+  return { debounced, pending: debounced !== value }
+}

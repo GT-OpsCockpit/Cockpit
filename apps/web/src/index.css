@@ -1,7 +1,8 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.18 0.02 240);
@@ -13,9 +14,11 @@
   --popover-foreground: oklch(0.18 0.02 240);
 
   /* Brand accent — legacy's WhatsApp green (#128C7E), kept as the sole
-     carry-over from the legacy visual identity (see docs/FRONTEND_PLAN.md). */
-  --primary: oklch(0.5 0.1 172);
-  --primary-foreground: oklch(0.98 0.01 172);
+     carry-over from the legacy visual identity (see docs/FRONTEND_PLAN.md).
+     Saturated/darkened over the original in the 2026-08-27 UI refresh (see
+     docs/UI_REFRESH_PLAN.md) — same heritage, without looking washed out. */
+  --primary: oklch(0.48 0.13 165);
+  --primary-foreground: oklch(0.98 0.01 165);
 
   --secondary: oklch(0.96 0.01 240);
   --secondary-foreground: oklch(0.22 0.02 240);
@@ -23,8 +26,8 @@
   --muted: oklch(0.96 0.01 240);
   --muted-foreground: oklch(0.5 0.02 240);
 
-  --accent: oklch(0.96 0.02 172);
-  --accent-foreground: oklch(0.28 0.05 172);
+  --accent: oklch(0.95 0.035 165);
+  --accent-foreground: oklch(0.3 0.07 165);
 
   --destructive: oklch(0.58 0.22 27);
   --destructive-foreground: oklch(0.98 0.01 27);
@@ -32,12 +35,14 @@
   --success: oklch(0.55 0.14 150);
   --success-foreground: oklch(0.98 0.01 150);
 
-  --warning: oklch(0.75 0.16 80);
+  /* Dark enough to be legible as text/border on a light tint — its only
+     consumer is the ENROUTE status badge (features/bookings/status-badge.tsx). */
+  --warning: oklch(0.62 0.15 70);
   --warning-foreground: oklch(0.2 0.02 80);
 
   --border: oklch(0.9 0.01 240);
   --input: oklch(0.9 0.01 240);
-  --ring: oklch(0.5 0.1 172);
+  --ring: oklch(0.48 0.13 165);
 }
 
 @theme inline {
@@ -71,6 +76,21 @@
   --color-ring: var(--ring);
 }
 
+/*
+ * shadcn's standard v4 base layer, missing from the original scaffold: Tailwind
+ * v4 resolves a bare `border`/`border-b` to *currentColor*, so every unqualified
+ * border in the kit (table frames and row rules, the command search bar, tabs…)
+ * was painting near-black `--foreground` instead of `--border`. Without this,
+ * `--border`/`--ring` are declared but almost never actually used.
+ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+}
+
 body {
   @apply bg-background text-foreground;
+  /* Inter is self-hosted via @fontsource-variable/inter (imported in main.tsx). */
+  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
 }

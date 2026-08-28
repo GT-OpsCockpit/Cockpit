@@ -13,12 +13,14 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
 import { ListPagination } from '@/components/list-pagination'
 import { usePermission } from '@/features/auth/use-permission'
+import { BookingCreateDialog, type BookingPrefill } from '@/features/bookings/booking-create-dialog'
 import { VehicleCreateDialog } from './vehicle-create-dialog'
 import { VehicleEditDialog } from './vehicle-edit-dialog'
 import { VehicleFiltersBar } from './vehicle-filters-bar'
 import { VehiclesTable } from './vehicles-table'
 import { VehicleUnavailabilityDialog } from './vehicle-unavailability-dialog'
-import { defaultVehicleFilters, type VehicleFilters } from './vehicle-status'
+import { defaultVehicleFilters, vehicleBookingPrefill, type VehicleFilters } from './vehicle-status'
+import { PageTitle } from '@/components/layout/page-title'
 
 const PAGE_SIZE = 20
 
@@ -27,6 +29,7 @@ export function VehiclesPage() {
   const [page, setPage] = useState(1)
   const [editTarget, setEditTarget] = useState<FleetVehicleEntity | null>(null)
   const [unavailabilityTarget, setUnavailabilityTarget] = useState<FleetVehicleEntity | null>(null)
+  const [bookingPrefill, setBookingPrefill] = useState<BookingPrefill | null>(null)
 
   // Debounced so typing doesn't fire a request per keystroke — search/showInactive
   // are resolved server-side (FleetVehiclesService.list()), not filtered in the browser.
@@ -68,7 +71,7 @@ export function VehiclesPage() {
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Vehicles</h1>
+        <PageTitle>Vehicles</PageTitle>
         <VehicleCreateDialog />
       </div>
 
@@ -76,9 +79,11 @@ export function VehiclesPage() {
 
       <VehiclesTable
         vehicles={vehicles.data?.data ?? []}
+        loading={vehicles.isLoading}
         onEdit={setEditTarget}
         onUnavailability={setUnavailabilityTarget}
         onToggleActive={(v) => void handleToggleActive(v)}
+        onNewBooking={(v) => setBookingPrefill(vehicleBookingPrefill(v))}
         canReactivate={canReactivate}
         fleetColors={meta.data?.fleetColors}
       />
@@ -87,6 +92,12 @@ export function VehiclesPage() {
 
       <VehicleEditDialog vehicle={editTarget} onOpenChange={(open) => !open && setEditTarget(null)} />
       <VehicleUnavailabilityDialog vehicle={unavailabilityTarget} onOpenChange={(open) => !open && setUnavailabilityTarget(null)} />
+      <BookingCreateDialog
+        open={bookingPrefill !== null}
+        onOpenChange={(open) => !open && setBookingPrefill(null)}
+        draftKey="newBookingDraft:vehicles"
+        prefill={bookingPrefill ?? undefined}
+      />
     </div>
   )
 }

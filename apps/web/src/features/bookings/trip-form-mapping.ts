@@ -41,6 +41,7 @@ export function tripToFormValues(trip: TripEntity): TripFormValues {
     bufferTime: trip.bufferTime ?? undefined,
     fboAddress: trip.fboAddress ?? '',
     tailNbr: trip.tailNbr ?? '',
+    nameboard: trip.nameboard ?? '',
     pickupIata: trip.pickupIata ?? '',
     dropoffIata: trip.dropoffIata ?? '',
     pickupTimezone: trip.timezone ?? '',
@@ -78,6 +79,7 @@ function toTripDto(values: TripFormValues): CreateTripDto {
     bufferTime: values.bufferTime,
     fboAddress: values.fboAddress || undefined,
     tailNbr: values.tailNbr || undefined,
+    nameboard: values.nameboard || undefined,
     pickupIata: values.pickupIata || undefined,
     dropoffIata: values.dropoffIata || undefined,
   }

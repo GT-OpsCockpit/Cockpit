@@ -6,6 +6,7 @@ import { getDriversControllerListQueryKey, useDriversControllerUpdate } from '@c
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DriverFormFields } from './driver-form-fields'
@@ -52,6 +53,7 @@ export function DriverEditDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={updateDriver.isPending}>
+                {updateDriver.isPending && <Spinner />}
                 Confirm
               </Button>
             </DialogFooter>

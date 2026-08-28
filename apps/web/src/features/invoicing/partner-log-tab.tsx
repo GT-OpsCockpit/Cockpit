@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { TripEntity } from '@cockpit/shared/api'
 import { useTripsControllerList } from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
+import { FileSpreadsheet } from 'lucide-react'
 import { AdvanceStepConfirmDialog } from '../bookings/advance-step-confirm-dialog'
 import { BookingCancelDialog } from '../bookings/booking-cancel-dialog'
 import { BookingEditDialog } from '../bookings/booking-edit-dialog'
@@ -47,7 +48,8 @@ export function PartnerLogTab() {
             disabled={filteredTrips.length === 0}
             onClick={() => void downloadPartnerExcel(filteredTrips, targetLabel, filters.dateStart, filters.dateEnd)}
           >
-            ⬇️ Export to Excel
+            <FileSpreadsheet />
+            Export to Excel
           </Button>
         </div>
         <h3 className="font-semibold">Results</h3>

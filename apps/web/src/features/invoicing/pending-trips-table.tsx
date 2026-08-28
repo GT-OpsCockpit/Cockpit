@@ -1,7 +1,8 @@
-import { Pencil, X } from 'lucide-react'
+import { Check, Pencil, X } from 'lucide-react'
 import type { TripEntity } from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableCard } from '@/components/table-card'
 import { DispatchButton } from '../bookings/bookings-table'
 import { StatusBadge } from '../bookings/status-badge'
 import { clientAccountLabel, displayPickup, itineraryLabel } from '../bookings/trip-status'
@@ -24,7 +25,7 @@ export function PendingTripsTable({
   onAdvance: (trip: TripEntity) => void
 }) {
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <TableCard>
       <Table>
         <TableHeader>
           <TableRow>
@@ -65,7 +66,9 @@ export function PendingTripsTable({
                   <TableCell className="text-muted-foreground text-xs">{itineraryLabel(trip)}</TableCell>
                   <TableCell className="text-xs">{trip.vehicleType?.name ?? '—'}</TableCell>
                   <TableCell className="text-xs">{trip.client.refPoOther || '–'}</TableCell>
-                  <TableCell className="text-center text-xs">{isEvent ? '✅' : '–'}</TableCell>
+                  <TableCell className="text-center text-xs">
+                    {isEvent ? <Check className="mx-auto size-3.5" aria-label="Event" /> : '–'}
+                  </TableCell>
                   <TableCell className="text-xs">
                     <StatusBadge trip={trip} onAdvance={onAdvance} />
                   </TableCell>
@@ -87,6 +90,6 @@ export function PendingTripsTable({
           )}
         </TableBody>
       </Table>
-    </div>
+    </TableCard>
   )
 }

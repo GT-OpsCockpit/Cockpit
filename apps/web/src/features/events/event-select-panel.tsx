@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { ClientsControllerListType, useClientsControllerList } from '@cockpit/shared/api'
 import type { ClientEntity } from '@cockpit/shared/api'
-import { useDebouncedValue } from '@/lib/use-debounced-value'
-import { useOptionMemory } from '@/lib/use-option-memory'
+import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -35,7 +34,7 @@ export function EventSelectPanel({
 }) {
   const [pendingClient, setPendingClient] = useState<ClientEntity | null>(confirmedEvent)
   const [search, setSearch] = useState('')
-  const debouncedSearch = useDebouncedValue(search, PICKER_DEBOUNCE_MS)
+  const { debounced: debouncedSearch, pending: searchPending } = useDebouncedSearch(search, PICKER_DEBOUNCE_MS)
   const eventClients = useClientsControllerList({
     type: ClientsControllerListType.EVENT,
     search: debouncedSearch || undefined,
@@ -43,10 +42,7 @@ export function EventSelectPanel({
   })
 
   const results = eventClients.data?.data ?? []
-  const options = useOptionMemory(
-    results.map((c) => ({ value: c.ref, label: c.name })),
-    pendingClient ? { value: pendingClient.ref, label: pendingClient.name } : null,
-  )
+  const options = results.map((c) => ({ value: c.ref, label: c.name }))
 
   const handleChange = (ref: string) => {
     const found = results.find((c) => c.ref === ref) ?? (pendingClient?.ref === ref ? pendingClient : null)
@@ -72,6 +68,8 @@ export function EventSelectPanel({
             searchPlaceholder="Search event client…"
             searchValue={search}
             onSearchChange={setSearch}
+            loading={searchPending || eventClients.isFetching}
+            selectedLabel={pendingClient?.name}
           />
         </div>
         <div className="grid gap-2">
