@@ -26,6 +26,34 @@ function row(page: Page, text: string) {
   return page.getByRole('row', { name: text })
 }
 
+/**
+ * A dialable French mobile in E.164, distinct per `slot`.
+ *
+ * Since the phone port, the API and the form both validate against
+ * libphonenumber's `/max` metadata (see packages/shared/src/validation/phone.js),
+ * which checks the digit *pattern* and not just the length — a raw timestamp
+ * lands in unallocated ranges ("07 17 87 94 83" is not a French mobile) and is
+ * rejected outright. Keeping the 06 prefix and varying only the tail stays
+ * inside an allocated range whatever the clock says. `slot` keeps them unique:
+ * DriversService.create() dedups by phone, which is a unique column.
+ */
+function mobile(stamp: number, slot: number) {
+  return `+336${String(stamp).slice(-6)}${String(slot).padStart(2, '0')}`
+}
+
+/**
+ * Narrows the list to a single driver before asserting on its row.
+ *
+ * The table pages at 20 (PAGE_SIZE in drivers-page.tsx) and orders by ref, so a
+ * freshly created driver lands on the *last* page — and cockpit_test is never
+ * truncated between runs (see playwright.config.ts), so "just created,
+ * therefore on screen" stops holding as soon as drivers pile up. Filtering by
+ * ref is deterministic whatever the database already holds.
+ */
+async function showOnly(page: Page, ref: string) {
+  await page.getByPlaceholder('Search by ref, name, company, email or phone…').fill(ref)
+}
+
 async function createDriverAndReadRef(page: Page, fill: () => Promise<void>): Promise<string> {
   await page.getByRole('button', { name: 'New driver' }).click()
   await fill()
@@ -50,12 +78,13 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
     await expect(dialog.getByText('First name is required.')).toBeVisible()
     await dialog.getByLabel('First name', { exact: true }).fill(`E2E${stamp}`)
     await dialog.getByLabel('Last name', { exact: true }).fill('Internal')
-    await dialog.getByLabel('Phone', { exact: true }).fill(`06${stamp}`.slice(0, 10))
+    await dialog.getByLabel('Phone', { exact: true }).fill(mobile(stamp, 1))
     await dialog.getByRole('button', { name: 'Create' }).click()
     const internalToast = toast(page, /^Driver (\S+) created\.$/)
     await expect(internalToast).toBeVisible()
     const internalRef = (await internalToast.textContent())?.match(/Driver (\S+) created/)?.[1]
     if (!internalRef) throw new Error('Could not read the created internal driver ref off the toast.')
+    await showOnly(page, internalRef)
     await expect(row(page, internalRef)).toBeVisible()
     await expect(internalToast).toBeHidden({ timeout: 6000 })
 
@@ -66,6 +95,7 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
       await expect(dialog.getByText('Email is required for a partner company.')).toBeVisible()
       await dialog.getByLabel('Email', { exact: true }).fill(`partner${stamp}@example.test`)
     })
+    await showOnly(page, companyOnlyRef)
     await expect(row(page, companyOnlyRef)).toBeVisible()
 
     // --- Named partner chauffeur (company + a name): email AND phone required ---
@@ -73,11 +103,13 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
       await dialog.getByLabel('First name', { exact: true }).fill(`E2E${stamp}`)
       await dialog.getByLabel('Company', { exact: true }).fill(`E2E Partner Named ${stamp}`)
       await dialog.getByLabel('Email', { exact: true }).fill(`named${stamp}@example.test`)
-      await dialog.getByLabel('Phone', { exact: true }).fill(`07${stamp}`.slice(0, 10))
+      await dialog.getByLabel('Phone', { exact: true }).fill(mobile(stamp, 2))
     })
+    await showOnly(page, namedPartnerRef)
     await expect(row(page, namedPartnerRef)).toBeVisible()
 
     // --- Edit: verify prefill, change a field, save ---
+    await showOnly(page, internalRef)
     await row(page, internalRef).getByRole('button', { name: 'Edit' }).click()
     await expect(dialog.getByRole('heading', { name: `Edit driver — ${internalRef}` })).toBeVisible()
     await expect(dialog.getByLabel('First name', { exact: true })).toHaveValue(`E2E${stamp}`)
@@ -134,10 +166,12 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
       for (let i = 0; i < 25; i++) {
         // Distinct phones matter here — DriversService.create() dedups by
         // phone, so 25 colliding numbers would silently collapse into one
-        // driver instead of 25 (phone is a real unique DB column, only 10
-        // digits kept, so the loop index must land within that window).
+        // driver instead of 25 (phone is a real unique DB column, so the loop
+        // index must land inside the national number's own digits).
+        // E.164 since the phone port: @IsPhone rejects a national number
+        // outright, there is no server-side guess (validation/phone.js).
         const res = await request.post(`${API_BASE_URL}/api/drivers`, {
-          data: { firstName: paginationPrefix, lastName: `${i}`, phone: `08${String(stamp).slice(-6)}${String(i).padStart(2, '0')}` },
+          data: { firstName: paginationPrefix, lastName: `${i}`, phone: mobile(stamp, 10 + i) },
         })
         expect(res.ok()).toBe(true)
         createdRefs.push(((await res.json()) as { ref: string }).ref)
@@ -223,6 +257,7 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
     // — not what this test is covering, so decline it before continuing.
     await page.getByRole('alertdialog').getByRole('button', { name: 'No' }).click()
 
+    await showOnly(page, driverRef)
     await expect(row(page, driverRef)).toBeVisible()
 
     // Editing without touching anything must round-trip cleanly — this is
@@ -334,13 +369,14 @@ test.describe('Drivers — reactivate RBAC (DISPATCHER)', () => {
   test('deactivate succeeds, reactivate is blocked (UI-disabled and API-rejected)', async ({ page, request }) => {
     const stamp = Date.now()
     const createResponse = await request.post(`${API_BASE_URL}/api/drivers`, {
-      data: { firstName: 'RBAC', lastName: `Test ${stamp}`, phone: `05${stamp}`.slice(0, 10) },
+      data: { firstName: 'RBAC', lastName: `Test ${stamp}`, phone: mobile(stamp, 3) },
     })
     expect(createResponse.ok()).toBe(true)
     const driver = (await createResponse.json()) as { ref: string }
 
     await page.goto('/drivers')
     await page.getByLabel('Show deactivated', { exact: true }).check()
+    await showOnly(page, driver.ref)
     await row(page, driver.ref).getByRole('button', { name: 'Deactivate' }).click()
     await expect(toast(page, `Driver ${driver.ref} deactivated.`)).toBeVisible()
 

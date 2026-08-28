@@ -120,7 +120,7 @@ export class ClientsService {
     const [clients, total] = await Promise.all([
       this.prisma.client.findMany({
         where,
-        orderBy: [{ active: 'desc' }, { ref: 'asc' }],
+        orderBy: [{ active: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { DateTime } from 'luxon'
 import { CalendarDays, CircleCheck, Clock, Info, LocateFixed, MapPin, Plane, TriangleAlert, User } from 'lucide-react'
 import type { UseFormReturn } from 'react-hook-form'
@@ -46,6 +46,19 @@ import {
 import type { TripFormValues } from './trip-form-schema'
 import { asdTotal, isLocalTrip, marginPercent } from '@cockpit/shared'
 import { clientDisplayName, driverDisplayName, isBeforeArrival, PARIS_ZONE } from './trip-status'
+
+/**
+ * Marks a field the schema rejects when empty — including the ones that only
+ * become required for a given service (Nb H for ASD, Info for SPEC, DO outside
+ * ASD, see trip-form-schema.ts).
+ *
+ * Drawn by CSS rather than by a `<span>*</span>`: a real text node would land
+ * inside the label, turning every `getByLabel('Country', { exact: true })` in
+ * the e2e suite into a miss — including the ones aimed at the Client, Vehicle
+ * and Settings forms, whose own Country field carries no asterisk. The `-ml-1`
+ * walks back the label's own `gap-2` so the asterisk hugs the text.
+ */
+const REQUIRED_MARK = "after:text-destructive after:-ml-1 after:content-['*']"
 
 const HOURS_OPTIONS = Array.from({ length: 47 }, (_, i) => i + 2) // 2..48
 const POC_LOCKED_REASON = 'The driver is already in position — the on-site contact can no longer be changed.'
@@ -223,128 +236,338 @@ export function TripFormFields({
 
   const showAirportInfo = !!pickupIata || !!dropoffIata
 
+  // An at-disposal booking has no drop-off — the car stays with the passenger,
+  // and the schema mirrors that (trip-form-schema.ts's superRefine).
+  const dropoffApplies = service !== TripEntityService.ASD
+
   return (
     <fieldset disabled={disabled} className="contents">
-    <div className="grid gap-4">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
-        <FormField
-          control={form.control}
-          name="countryCode"
-          render={({ field }) => (
-            <FormItem className="col-span-2">
-              <FormLabel>Country</FormLabel>
-              <FormControl>
-                <SearchCombobox
-                  value={field.value}
-                  onChange={(value) => {
-                    field.onChange(value)
-                    const country = meta.data?.countries.find((c) => c.code === value)
-                    if (country) form.setValue('pickupTimezone', country.tz)
-                    // "Local" is France-only and a city belongs to one country,
-                    // so an Area already on file is now invalid — force a fresh
-                    // pick rather than let it silently rot (legacy
-                    // resetAreaField, common.js:871).
-                    form.setValue('area', '')
-                  }}
-                  options={countryOptions}
-                  placeholder="Country…"
-                  searchPlaceholder="Search country…"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="area"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Area</FormLabel>
-              <FormControl>
-                <AreaField countryCode={countryCode} value={field.value} onChange={field.onChange} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="pickupDate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>
-                <CalendarDays className="size-4" aria-hidden="true" />
-                Date
-              </FormLabel>
-              <FormControl>
-                <Input type="date" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="pickupTime"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>
-                <Clock className="size-4" aria-hidden="true" />
-                PU (local)
-              </FormLabel>
-              <InputGroup>
-                <InputGroupAddon align="inline-start">
-                  <Clock />
-                </InputGroupAddon>
-                <FormControl>
-                  <InputGroupInput type="time" {...field} />
-                </FormControl>
-              </InputGroup>
-              <p className="text-muted-foreground text-xs whitespace-nowrap">{parisHint}</p>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="service"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Service</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value={TripEntityService.TSF}>TSF</SelectItem>
-                  <SelectItem value={TripEntityService.ASD}>ASD</SelectItem>
-                  <SelectItem value={TripEntityService.SPEC}>SPEC</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {service === TripEntityService.ASD && (
+      <div className="grid gap-5">
+        {/* What is being sold, and when — the first thing a dispatcher is told. */}
+        <FormSection title="Service">
           <FormField
             control={form.control}
-            name="hours"
+            name="service"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nb H</FormLabel>
-                <Select value={field.value?.toString() ?? ''} onValueChange={(v) => field.onChange(Number(v))}>
+              <FormItem className="col-span-3 lg:col-span-2">
+                <FormLabel>Service</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="—" />
+                      <SelectValue />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {HOURS_OPTIONS.map((h) => (
-                      <SelectItem key={h} value={h.toString()}>
-                        {h}h
+                    <SelectItem value={TripEntityService.TSF}>TSF</SelectItem>
+                    <SelectItem value={TripEntityService.ASD}>ASD</SelectItem>
+                    <SelectItem value={TripEntityService.SPEC}>SPEC</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="countryCode"
+            render={({ field }) => (
+              <FormItem className="col-span-3 lg:col-span-4">
+                <FormLabel className={REQUIRED_MARK}>Country</FormLabel>
+                <FormControl>
+                  <SearchCombobox
+                    value={field.value}
+                    onChange={(value) => {
+                      field.onChange(value)
+                      const country = meta.data?.countries.find((c) => c.code === value)
+                      if (country) form.setValue('pickupTimezone', country.tz)
+                      // "Local" is France-only and a city belongs to one country,
+                      // so an Area already on file is now invalid — force a fresh
+                      // pick rather than let it silently rot (legacy
+                      // resetAreaField, common.js:871).
+                      form.setValue('area', '')
+                    }}
+                    options={countryOptions}
+                    placeholder="Country…"
+                    searchPlaceholder="Search country…"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="area"
+            render={({ field }) => (
+              <FormItem className="col-span-3 lg:col-span-3">
+                <FormLabel className={REQUIRED_MARK}>Area</FormLabel>
+                <FormControl>
+                  <AreaField countryCode={countryCode} value={field.value} onChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="pickupDate"
+            render={({ field }) => (
+              <FormItem className="col-span-3 lg:col-span-3">
+                <FormLabel className={REQUIRED_MARK}>
+                  <CalendarDays className="size-4" aria-hidden="true" />
+                  Date
+                </FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {/* The Paris equivalent sits beside the input rather than under it:
+              as a caption it was the only one in the form, and made its cell
+              taller than every neighbour on the row. */}
+          <FormField
+            control={form.control}
+            name="pickupTime"
+            render={({ field }) => (
+              <FormItem className="col-span-6 lg:col-span-5">
+                <FormLabel className={REQUIRED_MARK}>
+                  <Clock className="size-4" aria-hidden="true" />
+                  PU (local)
+                </FormLabel>
+                <div className="flex items-center gap-2">
+                  <FormControl>
+                    <Input type="time" className="w-32 shrink-0" {...field} />
+                  </FormControl>
+                  <span className="text-muted-foreground truncate text-xs">{parisHint}</span>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {service === TripEntityService.ASD && (
+            <FormField
+              control={form.control}
+              name="hours"
+              render={({ field }) => (
+                <FormItem className="col-span-3 lg:col-span-2">
+                  <FormLabel className={REQUIRED_MARK}>Nb H</FormLabel>
+                  <Select value={field.value?.toString() ?? ''} onValueChange={(v) => field.onChange(Number(v))}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {HOURS_OPTIONS.map((h) => (
+                        <SelectItem key={h} value={h.toString()}>
+                          {h}h
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </FormSection>
+
+        {/* Where from, where to — and the flight block the pickup itself reveals. */}
+        <FormSection title="Route">
+          <LocationField
+            form={form}
+            name="pickupLocation"
+            label="PU"
+            iataField="pickupIata"
+            required
+            className={dropoffApplies ? 'col-span-6 lg:col-span-6' : 'col-span-6 lg:col-span-12'}
+          />
+          {dropoffApplies && (
+            <LocationField
+              form={form}
+              name="dropoffLocation"
+              label="DO"
+              iataField="dropoffIata"
+              required
+              className="col-span-6 lg:col-span-6"
+            />
+          )}
+          <FormField
+            control={form.control}
+            name="instructions"
+            render={({ field }) => (
+              <FormItem className="col-span-6 lg:col-span-12">
+                <FormLabel className={cn(service === TripEntityService.SPEC && REQUIRED_MARK)}>
+                  <Info className="size-4" aria-hidden="true" />
+                  Info
+                </FormLabel>
+                <FormControl>
+                  <Textarea rows={2} placeholder="Instructions" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {showAirportInfo && <FlightInfoFields form={form} className="col-span-6 lg:col-span-12" />}
+        </FormSection>
+
+        {/* Who the booking is for, and who is actually travelling. */}
+        <FormSection title="Customer & passengers">
+          <FormField
+            control={form.control}
+            name="clientRef"
+            render={({ field }) => (
+              <FormItem className="col-span-6 lg:col-span-5">
+                <FormLabel className={REQUIRED_MARK}>Customer</FormLabel>
+                <FormControl>
+                  <SearchCombobox
+                    icon={User}
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={clientOptions}
+                    placeholder="Ind. or Company…"
+                    searchPlaceholder="Search customer…"
+                    searchValue={clientSearch}
+                    onSearchChange={setClientSearch}
+                    loading={clientSearchPending || clients.isFetching}
+                    selectedLabel={clientSelectedLabel}
+                    disabled={clientFieldDisabled}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="billing"
+            render={({ field }) => (
+              <FormItem className="col-span-3 lg:col-span-2">
+                <FormLabel>Payment</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={TripEntityBilling.ACCOUNT}>Central</SelectItem>
+                    <SelectItem value={TripEntityBilling.CARD}>Card</SelectItem>
+                    <SelectItem value={TripEntityBilling.CASH}>Cash</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="passengerName"
+            render={({ field }) => (
+              <FormItem className="col-span-3 lg:col-span-3">
+                <FormLabel className={REQUIRED_MARK}>Pax Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Sophie Durand" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {/* Order data, not fleet data — the customer states a headcount before
+              a car is picked. The Vehicle field still caps it to its maxPax. */}
+          <FormField
+            control={form.control}
+            name="paxCount"
+            render={({ field }) => (
+              <FormItem className="col-span-3 lg:col-span-2">
+                <FormLabel>Pax nb</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={selectedVehicleType?.maxPax ?? 50}
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="pocName"
+            render={({ field }) => (
+              <FormItem className="col-span-3 lg:col-span-4">
+                <FormLabel>POC Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Contact name" disabled={pocLocked} {...field} />
+                </FormControl>
+                {pocLocked && <FormDescription>{POC_LOCKED_REASON}</FormDescription>}
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="pocPhone"
+            render={({ field }) => (
+              <FormItem className="col-span-3 lg:col-span-4">
+                <FormLabel>POC Mobile</FormLabel>
+                <FormControl>
+                  <PhoneInput
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    countryCode={countryCode}
+                    disabled={pocLocked}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="tracking"
+            render={({ field }) => (
+              <FormItem className="col-span-6 flex flex-row items-center gap-2 lg:col-span-12">
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+                <FormLabel className="font-normal">Tracking (send WhatsApp updates)</FormLabel>
+              </FormItem>
+            )}
+          />
+        </FormSection>
+
+        {/* Who drives it. Sub-contracted heads the section because it decides
+            which of the two exclusive branches below is even relevant. */}
+        <FormSection title="Vehicle & assignment">
+          <FormField
+            control={form.control}
+            name="vehicleType"
+            render={({ field }) => (
+              <FormItem className="col-span-3 lg:col-span-4">
+                <FormLabel className={REQUIRED_MARK}>Vehicle</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => {
+                    field.onChange(value)
+                    const vt = meta.data?.vehicleTypes.find((v) => v.name === value)
+                    if (vt && form.getValues('paxCount') > vt.maxPax) form.setValue('paxCount', vt.maxPax)
+                  }}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Vehicle…" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {(meta.data?.vehicleTypes ?? []).map((v) => (
+                      <SelectItem key={v.ref} value={v.name}>
+                        {v.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -353,316 +576,171 @@ export function TripFormFields({
               </FormItem>
             )}
           />
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
-        <FormField
-          control={form.control}
-          name="vehicleType"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Vehicle</FormLabel>
-              <Select
-                value={field.value}
-                onValueChange={(value) => {
-                  field.onChange(value)
-                  const vt = meta.data?.vehicleTypes.find((v) => v.name === value)
-                  if (vt && form.getValues('paxCount') > vt.maxPax) form.setValue('paxCount', vt.maxPax)
-                }}
-              >
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Vehicle…" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {(meta.data?.vehicleTypes ?? []).map((v) => (
-                    <SelectItem key={v.ref} value={v.name}>
-                      {v.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="paxCount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Pax nb</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  min={1}
-                  max={selectedVehicleType?.maxPax ?? 50}
-                  {...field}
-                  value={field.value ?? ''}
-                  onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="clientRef"
-          render={({ field }) => (
-            <FormItem className="col-span-2">
-              <FormLabel>Customer</FormLabel>
-              <FormControl>
-                <SearchCombobox
-                  icon={User}
-                  value={field.value}
-                  onChange={field.onChange}
-                  options={clientOptions}
-                  placeholder="Ind. or Company…"
-                  searchPlaceholder="Search customer…"
-                  searchValue={clientSearch}
-                  onSearchChange={setClientSearch}
-                  loading={clientSearchPending || clients.isFetching}
-                  selectedLabel={clientSelectedLabel}
-                  disabled={clientFieldDisabled}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="billing"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Payment</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value={TripEntityBilling.ACCOUNT}>Central</SelectItem>
-                  <SelectItem value={TripEntityBilling.CARD}>Card</SelectItem>
-                  <SelectItem value={TripEntityBilling.CASH}>Cash</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="passengerName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Pax Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Sophie Durand" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <LocationField form={form} name="pickupLocation" label="PU" iataField="pickupIata" />
-        {service !== TripEntityService.ASD && (
-          <LocationField form={form} name="dropoffLocation" label="DO" iataField="dropoffIata" />
-        )}
-        <FormField
-          control={form.control}
-          name="instructions"
-          render={({ field }) => (
-            <FormItem className="sm:col-span-2">
-              <FormLabel>
-                <Info className="size-4" aria-hidden="true" />
-                Info
-              </FormLabel>
-              <FormControl>
-                <Textarea rows={1} placeholder="Instructions" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
-
-      {showAirportInfo && <FlightInfoFields form={form} />}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <FormField
-          control={form.control}
-          name="pocName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>POC Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Contact name" disabled={pocLocked} {...field} />
-              </FormControl>
-              {pocLocked && <FormDescription>{POC_LOCKED_REASON}</FormDescription>}
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="pocPhone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>POC Mobile</FormLabel>
-              <FormControl>
-                <PhoneInput
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  countryCode={countryCode}
-                  disabled={pocLocked}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <FormField
-          control={form.control}
-          name="driverRef"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Driver</FormLabel>
-              <FormControl>
-                <SearchCombobox
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  options={driverOptions}
-                  placeholder="Driver…"
-                  searchPlaceholder="Search driver…"
-                  searchValue={driverSearch}
-                  onSearchChange={setDriverSearch}
-                  loading={driverSearchPending || drivers.isFetching}
-                  selectedLabel={driverSelectedLabel}
-                />
-              </FormControl>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="fleetRegNbr"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Reg Nbr</FormLabel>
-              <FormControl>
-                <SearchCombobox
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  options={regNbrOptions}
-                  disabled={!regNbrApplies}
-                  placeholder={regNbrApplies ? '—' : 'Local bookings only'}
-                  searchPlaceholder="Search reg nbr…"
-                  searchValue={regNbrSearch}
-                  onSearchChange={setRegNbrSearch}
-                  loading={regNbrSearchPending || fleetVehicles.isFetching}
-                  selectedLabel={regNbrSelectedLabel}
-                />
-              </FormControl>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="subContractor"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-end gap-2 pb-2">
-              <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-              <FormLabel className="mb-0">Sub-contracted</FormLabel>
-            </FormItem>
-          )}
-        />
-        {subContractor && (
           <FormField
             control={form.control}
-            name="partnerRef"
+            name="subContractor"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Partner</FormLabel>
+              <FormItem className="col-span-3 flex flex-row items-center gap-2 lg:col-span-8 lg:self-end lg:pb-2">
                 <FormControl>
-                  <SearchCombobox
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    options={partnerOptions}
-                    placeholder="Partner company…"
-                    searchPlaceholder="Search partner…"
-                    searchValue={partnerSearch}
-                    onSearchChange={setPartnerSearch}
-                    loading={partnerSearchPending || partners.isFetching}
-                    selectedLabel={partnerSelectedLabel}
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      field.onChange(checked)
+                      // The two branches are mutually exclusive (see canDispatch in
+                      // booking-create-dialog.tsx) and only one is on screen at a
+                      // time, so the one being left is cleared — an off-screen
+                      // driver would otherwise silently block Create & Dispatch.
+                      if (checked) {
+                        form.setValue('driverRef', '')
+                        form.setValue('fleetRegNbr', '')
+                      } else {
+                        form.setValue('partnerRef', '')
+                      }
+                    }}
                   />
                 </FormControl>
+                <FormLabel className="font-normal whitespace-nowrap">Sub-contracted</FormLabel>
               </FormItem>
             )}
           />
-        )}
-      </div>
+          {subContractor ? (
+            <FormField
+              control={form.control}
+              name="partnerRef"
+              render={({ field }) => (
+                <FormItem className="col-span-6 lg:col-span-6">
+                  <FormLabel>Partner</FormLabel>
+                  <FormControl>
+                    <SearchCombobox
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      options={partnerOptions}
+                      placeholder="Partner company…"
+                      searchPlaceholder="Search partner…"
+                      searchValue={partnerSearch}
+                      onSearchChange={setPartnerSearch}
+                      loading={partnerSearchPending || partners.isFetching}
+                      selectedLabel={partnerSelectedLabel}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          ) : (
+            <>
+              <FormField
+                control={form.control}
+                name="driverRef"
+                render={({ field }) => (
+                  <FormItem className="col-span-3 lg:col-span-6">
+                    <FormLabel>Driver</FormLabel>
+                    <FormControl>
+                      <SearchCombobox
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        options={driverOptions}
+                        placeholder="Driver…"
+                        searchPlaceholder="Search driver…"
+                        searchValue={driverSearch}
+                        onSearchChange={setDriverSearch}
+                        loading={driverSearchPending || drivers.isFetching}
+                        selectedLabel={driverSelectedLabel}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="fleetRegNbr"
+                render={({ field }) => (
+                  <FormItem className="col-span-3 lg:col-span-6">
+                    <FormLabel>Reg Nbr</FormLabel>
+                    <FormControl>
+                      <SearchCombobox
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        options={regNbrOptions}
+                        disabled={!regNbrApplies}
+                        placeholder={regNbrApplies ? '—' : 'Local bookings only'}
+                        searchPlaceholder="Search reg nbr…"
+                        searchValue={regNbrSearch}
+                        onSearchChange={setRegNbrSearch}
+                        loading={regNbrSearchPending || fleetVehicles.isFetching}
+                        selectedLabel={regNbrSelectedLabel}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
+        </FormSection>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <PriceField
-          form={form}
-          name="priceEur"
-          label="Retail net"
-          currency={selectedCountry?.currency}
-          disabled={priceDisabled}
-          disabledReason={priceDisabledReason}
-          totalHint={retailAsdTotal}
-        />
-        {subContractor && (
+        {/* Closes the booking: what we charge, what we pay, what's left. */}
+        <FormSection title="Pricing">
           <PriceField
             form={form}
-            name="partnerRateEur"
-            label="Partner rate net"
+            name="priceEur"
+            label="Retail net"
             currency={selectedCountry?.currency}
             disabled={priceDisabled}
             disabledReason={priceDisabledReason}
-            totalHint={partnerAsdTotal}
-            marginHint={margin === null ? undefined : `% Margin: ${margin.toFixed(1)} %`}
+            totalHint={retailAsdTotal}
+            className="col-span-3 lg:col-span-4"
           />
-        )}
-        <FormField
-          control={form.control}
-          name="tracking"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-end gap-2 pb-2">
-              <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-              <FormLabel className="mb-0">Tracking (send WhatsApp updates)</FormLabel>
-            </FormItem>
+          {subContractor && (
+            <PriceField
+              form={form}
+              name="partnerRateEur"
+              label="Partner rate net"
+              currency={selectedCountry?.currency}
+              disabled={priceDisabled}
+              disabledReason={priceDisabledReason}
+              totalHint={partnerAsdTotal}
+              marginHint={margin === null ? undefined : `% Margin: ${margin.toFixed(1)} %`}
+              className="col-span-3 lg:col-span-4"
+            />
           )}
-        />
+        </FormSection>
       </div>
-    </div>
     </fieldset>
   )
 }
+
+/**
+ * One business group of the booking form. Each owns its own 12-column grid, so
+ * a conditional field appearing (Nb H, DO, Partner, the flight block) only
+ * reflows its own section instead of shifting every field below it — which is
+ * what the previous flat list of six sibling grids did.
+ */
+function FormSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="grid gap-3">
+      <h3 className="text-muted-foreground border-b pb-1.5 text-xs font-semibold tracking-wider uppercase">
+        {title}
+      </h3>
+      <div className="grid grid-cols-6 items-start gap-x-4 gap-y-3 lg:grid-cols-12">{children}</div>
+    </section>
+  )
+}
+
 
 function LocationField({
   form,
   name,
   label,
   iataField,
+  required = false,
+  className,
 }: {
   form: UseFormReturn<TripFormValues>
   name: 'pickupLocation' | 'dropoffLocation'
   label: string
   iataField: 'pickupIata' | 'dropoffIata'
+  required?: boolean
+  /** Column span inside the enclosing FormSection grid. */
+  className?: string
 }) {
   const [resolving, setResolving] = useState(false)
   const [hint, setHint] = useState<string | null>(null)
@@ -708,8 +786,8 @@ function LocationField({
       control={form.control}
       name={name}
       render={({ field }) => (
-        <FormItem>
-          <FormLabel>
+        <FormItem className={className}>
+          <FormLabel className={cn(required && REQUIRED_MARK)}>
             <MapPin className="size-4" aria-hidden="true" />
             {label}
           </FormLabel>
@@ -744,7 +822,14 @@ function LocationField({
   )
 }
 
-function FlightInfoFields({ form }: { form: UseFormReturn<TripFormValues> }) {
+function FlightInfoFields({
+  form,
+  className,
+}: {
+  form: UseFormReturn<TripFormValues>
+  /** Column span inside the enclosing FormSection grid. */
+  className?: string
+}) {
   const [checking, setChecking] = useState(false)
   const [result, setResult] = useState<{ tone: 'ok' | 'warn' | 'info'; message: string } | null>(null)
 
@@ -774,7 +859,7 @@ function FlightInfoFields({ form }: { form: UseFormReturn<TripFormValues> }) {
   }
 
   return (
-    <div className="bg-accent/40 grid grid-cols-2 gap-4 rounded-md border p-3 sm:grid-cols-4">
+    <div className={cn('bg-accent/40 grid grid-cols-2 gap-4 rounded-md border p-3 sm:grid-cols-4', className)}>
       <FormField
         control={form.control}
         name="flightNumber"
@@ -880,6 +965,7 @@ function PriceField({
   disabledReason,
   totalHint,
   marginHint,
+  className,
 }: {
   form: UseFormReturn<TripFormValues>
   name: 'priceEur' | 'partnerRateEur'
@@ -887,6 +973,8 @@ function PriceField({
   currency?: string
   disabled?: boolean
   disabledReason?: string
+  /** Column span inside the enclosing FormSection grid. */
+  className?: string
   /** ASD grand total (rate × Nb H) — the field holds an hourly rate for that service. */
   totalHint?: string
   /** Booking margin, shown under the Partner rate the legacy computed it beside. */
@@ -915,7 +1003,7 @@ function PriceField({
       control={form.control}
       name={name}
       render={({ field }) => (
-        <FormItem>
+        <FormItem className={className}>
           <FormLabel>{label}</FormLabel>
           <div className="flex items-center gap-1">
             <FormControl>

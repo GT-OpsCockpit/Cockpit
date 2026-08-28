@@ -14,8 +14,19 @@ import { fillArea } from './helpers'
  * every ref from toasts rather than assuming fixed values.
  */
 
-async function selectSearchCombobox(page: Page, label: string, query: string, optionText: string) {
-  await page.getByLabel(label, { exact: true }).click()
+// `scope` is the trigger's container, not the page: the Events page carries a
+// Country filter of its own (event-filters-bar.tsx's aria-label="Country"), so
+// a page-wide lookup matches it as well as the dialog's field. The popover it
+// opens is portalled to the body, so the search box and the options stay
+// page-scoped.
+async function selectSearchCombobox(
+  page: Page,
+  scope: Locator,
+  label: string,
+  query: string,
+  optionText: string,
+) {
+  await scope.getByLabel(label, { exact: true }).click()
   await page.getByPlaceholder(`Search ${label.toLowerCase()}…`).fill(query)
   await page.getByRole('option', { name: optionText }).click()
 }
@@ -32,7 +43,7 @@ function toast(page: Page, textOrPattern: string | RegExp) {
 
 /** The New booking dialog's form, filled the same way for the single and the bulk run. */
 async function fillBookingForm(page: Page, dialog: Locator, passengerName: string) {
-  await selectSearchCombobox(page, 'Country', 'Fra', 'France (FR)')
+  await selectSearchCombobox(page, dialog, 'Country', 'Fra', 'France (FR)')
   // Choosing a Country clears the Area (resetAreaField, common.js:871), so it
   // is always filled after the Country, never before.
   await fillArea(page, dialog, 'Nice')

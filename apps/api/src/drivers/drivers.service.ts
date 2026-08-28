@@ -171,7 +171,7 @@ export class DriversService {
       this.prisma.driver.findMany({
         where,
         include: DRIVER_INCLUDE,
-        orderBy: [{ active: 'desc' }, { ref: 'asc' }],
+        orderBy: [{ active: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),

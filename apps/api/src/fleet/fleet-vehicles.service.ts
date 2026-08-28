@@ -97,7 +97,7 @@ export class FleetVehiclesService {
       this.prisma.fleetVehicle.findMany({
         where,
         include: FLEET_VEHICLE_INCLUDE,
-        orderBy: [{ active: 'desc' }, { ref: 'asc' }],
+        orderBy: [{ active: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),

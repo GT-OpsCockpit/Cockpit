@@ -42,6 +42,19 @@ function row(page: Page, text: string) {
   return page.getByRole('row', { name: text })
 }
 
+/**
+ * Narrows the list to a single account before asserting on its row.
+ *
+ * The table pages at 20 (PAGE_SIZE in clients-page.tsx) and orders by ref, so a
+ * freshly created account lands on the *last* page — and cockpit_test is never
+ * truncated between runs (see this file's module comment), so "just created,
+ * therefore on screen" stops holding as soon as accounts pile up. Filtering by
+ * ref is deterministic whatever the database already holds.
+ */
+async function showOnly(page: Page, ref: string) {
+  await page.getByPlaceholder('Search by ref, name, email or acronym…').fill(ref)
+}
+
 test.describe('Clients — account lifecycle', () => {
   test('create Company & Events accounts, edit, deactivate/reactivate, and filter', async ({ page }) => {
     const stamp = Date.now()
@@ -64,6 +77,7 @@ test.describe('Clients — account lifecycle', () => {
     const companyRef = (await companyToast.textContent())?.match(/Account (\w+) created/)?.[1]
     if (!companyRef) throw new Error('Could not read the created Company account ref off the toast.')
 
+    await showOnly(page, companyRef)
     await expect(row(page, companyRef)).toBeVisible()
     await expect(row(page, companyRef).getByText('Company', { exact: true })).toBeVisible()
     // Sonner auto-dismisses after a few seconds — wait it out so the next
@@ -88,10 +102,12 @@ test.describe('Clients — account lifecycle', () => {
     const eventRef = (await eventToast.textContent())?.match(/Account (\w+) created/)?.[1]
     if (!eventRef) throw new Error('Could not read the created Events account ref off the toast.')
 
+    await showOnly(page, eventRef)
     await expect(row(page, eventRef)).toBeVisible()
     await expect(row(page, eventRef).getByText('Events', { exact: true })).toBeVisible()
 
     // --- Edit: open, verify prefill, change a field, save ---
+    await showOnly(page, companyRef)
     await row(page, companyRef).getByRole('button', { name: 'Edit' }).click()
     dialog = page.getByRole('dialog')
     await expect(dialog.getByRole('heading', { name: `Edit account — ${companyRef}` })).toBeVisible()
@@ -139,6 +155,7 @@ test.describe('Clients — account lifecycle', () => {
 
     await page.getByRole('combobox').filter({ hasText: 'Individual' }).click()
     await page.getByRole('option', { name: 'All types', exact: true }).click()
+    await showOnly(page, companyRef)
     await expect(row(page, companyRef)).toBeVisible()
   })
 

@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
 import { Spinner } from '@/components/ui/spinner'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TripFormFields } from './trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
 import { openSubcontractEmailDraft } from './subcontract-email'
@@ -132,6 +133,14 @@ export function BookingCreateDialog({
   const conflict = driverBranchOk && partnerBranchOk
   const canDispatch = !conflict && (driverBranchOk || partnerBranchOk)
 
+  // The button being greyed out was the form's one silent dead end — the two
+  // reasons are distinct and neither is guessable from the fields alone.
+  const dispatchBlockedReason = conflict
+    ? 'A driver and a partner are both assigned — clear one of the two.'
+    : subContractor
+      ? 'Pick the partner company this booking is farmed out to.'
+      : 'Assign a driver and a fleet vehicle, or tick Sub-contracted and pick a partner.'
+
   const afterCreate = () => {
     clearDraft(draftKey)
     onOpenChange(false)
@@ -175,12 +184,22 @@ export function BookingCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-4xl">
+        <DialogHeader className="shrink-0">
           <DialogTitle>New booking</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form className="grid gap-4" onSubmit={onCreate}>
+          <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={onCreate}>
+            {/* Only the fields scroll: the title and the action buttons stay
+                put, so "Create" is reachable without scrolling to the bottom
+                of a long booking (ASD + sub-contracted + flight block).
+                Its `px-2` is not decoration: it absorbs both the focus ring an
+                edge field would otherwise have clipped, and the ~7px an
+                InputGroup's trailing button overhangs by (`has-[>button]:mr-[-0.45rem]`
+                in ui/input-group.tsx) — which lands in the padding instead of
+                turning into a horizontal scrollbar. `-mx-2` gives it back, so the
+                fields stay flush with the title and the buttons. */}
+            <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
             <TripFormFields
               form={form}
               clientSeedOption={prefill?.clientRef ? { value: prefill.clientRef, label: prefill.clientLabel ?? prefill.clientRef } : null}
@@ -188,7 +207,8 @@ export function BookingCreateDialog({
               partnerSeedOption={prefill?.partnerRef ? { value: prefill.partnerRef, label: prefill.partnerLabel ?? prefill.partnerRef } : null}
               regNbrSeedOption={prefill?.fleetRegNbr ? { value: prefill.fleetRegNbr, label: prefill.regNbrLabel ?? prefill.fleetRegNbr } : null}
             />
-            <DialogFooter>
+            </div>
+            <DialogFooter className="shrink-0">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
@@ -196,10 +216,24 @@ export function BookingCreateDialog({
                 {submitting ? <Spinner /> : <Plus />}
                 Create
               </Button>
-              <Button type="button" variant="secondary" disabled={submitting || !canDispatch} onClick={onCreateAndDispatch}>
-                {submitting ? <Spinner /> : <Send />}
-                Create &amp; Dispatch
-              </Button>
+              <Tooltip>
+                {/* A disabled button fires no pointer events, so the trigger has to
+                    be the wrapper rather than the button itself. */}
+                <TooltipTrigger asChild>
+                  <span className={canDispatch ? undefined : 'cursor-not-allowed'}>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={submitting || !canDispatch}
+                      onClick={onCreateAndDispatch}
+                    >
+                      {submitting ? <Spinner /> : <Send />}
+                      Create &amp; Dispatch
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canDispatch && <TooltipContent>{dispatchBlockedReason}</TooltipContent>}
+              </Tooltip>
             </DialogFooter>
           </form>
         </Form>

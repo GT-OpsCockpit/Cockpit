@@ -11,7 +11,14 @@ test.describe('Trip edit — RBAC (DISPATCHER)', () => {
   test('price is locked on a future trip; the whole form is locked on a past trip', async ({ page, request }) => {
     // "Marc Dubois" is the individual client seeded by seedFixtures() (apps/api/prisma/seed-data.ts)
     // — matched by email (stable), same reasoning as trip-cancel-rbac.spec.ts.
-    const clientsResponse = await request.get(`${API_BASE_URL}/api/clients`)
+    // Searched, not scanned: /api/clients pages at DEFAULT_LIMIT and orders by
+    // ref, so an unfiltered call only ever returns the first page — and
+    // cockpit_test is never truncated between runs (playwright.config.ts), so
+    // the seed client drops off that page as soon as enough accounts pile up.
+    // `email` is one of the searched columns (ClientsService.list).
+    const clientsResponse = await request.get(
+      `${API_BASE_URL}/api/clients?search=marc.dubois@example.com`,
+    )
     expect(clientsResponse.ok()).toBe(true)
     const clients = (await clientsResponse.json()) as { data: { ref: string; email: string | null }[] }
     const marcDubois = clients.data.find((c) => c.email === 'marc.dubois@example.com')

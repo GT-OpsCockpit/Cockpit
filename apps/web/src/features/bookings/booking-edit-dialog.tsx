@@ -76,12 +76,22 @@ export function BookingEditDialog({
 
   return (
     <Dialog open={!!trip} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-4xl">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Edit booking{trip ? ` — ${trip.ref}` : ''}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form className="grid gap-4" onSubmit={onSubmit}>
+          <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={onSubmit}>
+            {/* Only the fields scroll: the title and the action buttons stay
+                put, so "Create" is reachable without scrolling to the bottom
+                of a long booking (ASD + sub-contracted + flight block).
+                Its `px-2` is not decoration: it absorbs both the focus ring an
+                edge field would otherwise have clipped, and the ~7px an
+                InputGroup's trailing button overhangs by (`has-[>button]:mr-[-0.45rem]`
+                in ui/input-group.tsx) — which lands in the padding instead of
+                turning into a horizontal scrollbar. `-mx-2` gives it back, so the
+                fields stay flush with the title and the buttons. */}
+            <div className="-mx-2 grid min-h-0 flex-1 gap-4 overflow-y-auto px-2">
             {pastLockout && (
               <PermissionWarning>
                 This booking's pickup is already in the past — only an Admin can edit it.
@@ -98,7 +108,8 @@ export function BookingEditDialog({
                   : undefined
               }
             />
-            <DialogFooter>
+            </div>
+            <DialogFooter className="shrink-0">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>

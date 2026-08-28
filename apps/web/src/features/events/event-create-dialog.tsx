@@ -143,18 +143,29 @@ export function EventCreateDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-4xl">
+          <DialogHeader className="shrink-0">
             <DialogTitle>New booking{confirmedEvent ? ` — ${confirmedEvent.name}` : ''}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form className="grid gap-4" onSubmit={onCreate}>
-              <TripFormFields
-                form={form}
-                clientFieldDisabled={!!confirmedEvent}
-                clientSeedOption={confirmedEvent ? { value: confirmedEvent.ref, label: confirmedEvent.name } : null}
-              />
-              <DialogFooter>
+            <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={onCreate}>
+              {/* Only the fields scroll: the title and the action buttons stay
+                  put, so "Create" is reachable without scrolling to the bottom
+                  of a long booking (ASD + sub-contracted + flight block).
+                  Its `px-2` is not decoration: it absorbs both the focus ring an
+                  edge field would otherwise have clipped, and the ~7px an
+                  InputGroup's trailing button overhangs by (`has-[>button]:mr-[-0.45rem]`
+                  in ui/input-group.tsx) — which lands in the padding instead of
+                  turning into a horizontal scrollbar. `-mx-2` gives it back, so the
+                  fields stay flush with the title and the buttons. */}
+              <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
+                <TripFormFields
+                  form={form}
+                  clientFieldDisabled={!!confirmedEvent}
+                  clientSeedOption={confirmedEvent ? { value: confirmedEvent.ref, label: confirmedEvent.name } : null}
+                />
+              </div>
+              <DialogFooter className="shrink-0">
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   Cancel
                 </Button>
