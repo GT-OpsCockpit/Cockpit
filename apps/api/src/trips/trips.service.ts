@@ -24,6 +24,7 @@ import {
 } from '../common/business/assignability';
 import { MESSAGES } from '../common/constants/messages';
 import { FULL_STEP_ORDER } from '../common/constants/step-order';
+import { isBeforeArrival } from '../common/business/trip-progress';
 import { buildTripMessageContext } from './trip-message.util';
 import { toPublicTrip } from './public-trip.mapper';
 import { CreateTripDto } from './dto/create-trip.dto';
@@ -265,6 +266,22 @@ export class TripsService {
     const { data, client, driverId } = await this.resolveTripInputs(dto, {
       previousDriverId,
     });
+
+    // Changing who meets the passenger only makes sense while nobody is there
+    // yet: once the driver is "In position" the name and number being edited
+    // are the ones already in use on the ground. Legacy isBeforeArrival
+    // (common.js:2391), which gated the POC fields of the quick-edit popup.
+    // Not a permission — no role lifts it, it is the trip's own progress.
+    // Compared against what would actually be stored, since an omitted POC
+    // falls back to the client account's (see resolveTripInputs).
+    if (
+      (data.pocName !== trip.pocName || data.pocPhone !== trip.pocPhone) &&
+      !isBeforeArrival(trip)
+    ) {
+      throw new BadRequestException(
+        'The POC can no longer be changed: the driver is already in position.',
+      );
+    }
 
     let newRef = trip.ref;
     if (client.id !== trip.clientId) {

@@ -66,6 +66,21 @@ export function currentStatus(trip: TripEntity): TripStatus {
   return last
 }
 
+/**
+ * Whether the driver has yet to arrive on site — the POC (on-site contact) is
+ * only editable up to that point, since past it the name and number are the
+ * ones already in use on the ground. Mirrors the legacy's isBeforeArrival
+ * (common.js:2391) and the server's own rule
+ * (apps/api/src/common/business/trip-progress.ts), which is what actually
+ * enforces it; this only lets the form say so before the user tries.
+ */
+export function isBeforeArrival(trip: TripEntity): boolean {
+  const status = currentStatus(trip)
+  if (status === 'CANCELLED') return false
+  if (!status) return true
+  return STEP_ORDER.indexOf(status) < STEP_ORDER.indexOf(TripStepEntityStep.ARRIVED)
+}
+
 /** A sub-contracted job with no specific partner driver on file is pinned at "Sent" server-side — the badge is never clickable in that case. */
 export function isStatusLocked(trip: TripEntity): boolean {
   return trip.subContractor && !trip.partnerId

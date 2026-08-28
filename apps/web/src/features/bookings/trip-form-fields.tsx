@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select'
 import {
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -42,9 +43,11 @@ import {
 } from '@/components/ui/form'
 import type { TripFormValues } from './trip-form-schema'
 import { asdTotal, isLocalTrip, marginPercent } from '@cockpit/shared'
-import { clientDisplayName, driverDisplayName, PARIS_ZONE } from './trip-status'
+import { clientDisplayName, driverDisplayName, isBeforeArrival, PARIS_ZONE } from './trip-status'
 
 const HOURS_OPTIONS = Array.from({ length: 47 }, (_, i) => i + 2) // 2..48
+const POC_LOCKED_REASON = 'The driver is already in position — the on-site contact can no longer be changed.'
+
 const PICKER_LIMIT = 20
 const PICKER_DEBOUNCE_MS = 300
 
@@ -145,6 +148,11 @@ export function TripFormFields({
   // farmed-out job has no vehicle of ours attached (legacy
   // refreshFleetRegAvailability, common.js:1078).
   const regNbrApplies = isLocalTrip({ area, countryCode, pickupLocation, dropoffLocation })
+
+  // The on-site contact can only be changed while nobody is on site yet — the
+  // server refuses it past "In position" (trip-progress.ts / isBeforeArrival,
+  // common.js:2391), this just says so before the user types.
+  const pocLocked = !!trip && !isBeforeArrival(trip)
 
   // Lets a Paris-based dispatcher read the pickup time without doing the
   // timezone math themselves — always shown in Paris regardless of the
@@ -496,8 +504,9 @@ export function TripFormFields({
             <FormItem>
               <FormLabel>POC Name</FormLabel>
               <FormControl>
-                <Input placeholder="Contact name" {...field} />
+                <Input placeholder="Contact name" disabled={pocLocked} {...field} />
               </FormControl>
+              {pocLocked && <FormDescription>{POC_LOCKED_REASON}</FormDescription>}
             </FormItem>
           )}
         />
@@ -508,7 +517,7 @@ export function TripFormFields({
             <FormItem>
               <FormLabel>POC Mobile</FormLabel>
               <FormControl>
-                <Input placeholder="+33…" {...field} />
+                <Input placeholder="+33…" disabled={pocLocked} {...field} />
               </FormControl>
             </FormItem>
           )}

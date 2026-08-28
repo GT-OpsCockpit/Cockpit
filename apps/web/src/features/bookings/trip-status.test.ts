@@ -6,6 +6,7 @@ import {
   currentStatus,
   defaultBookingFilters,
   dispatchButtonState,
+  isBeforeArrival,
   isLocalTrip,
   isStatusAdvanceable,
   isStatusLocked,
@@ -217,5 +218,45 @@ describe('applyBookingFilters', () => {
     // pure narrowing filter must preserve it exactly as given.
     const result = applyBookingFilters([later, earlier], defaultBookingFilters())
     expect(result.map((t) => t.ref)).toEqual(['R-LATER', 'R-EARLIER'])
+  })
+})
+// The POC (on-site contact) is only editable while nobody is on site yet —
+// past "In position" the name and number are the ones already in use on the
+// ground. Legacy isBeforeArrival (common.js:2391); the server enforces it
+// (trip-progress.ts), this only lets the form say so first.
+describe('isBeforeArrival', () => {
+  const at = (...steps: TripStepEntityStep[]) =>
+    baseTrip({ steps: steps.map((step) => ({ step, occurredAt: '2026-06-01T00:00:00.000Z' })) })
+
+  it('is true right up to the moment the driver is in position', () => {
+    expect(isBeforeArrival(at())).toBe(true)
+    expect(isBeforeArrival(at(TripStepEntityStep.TRANSMITTED))).toBe(true)
+    expect(
+      isBeforeArrival(
+        at(
+          TripStepEntityStep.TRANSMITTED,
+          TripStepEntityStep.RECEIVED,
+          TripStepEntityStep.ACCEPTED,
+          TripStepEntityStep.ENROUTE,
+        ),
+      ),
+    ).toBe(true)
+  })
+
+  it('is false from "In position" onwards', () => {
+    expect(
+      isBeforeArrival(
+        at(TripStepEntityStep.TRANSMITTED, TripStepEntityStep.RECEIVED, TripStepEntityStep.ARRIVED),
+      ),
+    ).toBe(false)
+    expect(
+      isBeforeArrival(
+        at(TripStepEntityStep.TRANSMITTED, TripStepEntityStep.ARRIVED, TripStepEntityStep.DROPPED),
+      ),
+    ).toBe(false)
+  })
+
+  it('is false for a cancelled assignment — there is nobody to meet', () => {
+    expect(isBeforeArrival(baseTrip({ steps: [], assignmentCancelled: true }))).toBe(false)
   })
 })

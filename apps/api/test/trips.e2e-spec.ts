@@ -1214,4 +1214,119 @@ describe('Trips (e2e)', () => {
       ).toBe(vehicle.ref);
     });
   });
+  // Changing who meets the passenger only makes sense while nobody is on site
+  // yet — the legacy greyed the POC fields out from "In position" onwards
+  // (isBeforeArrival, common.js:2391). Not a permission: no role lifts it.
+  describe('the POC stops being editable once the driver is in position', () => {
+    async function tripAtArrived() {
+      const client = await createClient();
+      const driver = await createDriver();
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          driverRef: driver.ref,
+          pocName: 'Sophie Durand',
+          pocPhone: '0633333333',
+        })
+        .expect(201);
+      const trip = created.body as TripBody;
+
+      await request(server())
+        .post(`/api/trips/${trip.ref}/dispatch-driver`)
+        .set('Cookie', cookie)
+        .expect(201);
+      await request(server())
+        .get(`/api/trips/${trip.ref}?viewer=driver`)
+        .expect(200);
+      // TRANSMITTED + RECEIVED are stamped above; ACCEPTED → ENROUTE → ARRIVED.
+      for (let i = 0; i < 3; i++) {
+        await request(server())
+          .post(`/api/trips/${trip.ref}/advance-step`)
+          .set('Cookie', cookie)
+          .expect(201);
+      }
+      return { trip, client, driver };
+    }
+
+    const putBody = (
+      trip: TripBody,
+      client: ClientBody,
+      driver: DriverBody,
+      overrides: Record<string, unknown>,
+    ) => ({
+      ...BASE_TRIP,
+      clientRef: client.ref,
+      driverRef: driver.ref,
+      pocName: 'Sophie Durand',
+      pocPhone: '0633333333',
+      ...overrides,
+    });
+
+    it('refuses a POC change from "In position" onwards', async () => {
+      const { trip, client, driver } = await tripAtArrived();
+
+      await request(server())
+        .put(`/api/trips/${trip.ref}`)
+        .set('Cookie', cookie)
+        .send(putBody(trip, client, driver, { pocName: 'Someone Else' }))
+        .expect(400);
+
+      await request(server())
+        .put(`/api/trips/${trip.ref}`)
+        .set('Cookie', cookie)
+        .send(putBody(trip, client, driver, { pocPhone: '0644444444' }))
+        .expect(400);
+    });
+
+    it('still allows every other edit on the same trip', async () => {
+      const { trip, client, driver } = await tripAtArrived();
+
+      await request(server())
+        .put(`/api/trips/${trip.ref}`)
+        .set('Cookie', cookie)
+        .send(putBody(trip, client, driver, { instructions: 'Gate B' }))
+        .expect(200);
+    });
+
+    it('allows a POC change while the driver is still on the way', async () => {
+      const client = await createClient();
+      const driver = await createDriver();
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          driverRef: driver.ref,
+          pocName: 'Sophie Durand',
+          pocPhone: '0633333333',
+        })
+        .expect(201);
+      const trip = created.body as TripBody;
+
+      await request(server())
+        .post(`/api/trips/${trip.ref}/dispatch-driver`)
+        .set('Cookie', cookie)
+        .expect(201);
+      await request(server())
+        .get(`/api/trips/${trip.ref}?viewer=driver`)
+        .expect(200);
+      // ACCEPTED → ENROUTE, one short of ARRIVED.
+      for (let i = 0; i < 2; i++) {
+        await request(server())
+          .post(`/api/trips/${trip.ref}/advance-step`)
+          .set('Cookie', cookie)
+          .expect(201);
+      }
+
+      await request(server())
+        .put(`/api/trips/${trip.ref}`)
+        .set('Cookie', cookie)
+        .send(putBody(trip, client, driver, { pocName: 'Someone Else' }))
+        .expect(200);
+    });
+  });
 });
