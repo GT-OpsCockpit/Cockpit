@@ -3,9 +3,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useForm } from 'react-hook-form'
 import { Form } from '@/components/ui/form'
 
+const useClients = vi.fn(() => ({ data: { data: [] }, isFetching: false }))
 vi.mock('@cockpit/shared/api', () => ({
   ClientsControllerListType: { EVENT: 'EVENT' },
-  useClientsControllerList: () => ({ data: { data: [] }, isFetching: false }),
+  useClientsControllerList: (...args: unknown[]) => useClients(...(args as [])) as unknown,
   useMetaControllerGetMeta: () => ({
     data: {
       countries: [
@@ -20,11 +21,20 @@ vi.mock('@cockpit/shared/api', () => ({
 const { DriverFormFields } = await import('./driver-form-fields')
 import type { DriverFormValues } from './driver-form-schema'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  useClients.mockClear()
+})
 
-function Harness({ onValues }: { onValues: (values: DriverFormValues) => void }) {
+function Harness({
+  onValues,
+  defaults,
+}: {
+  onValues: (values: DriverFormValues) => void
+  defaults?: Partial<DriverFormValues>
+}) {
   const form = useForm<DriverFormValues>({
-    defaultValues: { countryCode: 'FR', area: 'Nice', eventsOnly: false },
+    defaultValues: { countryCode: 'FR', area: 'Nice', eventsOnly: false, ...defaults },
   })
   onValues(form.watch())
   return (
@@ -49,5 +59,44 @@ describe('DriverFormFields', () => {
     fireEvent.click(screen.getByRole('option', { name: 'Italy (IT)' }))
 
     expect(latest?.area).toBe('')
+  })
+  // openEventLinkModal (common.js:3034) read Country/Area off the record and
+  // showed them greyed out — they were never a second, independent choice, and
+  // the Events offered were filtered down to that exact location.
+  describe('linking to an Event', () => {
+    it("mirrors the driver's own location onto the Event link, read-only", () => {
+      let latest: DriverFormValues | undefined
+      render(
+        <Harness
+          onValues={(values) => (latest = values)}
+          defaults={{ eventsOnly: true, eventCountry: 'MC', eventArea: 'Monaco', eventRef: 'C-MC-1' }}
+        />,
+      )
+
+      expect(latest?.eventCountry).toBe('FR')
+      expect(latest?.eventArea).toBe('Nice')
+      // The link was to an event held elsewhere — it cannot survive the move.
+      expect(latest?.eventRef).toBe('')
+      expect(screen.getByLabelText('Event country')).toHaveAttribute('readonly')
+      expect(screen.getByLabelText('Event area')).toHaveAttribute('readonly')
+    })
+
+    it('asks the API for the Events happening there, and only those', () => {
+      render(<Harness onValues={vi.fn()} defaults={{ eventsOnly: true }} />)
+
+      expect(useClients).toHaveBeenCalledWith(
+        expect.objectContaining({ eventCountry: 'FR', eventArea: 'Nice', eventNotEnded: true }),
+        expect.objectContaining({ query: { enabled: true } }),
+      )
+    })
+
+    it('asks for nothing while the driver has no location of its own', () => {
+      render(<Harness onValues={vi.fn()} defaults={{ eventsOnly: true, countryCode: '', area: '' }} />)
+
+      expect(useClients).toHaveBeenLastCalledWith(
+        expect.objectContaining({ eventCountry: undefined, eventArea: undefined }),
+        expect.objectContaining({ query: { enabled: false } }),
+      )
+    })
   })
 })

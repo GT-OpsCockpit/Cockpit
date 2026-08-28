@@ -181,8 +181,10 @@ test.describe('Vehicles — lifecycle (ADMIN)', () => {
         company: `E2E Grand Prix Fleet ${stamp}`,
         eventCountry: 'MC',
         eventArea: 'Monaco',
-        eventStartDate: '2026-05-20',
-        eventEndDate: '2026-05-24',
+        // Must not have ended: openEventLinkModal only ever offered upcoming
+        // Events (common.js:3034), a rule EventLinkService now enforces.
+        eventStartDate: '2027-05-20',
+        eventEndDate: '2027-05-24',
       },
     })
     expect(eventClientResponse.ok()).toBe(true)
@@ -195,11 +197,22 @@ test.describe('Vehicles — lifecycle (ADMIN)', () => {
     await selectOption(page, dialog, 'Category', 'Business')
     await dialog.getByLabel('Reg Nbr', { exact: true }).fill(`E2E-EVT-${stamp}`)
     await dialog.getByLabel('Acr.', { exact: true }).fill(`EVT${String(stamp).slice(-3)}`)
-    await dialog.getByLabel('Events-only vehicle (linked to a single Event account)').check()
-    await dialog.getByLabel('Event country', { exact: true }).click()
+
+    // A vehicle can only be linked to an Event happening where it is, and a
+    // Local vehicle stores no location of its own — so this one is external,
+    // based in MC / Monaco. The Event country/area below just mirror that,
+    // read-only, exactly as the legacy popup showed them.
+    await dialog.getByLabel('Local', { exact: true }).uncheck()
+    await dialog.getByLabel('Country', { exact: true }).click()
     await page.getByPlaceholder('Search country…').fill('Monaco')
     await page.getByRole('option', { name: 'Monaco (MC)' }).click()
-    await dialog.getByLabel('Event area', { exact: true }).fill('Monaco')
+    await fillArea(page, dialog, 'Monaco')
+    await dialog.getByLabel('Partner', { exact: true }).fill(`E2E Events Partner ${stamp}`)
+
+    await dialog.getByLabel('Events-only vehicle (linked to a single Event account)').check()
+    await expect(dialog.getByLabel('Event country', { exact: true })).toHaveValue('MC')
+    await expect(dialog.getByLabel('Event area', { exact: true })).toHaveValue('Monaco')
+
     await dialog.getByLabel('Event', { exact: true }).click()
     await page.getByPlaceholder('Search event…').fill(`E2E Grand Prix Fleet ${stamp}`)
     await page.getByRole('option', { name: new RegExp(`E2E Grand Prix Fleet ${stamp}`) }).click()

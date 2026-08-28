@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { ClientsControllerListType, useClientsControllerList, useMetaControllerGetMeta } from '@cockpit/shared/api'
 import type { FleetVehicleEntity } from '@cockpit/shared/api'
@@ -47,18 +47,48 @@ export function VehicleFormFields({
 
   const [eventSearch, setEventSearch] = useState('')
   const { debounced: debouncedEventSearch, pending: eventSearchPending } = useDebouncedSearch(eventSearch, EVENT_PICKER_DEBOUNCE_MS)
-  const eventClients = useClientsControllerList({
-    type: ClientsControllerListType.EVENT,
-    search: debouncedEventSearch || undefined,
-    limit: EVENT_PICKER_LIMIT,
-  })
 
   const category = form.watch('category')
   const make = form.watch('make')
   const model = form.watch('model')
   const isLocal = form.watch('isLocal')
   const eventsOnly = form.watch('eventsOnly')
-  const countryCode = form.watch('countryCode') ?? ''
+  // A Local vehicle stores no country/area of its own, so it has no location
+  // an Event could match — the legacy refused to open the link popup at all
+  // in that case (openEventLinkModal, common.js:3034).
+  const ownCountryCode = form.watch('countryCode') ?? ''
+  const ownArea = form.watch('area') ?? ''
+  const countryCode = isLocal ? '' : ownCountryCode
+  const area = isLocal ? '' : ownArea
+
+  // The link popup never let the operator choose where the Event was: it read
+  // the record's own Country/Area and showed them greyed out. Mirroring them
+  // here is what makes those read-only fields true, and moving the vehicle
+  // invalidates a link to an event held elsewhere.
+  useEffect(() => {
+    if (!eventsOnly) return
+    if (form.getValues('eventCountry') === countryCode && form.getValues('eventArea') === area) return
+    form.setValue('eventCountry', countryCode)
+    form.setValue('eventArea', area)
+    form.setValue('eventRef', '')
+  }, [eventsOnly, countryCode, area, form])
+
+  // Only the Events this vehicle could actually be linked to: happening where
+  // it is, and not over yet. Filtered server-side (see ListClientsQueryDto) —
+  // the listing is paginated, so narrowing the page here would hide a
+  // mismatched event without excluding it. EventLinkService rejects the same
+  // cases on save.
+  const eventClients = useClientsControllerList(
+    {
+      type: ClientsControllerListType.EVENT,
+      search: debouncedEventSearch || undefined,
+      limit: EVENT_PICKER_LIMIT,
+      eventCountry: countryCode || undefined,
+      eventArea: area || undefined,
+      eventNotEnded: true,
+    },
+    { query: { enabled: !!countryCode && !!area } },
+  )
 
   const categoryOptions = (meta.data?.vehicleTypes ?? []).map((t) => t.name)
   const categoryModels = meta.data?.categoryModels ?? {}
@@ -359,7 +389,7 @@ export function VehicleFormFields({
                 <FormItem>
                   <FormLabel>Area</FormLabel>
                   <FormControl>
-                    <AreaField countryCode={countryCode} value={field.value ?? ''} onChange={field.onChange} />
+                    <AreaField countryCode={ownCountryCode} value={field.value ?? ''} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -403,13 +433,7 @@ export function VehicleFormFields({
                 <FormItem>
                   <FormLabel>Event country</FormLabel>
                   <FormControl>
-                    <SearchCombobox
-                      value={field.value ?? ''}
-                      onChange={field.onChange}
-                      options={countryOptions}
-                      placeholder="Country…"
-                      searchPlaceholder="Search country…"
-                    />
+                    <Input readOnly value={field.value ?? ''} placeholder="—" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -422,7 +446,7 @@ export function VehicleFormFields({
                 <FormItem>
                   <FormLabel>Event area</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input readOnly value={field.value ?? ''} placeholder="—" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -391,11 +391,16 @@ export class FleetVehiclesService {
     }
 
     const eventClientId = dto.eventsOnly
-      ? await this.eventLink.resolveEventClientId(
-          dto.eventCountry,
-          dto.eventArea,
-          dto.eventRef,
-        )
+      ? await this.eventLink.resolveEventClientId({
+          // A Local vehicle stores no country/area of its own (see create()),
+          // so it has no location an Event could match — the legacy refused
+          // to open the link popup at all in that case.
+          recordCountryCode: dto.isLocal ? null : dto.countryCode,
+          recordArea: dto.isLocal ? null : dto.area,
+          eventCountry: dto.eventCountry,
+          eventArea: dto.eventArea,
+          eventRef: dto.eventRef,
+        })
       : null;
 
     return { categoryId: category.id, isLocal, eventClientId };

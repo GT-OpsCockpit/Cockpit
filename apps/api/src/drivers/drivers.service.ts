@@ -192,11 +192,13 @@ export class DriversService {
     }
 
     const eventClientId = dto.eventsOnly
-      ? await this.eventLink.resolveEventClientId(
-          dto.eventCountry,
-          dto.eventArea,
-          dto.eventRef,
-        )
+      ? await this.eventLink.resolveEventClientId({
+          recordCountryCode: dto.countryCode,
+          recordArea: dto.area,
+          eventCountry: dto.eventCountry,
+          eventArea: dto.eventArea,
+          eventRef: dto.eventRef,
+        })
       : null;
 
     const prefix = driverRefPrefix(dto.countryCode, dto.area, dto.company);
@@ -248,11 +250,16 @@ export class DriversService {
     if (finalEventsOnly) {
       // Legacy re-links on every PUT of an Events driver: eventCountry/Area/Ref
       // must come from the request, not merged with the stored record.
-      eventClientId = await this.eventLink.resolveEventClientId(
-        dto.eventCountry,
-        dto.eventArea,
-        dto.eventRef,
-      );
+      eventClientId = await this.eventLink.resolveEventClientId({
+        // A PUT re-links from scratch, so the location comes from the request
+        // just like the event does — falling back to the stored record for a
+        // field the payload leaves out, same as every other merged field.
+        recordCountryCode: dto.countryCode ?? existing.countryCode,
+        recordArea: dto.area ?? existing.area,
+        eventCountry: dto.eventCountry,
+        eventArea: dto.eventArea,
+        eventRef: dto.eventRef,
+      });
     } else if (dto.eventsOnly !== undefined) {
       eventClientId = null;
     }

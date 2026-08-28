@@ -461,4 +461,77 @@ describe('Clients (e2e)', () => {
       .set('Cookie', cookie)
       .expect(400);
   });
+  // Feeds the "Link to an Event" picker on the driver and fleet-vehicle
+  // forms: it must offer only what EventLinkService would actually accept,
+  // and it filters in Prisma rather than over the current page because the
+  // listing is paginated (audit §4.3).
+  describe('Events picker filters', () => {
+    async function createEvent(overrides: Record<string, unknown>) {
+      const res = await request(server())
+        .post('/api/clients')
+        .set('Cookie', cookie)
+        .send({
+          clientType: 'EVENT',
+          eventStartDate: '2027-05-20',
+          eventEndDate: '2027-05-24',
+          ...overrides,
+        })
+        .expect(201);
+      return (res.body as { ref: string }).ref;
+    }
+
+    async function refs(query: string) {
+      const res = await request(server())
+        .get(`/api/clients?${query}`)
+        .set('Cookie', cookie)
+        .expect(200);
+      return (res.body as ClientListBody).data.map((c) => c.ref);
+    }
+
+    it('keeps only upcoming Events happening at the given location', async () => {
+      const here = await createEvent({
+        company: 'Grand Prix',
+        eventCountry: 'MC',
+        eventArea: 'Monaco',
+      });
+      const otherCountry = await createEvent({
+        company: 'Cannes Festival',
+        eventCountry: 'FR',
+        eventArea: 'Monaco',
+      });
+      const otherArea = await createEvent({
+        company: 'Larvotto Show',
+        eventCountry: 'MC',
+        eventArea: 'Larvotto',
+      });
+      const ended = await createEvent({
+        company: 'Last Year Grand Prix',
+        eventCountry: 'MC',
+        eventArea: 'Monaco',
+        eventStartDate: '2026-05-20',
+        eventEndDate: '2026-05-24',
+      });
+
+      const offered = await refs(
+        'type=EVENT&eventCountry=MC&eventArea=Monaco&eventNotEnded=true&limit=100',
+      );
+      expect(offered).toContain(here);
+      expect(offered).not.toContain(otherCountry);
+      expect(offered).not.toContain(otherArea);
+      expect(offered).not.toContain(ended);
+    });
+
+    it('matches the area case- and whitespace-insensitively', async () => {
+      const ref = await createEvent({
+        company: 'Yacht Show',
+        eventCountry: 'MC',
+        eventArea: 'Monte-Carlo',
+      });
+      expect(
+        await refs(
+          'type=EVENT&eventCountry=MC&eventArea=%20monte-carlo%20&limit=100',
+        ),
+      ).toContain(ref);
+    });
+  });
 });

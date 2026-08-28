@@ -39,6 +39,43 @@ interface ClientBody {
   ref: string;
 }
 
+/**
+ * An Events driver based in MC / Monaco. Its own Country + Area are what the
+ * "Link to an Event" popup shows read-only and sends back as
+ * eventCountry/eventArea — they are the same location, never two.
+ */
+const EVENTS_DRIVER = {
+  eventsOnly: true,
+  company: 'Acme',
+  firstName: 'A',
+  lastName: 'B',
+  email: 'a@b.test',
+  phone: '0611111111',
+  countryCode: 'MC',
+  area: 'Monaco',
+  eventCountry: 'MC',
+  eventArea: 'Monaco',
+};
+
+/** Defaults to a range in the future — a linkable Event is one that hasn't ended. */
+async function createEvent(
+  server: Parameters<typeof request>[0],
+  cookie: string,
+  overrides: Record<string, unknown>,
+): Promise<ClientBody> {
+  const res = await request(server)
+    .post('/api/clients')
+    .set('Cookie', cookie)
+    .send({
+      clientType: 'EVENT',
+      eventStartDate: '2027-05-20',
+      eventEndDate: '2027-05-24',
+      ...overrides,
+    })
+    .expect(201);
+  return res.body as ClientBody;
+}
+
 describe('Drivers (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -175,31 +212,17 @@ describe('Drivers (e2e)', () => {
       })
       .expect(400); // no eventRef
 
-    const eventClient = await request(server())
-      .post('/api/clients')
-      .set('Cookie', cookie)
-      .send({
-        clientType: 'EVENT',
-        company: 'Grand Prix',
-        eventCountry: 'MC',
-        eventArea: 'Monaco',
-        eventStartDate: '2026-05-20',
-        eventEndDate: '2026-05-24',
-      })
-      .expect(201);
+    const eventClient = await createEvent(server(), cookie, {
+      company: 'Grand Prix',
+      eventCountry: 'MC',
+      eventArea: 'Monaco',
+    });
 
     await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
       .send({
-        eventsOnly: true,
-        company: 'Acme',
-        firstName: 'A',
-        lastName: 'B',
-        email: 'a@b.test',
-        phone: '0611111111',
-        eventCountry: 'MC',
-        eventArea: 'Monaco',
+        ...EVENTS_DRIVER,
         eventRef: 'NOT-A-REAL-CLIENT',
       })
       .expect(400); // eventRef doesn't resolve
@@ -207,18 +230,115 @@ describe('Drivers (e2e)', () => {
     await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({
-        eventsOnly: true,
-        company: 'Acme',
-        firstName: 'A',
-        lastName: 'B',
-        email: 'a@b.test',
-        phone: '0611111111',
+      .send({ ...EVENTS_DRIVER, eventRef: eventClient.ref })
+      .expect(201);
+  });
+
+  // openEventLinkModal (common.js:3034) only ever offered an Event that had
+  // not ended yet, happening in the driver's own Country + Area — and showed
+  // that Country/Area read-only, straight off the driver's record, precisely
+  // so the two could not disagree. v2 offered every Events account instead,
+  // which made an incoherent link a couple of clicks away.
+  describe('linking a driver to an Event', () => {
+    it('refuses an Event that has already ended', async () => {
+      const past = await createEvent(server(), cookie, {
+        company: 'Last Year Gala',
         eventCountry: 'MC',
         eventArea: 'Monaco',
-        eventRef: (eventClient.body as ClientBody).ref,
-      })
-      .expect(201);
+        eventStartDate: '2026-05-20',
+        eventEndDate: '2026-05-24',
+      });
+
+      await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({ ...EVENTS_DRIVER, eventRef: past.ref })
+        .expect(400);
+    });
+
+    it('refuses an Event happening in another country or another area', async () => {
+      const elsewhere = await createEvent(server(), cookie, {
+        company: 'Cannes Festival',
+        eventCountry: 'FR',
+        eventArea: 'Cannes',
+      });
+
+      // The driver is based in MC/Monaco; the event is in FR/Cannes.
+      await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({ ...EVENTS_DRIVER, eventRef: elsewhere.ref })
+        .expect(400);
+
+      // Same country, different area.
+      const otherArea = await createEvent(server(), cookie, {
+        company: 'Nice Carnival',
+        eventCountry: 'MC',
+        eventArea: 'Larvotto',
+      });
+      await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({ ...EVENTS_DRIVER, eventRef: otherArea.ref })
+        .expect(400);
+    });
+
+    it('matches the area case- and whitespace-insensitively', async () => {
+      const event = await createEvent(server(), cookie, {
+        company: 'Yacht Show',
+        eventCountry: 'MC',
+        eventArea: '  monaco ',
+      });
+
+      await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({ ...EVENTS_DRIVER, eventRef: event.ref })
+        .expect(201);
+    });
+
+    // The popup's Country/Area are the record's own, shown read-only — they
+    // are not a second, independent choice.
+    it("refuses an Event location that isn't the driver's own", async () => {
+      const event = await createEvent(server(), cookie, {
+        company: 'Grand Prix',
+        eventCountry: 'MC',
+        eventArea: 'Monaco',
+      });
+
+      await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({
+          ...EVENTS_DRIVER,
+          // Driver based in FR/Nice, claiming an MC/Monaco event link.
+          countryCode: 'FR',
+          area: 'Nice',
+          eventRef: event.ref,
+        })
+        .expect(400);
+    });
+
+    it('refuses to link a driver that has no location of its own', async () => {
+      const event = await createEvent(server(), cookie, {
+        company: 'Grand Prix',
+        eventCountry: 'MC',
+        eventArea: 'Monaco',
+      });
+
+      await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({
+          ...EVENTS_DRIVER,
+          countryCode: undefined,
+          area: undefined,
+          eventCountry: undefined,
+          eventArea: undefined,
+          eventRef: event.ref,
+        })
+        .expect(400);
+    });
   });
 
   it('sets, validates and clears unavailability', async () => {
@@ -520,6 +640,10 @@ describe('Drivers (e2e)', () => {
           company: 'Acme',
           email: 'events@example.com',
           eventsOnly: true,
+          // An Events driver is based where its event happens — the link
+          // popup reads Country/Area straight off the record (common.js:3034).
+          countryCode: 'MC',
+          area: 'Monaco',
           eventCountry: 'MC',
           eventArea: 'Monaco',
           eventRef,

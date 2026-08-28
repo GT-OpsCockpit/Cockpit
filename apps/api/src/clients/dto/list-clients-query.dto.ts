@@ -20,6 +20,29 @@ export class ListClientsQueryDto {
   @IsEnum(ClientType)
   type?: ClientType;
 
+  /**
+   * The three filters below narrow an Events listing down to the accounts a
+   * driver or fleet vehicle based at that location may actually be linked to
+   * — the legacy's "Link to an Event" popup (openEventLinkModal,
+   * common.js:3034). They are Prisma filters rather than a client-side pass
+   * over the current page because this endpoint is paginated: filtering the
+   * page would hide a mismatched event without shrinking the result set.
+   * EventLinkService enforces the same rules on write.
+   */
+  @IsOptional()
+  @IsString()
+  eventCountry?: string;
+
+  @IsOptional()
+  @IsString()
+  eventArea?: string;
+
+  /** Drops Events whose end date has already passed. */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  eventNotEnded?: boolean;
+
   // Query params arrive as strings — @Type(() => Boolean) would map "false"
   // to `true` (Boolean('false') is truthy), so this needs an explicit check.
   @IsOptional()

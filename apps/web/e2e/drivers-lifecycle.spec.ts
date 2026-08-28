@@ -175,8 +175,10 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
         company: `E2E Grand Prix ${stamp}`,
         eventCountry: 'MC',
         eventArea: 'Monaco',
-        eventStartDate: '2026-05-20',
-        eventEndDate: '2026-05-24',
+        // Must not have ended: openEventLinkModal only ever offered upcoming
+        // Events (common.js:3034), a rule EventLinkService now enforces.
+        eventStartDate: '2027-05-20',
+        eventEndDate: '2027-05-24',
       },
     })
     expect(eventClientResponse.ok()).toBe(true)
@@ -192,12 +194,18 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
       await dialog.getByLabel('Company', { exact: true }).fill(`E2E Events Crew ${stamp}`)
       await dialog.getByLabel('Phone', { exact: true }).fill(`09${stamp}`.slice(0, 10))
       await dialog.getByLabel('Email', { exact: true }).fill(`events${stamp}@example.test`)
-      await dialog.getByLabel('Events-only driver (linked to a single Event account)').check()
-
-      await dialog.getByLabel('Event country', { exact: true }).click()
+      // A driver can only be linked to an Event happening where it is, so its
+      // own Country/Area come first — the Event country/area below just mirror
+      // them, read-only, exactly as the legacy popup showed them.
+      await dialog.getByLabel('Country', { exact: true }).click()
       await page.getByPlaceholder('Search country…').fill('Monaco')
       await page.getByRole('option', { name: 'Monaco (MC)' }).click()
-      await dialog.getByLabel('Event area', { exact: true }).fill('Monaco')
+      await fillArea(page, dialog, 'Monaco')
+
+      await dialog.getByLabel('Events-only driver (linked to a single Event account)').check()
+      await expect(dialog.getByLabel('Event country', { exact: true })).toHaveValue('MC')
+      await expect(dialog.getByLabel('Event area', { exact: true })).toHaveValue('Monaco')
+
       await dialog.getByLabel('Event', { exact: true }).click()
       await page.getByPlaceholder('Search event…').fill(`E2E Grand Prix ${stamp}`)
       await page.getByRole('option', { name: new RegExp(`E2E Grand Prix ${stamp}`) }).click()

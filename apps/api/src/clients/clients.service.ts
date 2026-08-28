@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { searchTokensFilter } from '../common/utils/search-tokens';
+import { todayUtcMidnight } from '../common/business/assignability';
 import { can } from '../common/permissions/permissions';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -70,6 +71,24 @@ export class ClientsService {
     const where: Prisma.ClientWhereInput = {};
     if (!query.includeInactive) where.active = true;
     if (query.type) where.clientType = query.type;
+
+    // Same rules EventLinkService enforces on write (see
+    // ListClientsQueryDto): an Event is linkable only if it hasn't ended and
+    // happens where the record is. Area comparison is case-insensitive and
+    // trimmed, matching the legacy's locAreaKey.
+    if (query.eventCountry) where.eventCountry = query.eventCountry;
+    if (query.eventArea?.trim()) {
+      where.eventArea = { equals: query.eventArea.trim(), mode: 'insensitive' };
+    }
+    if (query.eventNotEnded) {
+      // The null branch mirrors the legacy's `!c.eventEndDate ||` and
+      // withinEventWindow: the column is nullable, and a record with no end
+      // date on file is not evidence that the event is over.
+      where.OR = [
+        { eventEndDate: null },
+        { eventEndDate: { gte: todayUtcMidnight() } },
+      ];
+    }
 
     // `name` is derived (computeClientName), not a column — search the fields
     // it's derived from instead, plus ref/email/acronym. Token by token, so a

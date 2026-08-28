@@ -13,6 +13,21 @@ export type ClientsControllerListParams = {
  */
 search?: string;
 type?: ClientsControllerListType;
+/**
+ * The three filters below narrow an Events listing down to the accounts a
+ * driver or fleet vehicle based at that location may actually be linked to
+ * — the legacy's "Link to an Event" popup (openEventLinkModal,
+ * common.js:3034). They are Prisma filters rather than a client-side pass
+ * over the current page because this endpoint is paginated: filtering the
+ * page would hide a mismatched event without shrinking the result set.
+ * EventLinkService enforces the same rules on write.
+ */
+eventCountry?: string;
+eventArea?: string;
+/**
+ * Drops Events whose end date has already passed.
+ */
+eventNotEnded?: boolean;
 includeInactive?: boolean;
 /**
  * @minimum 1

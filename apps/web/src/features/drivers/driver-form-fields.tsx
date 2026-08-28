@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { ClientsControllerListType, useClientsControllerList, useMetaControllerGetMeta } from '@cockpit/shared/api'
 import type { DriverEntity } from '@cockpit/shared/api'
@@ -27,14 +27,39 @@ export function DriverFormFields({
 
   const [eventSearch, setEventSearch] = useState('')
   const { debounced: debouncedEventSearch, pending: eventSearchPending } = useDebouncedSearch(eventSearch, EVENT_PICKER_DEBOUNCE_MS)
-  const eventClients = useClientsControllerList({
-    type: ClientsControllerListType.EVENT,
-    search: debouncedEventSearch || undefined,
-    limit: EVENT_PICKER_LIMIT,
-  })
 
   const eventsOnly = form.watch('eventsOnly')
   const countryCode = form.watch('countryCode') ?? ''
+  const area = form.watch('area') ?? ''
+
+  // Only the Events this driver could actually be linked to: happening where
+  // it is, and not over yet. Filtered server-side (see ListClientsQueryDto) —
+  // the listing is paginated, so narrowing the page here would hide a
+  // mismatched event without excluding it. EventLinkService rejects the same
+  // cases on save.
+  const eventClients = useClientsControllerList(
+    {
+      type: ClientsControllerListType.EVENT,
+      search: debouncedEventSearch || undefined,
+      limit: EVENT_PICKER_LIMIT,
+      eventCountry: countryCode || undefined,
+      eventArea: area || undefined,
+      eventNotEnded: true,
+    },
+    { query: { enabled: !!countryCode && !!area } },
+  )
+
+  // The link popup never let the operator choose where the Event was: it read
+  // the record's own Country/Area and showed them greyed out (openEventLinkModal,
+  // common.js:3034). Mirroring them here is what makes those read-only fields
+  // true, and moving the driver invalidates a link to an event held elsewhere.
+  useEffect(() => {
+    if (!eventsOnly) return
+    if (form.getValues('eventCountry') === countryCode && form.getValues('eventArea') === area) return
+    form.setValue('eventCountry', countryCode)
+    form.setValue('eventArea', area)
+    form.setValue('eventRef', '')
+  }, [eventsOnly, countryCode, area, form])
 
   const countryOptions = (meta.data?.countries ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
 
@@ -178,13 +203,7 @@ export function DriverFormFields({
                 <FormItem>
                   <FormLabel>Event country</FormLabel>
                   <FormControl>
-                    <SearchCombobox
-                      value={field.value ?? ''}
-                      onChange={field.onChange}
-                      options={countryOptions}
-                      placeholder="Country…"
-                      searchPlaceholder="Search country…"
-                    />
+                    <Input readOnly value={field.value ?? ''} placeholder="—" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -197,7 +216,7 @@ export function DriverFormFields({
                 <FormItem>
                   <FormLabel>Event area</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input readOnly value={field.value ?? ''} placeholder="—" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
