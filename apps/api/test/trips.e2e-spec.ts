@@ -945,6 +945,101 @@ describe('Trips (e2e)', () => {
       return res.body as { ref: string; regNbr: string };
     }
 
+    // The legacy's quick-edit popups and the Gantt drag & drop all funnelled
+    // through the full PUT with `notifyDriver: hadDriver` (quickUpdateTrip,
+    // common.js:3310): reassigning a booking that already had a driver told
+    // the POC about it. /assign skipped that entirely.
+    it('tells the POC when a booking that already had a driver is reassigned', async () => {
+      const client = await createClient();
+      const driverA = await createDriver('0622222222');
+      const driverB = await createDriver('0633333333');
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, driverRef: driverA.ref })
+        .expect(201);
+      const ref = (created.body as TripBody).ref;
+      whatsapp.clear();
+
+      await request(server())
+        .patch(`/api/trips/${ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ driverRef: driverB.ref })
+        .expect(200);
+
+      expect(whatsapp.sent).toHaveLength(1);
+      expect(whatsapp.sent[0].phone).toBe(client.pocPhone);
+    });
+
+    it('stays quiet when the booking had no driver to begin with', async () => {
+      const client = await createClient();
+      const driver = await createDriver('0644444444');
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref })
+        .expect(201);
+      whatsapp.clear();
+
+      await request(server())
+        .patch(`/api/trips/${(created.body as TripBody).ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ driverRef: driver.ref })
+        .expect(200);
+
+      // Nothing had been announced yet, so there is no change to announce.
+      expect(whatsapp.sent).toHaveLength(0);
+    });
+
+    it('stays quiet when tracking is off for that booking', async () => {
+      const client = await createClient();
+      const driverA = await createDriver('0655555555');
+      const driverB = await createDriver('0666666666');
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          driverRef: driverA.ref,
+          tracking: false,
+        })
+        .expect(201);
+      whatsapp.clear();
+
+      await request(server())
+        .patch(`/api/trips/${(created.body as TripBody).ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ driverRef: driverB.ref })
+        .expect(200);
+
+      expect(whatsapp.sent).toHaveLength(0);
+    });
+
+    // update()'s locked sub-contract exception, which /assign ignored: a
+    // company-only farm-out has no driver to re-send to, so it stays pinned
+    // at "Sent" instead of having its Send button re-armed.
+    it('keeps a company-only sub-contract pinned at "Sent" instead of re-arming it', async () => {
+      const client = await createClient();
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, subContractor: true })
+        .expect(201);
+      const ref = (created.body as TripBody).ref;
+      const vehicle = await createFleetVehicle('Business', 'SC-001-AA');
+
+      const patched = await request(server())
+        .patch(`/api/trips/${ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ fleetRegNbr: vehicle.regNbr })
+        .expect(200);
+
+      expect(
+        (patched.body as { trip: { dispatched: boolean } }).trip.dispatched,
+      ).toBe(true);
+    });
+
     it('reassigning the driver via /assign resets steps/dispatched/assignmentCancelled, same as the full PUT', async () => {
       const client = await createClient();
       const driverA = await createDriver('0622222222');

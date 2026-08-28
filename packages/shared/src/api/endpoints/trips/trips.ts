@@ -424,7 +424,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 }
 
 export const tripsControllerAssign = async (ref: string,
-    assignTripDto: AssignTripDto, options?: Parameters<typeof fetcher>[1]): Promise<TripActionResponseEntity> => {
+    assignTripDto: AssignTripDto, options?: Parameters<typeof fetcher>[1]): Promise<UpdateTripResponseEntity> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -432,7 +432,7 @@ export const tripsControllerAssign = async (ref: string,
     if (Array.isArray(h)) return Object.fromEntries(h);
     return h;
   };
-return fetcher<TripActionResponseEntity>(getTripsControllerAssignUrl(ref),
+return fetcher<UpdateTripResponseEntity>(getTripsControllerAssignUrl(ref),
   {
     ...options,
     method: 'PATCH',

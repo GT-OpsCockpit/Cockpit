@@ -375,8 +375,9 @@ export class TripsService {
     ref: string,
     dto: AssignTripDto,
     user: AuthenticatedUser,
-  ): Promise<TripActionResponseEntity> {
+  ): Promise<UpdateTripResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
+    const hadDriver = !!trip.driverId;
 
     const isPast = trip.pickupAt < new Date();
     if (isPast && !can(user, 'trip:edit-past')) {
@@ -433,23 +434,44 @@ export class TripsService {
     }
 
     if (Object.keys(data).length === 0) {
-      return { ok: true, trip };
+      return { ok: true, trip, notifyWarning: null };
     }
 
     // Same rule as update(): any saved change invalidates a previous
     // dispatch, because the driver was told a car and a schedule that no
     // longer hold. In the legacy every one of these edits (Driver cell,
     // Reg Nbr cell, Gantt drag & drop) went through the full PUT, which set
-    // dispatched = false unconditionally.
-    data.dispatched = false;
+    // dispatched = false unconditionally. Same single exception too: a
+    // company-only sub-contract has no driver to re-send to and stays pinned
+    // at "Sent" rather than having its Send button re-armed.
+    data.dispatched = trip.subContractor && !trip.partnerId;
 
     await this.prisma.trip.update({ where: { id: trip.id }, data });
     if (reassigned) {
       await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
     }
 
+    // The legacy funnelled every quick edit through the full PUT with
+    // `notifyDriver: hadDriver` (quickUpdateTrip, common.js:3310): a booking
+    // that already had a driver had already been announced, so the POC is
+    // told it changed. One that had none has nothing to correct yet.
+    // Non-blocking, exactly as in update(): the reassignment is saved either
+    // way, the caller just learns the message didn't go out.
+    let notifyWarning: string | null = null;
+    const updated = await this.findByRefOrThrow(ref);
+    if (hadDriver && updated.driverId && updated.tracking) {
+      try {
+        await this.notifications.send(
+          updated.pocPhone!,
+          MESSAGES.updated(buildTripMessageContext(updated)),
+        );
+      } catch (err) {
+        notifyWarning = `Assignment saved, but the update WhatsApp message failed to send: ${(err as Error).message}`;
+      }
+    }
+
     this.realtime.emitTripChanged(ref);
-    return { ok: true, trip: await this.findByRefOrThrow(ref) };
+    return { ok: true, trip: updated, notifyWarning };
   }
 
   async cancelAssignment(

@@ -225,8 +225,7 @@ describe('applyBookingFilters', () => {
 // ground. Legacy isBeforeArrival (common.js:2391); the server enforces it
 // (trip-progress.ts), this only lets the form say so first.
 describe('isBeforeArrival', () => {
-  const at = (...steps: TripStepEntityStep[]) =>
-    baseTrip({ steps: steps.map((step) => ({ step, occurredAt: '2026-06-01T00:00:00.000Z' })) })
+  const at = (...steps: TripStepEntityStep[]) => baseTrip({ steps: steps.map((s) => step(s)) })
 
   it('is true right up to the moment the driver is in position', () => {
     expect(isBeforeArrival(at())).toBe(true)

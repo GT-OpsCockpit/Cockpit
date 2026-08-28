@@ -78,7 +78,7 @@ export class TripsController {
     @Param('ref') ref: string,
     @Body() dto: AssignTripDto,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TripActionResponseEntity> {
+  ): Promise<UpdateTripResponseEntity> {
     return this.tripsService.assign(ref, dto, user);
   }
 

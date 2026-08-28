@@ -70,7 +70,11 @@ export function PlanningPage() {
   const assign = useTripsControllerAssign()
   async function runAssign(trip: TripEntity, data: { driverRef?: string; fleetRegNbr?: string }) {
     try {
-      await assign.mutateAsync({ ref: trip.ref, data })
+      const result = await assign.mutateAsync({ ref: trip.ref, data })
+      // Reassigning a booking that already had a driver tells the POC about
+      // it (see TripsService.assign) — non-blocking, so surface a message
+      // that didn't go out rather than letting it pass silently.
+      if (result.notifyWarning) toast.warning(result.notifyWarning)
       void queryClient.invalidateQueries({ queryKey: getTripsControllerListQueryKey() })
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Error reassigning the booking.'))
