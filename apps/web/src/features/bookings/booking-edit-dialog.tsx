@@ -14,6 +14,7 @@ import { PermissionWarning } from '@/components/permission-warning'
 import { TripFormFields } from './trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
 import { toUpdateTripDto, tripToFormValues } from './trip-form-mapping'
+import { openSubcontractEmailDraft } from './subcontract-email'
 
 export function BookingEditDialog({
   trip,
@@ -45,6 +46,11 @@ export function BookingEditDialog({
 
   const onSubmit = form.handleSubmit(async (values) => {
     if (!trip || pastLockout) return
+    // Captured BEFORE the save, because the cancellation notice goes to the
+    // partner the booking is being taken away from — by the time the PUT
+    // returns, partnerRef no longer names them (common.js:2686).
+    const outgoingPartnerRef = trip.partner?.ref
+    const wasFarmedOut = trip.subContractor
     try {
       const result = await updateTrip.mutateAsync({
         ref: trip.ref,
@@ -52,6 +58,15 @@ export function BookingEditDialog({
       })
       toast.success(`Trip ${trip.ref} updated.`)
       if (result.notifyWarning) toast.warning(result.notifyWarning)
+
+      // Farmed out here: recap the mission to the partner. Taken back off
+      // them: tell them it's cancelled. Both are drafts, never sends.
+      if (!wasFarmedOut && values.subContractor) {
+        await openSubcontractEmailDraft(trip.ref, 'assigned')
+      } else if (wasFarmedOut && !values.subContractor && outgoingPartnerRef) {
+        await openSubcontractEmailDraft(trip.ref, 'cancelled', outgoingPartnerRef)
+      }
+
       onOpenChange(false)
       void queryClient.invalidateQueries({ queryKey: getTripsControllerListQueryKey() })
     } catch (error) {

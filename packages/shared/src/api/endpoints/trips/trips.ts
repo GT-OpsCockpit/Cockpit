@@ -32,10 +32,12 @@ import type {
   NotifyStepDto,
   PublicTripActionResponseEntity,
   PublicTripEntity,
+  SubcontractEmailEntity,
   TripActionResponseEntity,
   TripEntity,
   TripsControllerGetPublicParams,
   TripsControllerListParams,
+  TripsControllerSubcontractEmailParams,
   UpdateTripDto,
   UpdateTripResponseEntity
 } from '../../model';
@@ -415,7 +417,116 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getTripsControllerUpdateMutationOptions(options), queryClient);
     }
-    export const getTripsControllerAssignUrl = (ref: string,) => {
+    export const getTripsControllerSubcontractEmailUrl = (ref: string,
+    params: TripsControllerSubcontractEmailParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/trips/${ref}/subcontract-email?${stringifiedParams}` : `/api/trips/${ref}/subcontract-email`
+}
+
+export const tripsControllerSubcontractEmail = async (ref: string,
+    params: TripsControllerSubcontractEmailParams, options?: Parameters<typeof fetcher>[1]): Promise<SubcontractEmailEntity> => {
+
+  return fetcher<SubcontractEmailEntity>(getTripsControllerSubcontractEmailUrl(ref,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getTripsControllerSubcontractEmailQueryKey = (ref: string,
+    params?: TripsControllerSubcontractEmailParams,) => {
+    return [
+    `/api/trips/${ref}/subcontract-email`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getTripsControllerSubcontractEmailQueryOptions = <TData = Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError = unknown>(ref: string,
+    params: TripsControllerSubcontractEmailParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTripsControllerSubcontractEmailQueryKey(ref,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>> = ({ signal }) => tripsControllerSubcontractEmail(ref,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ref !== null && ref !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type TripsControllerSubcontractEmailQueryResult = NonNullable<Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>>
+export type TripsControllerSubcontractEmailQueryError = unknown
+
+
+export function useTripsControllerSubcontractEmail<TData = Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError = unknown>(
+ ref: string,
+    params: TripsControllerSubcontractEmailParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>,
+          TError,
+          Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTripsControllerSubcontractEmail<TData = Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError = unknown>(
+ ref: string,
+    params: TripsControllerSubcontractEmailParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>,
+          TError,
+          Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTripsControllerSubcontractEmail<TData = Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError = unknown>(
+ ref: string,
+    params: TripsControllerSubcontractEmailParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useTripsControllerSubcontractEmail<TData = Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError = unknown>(
+ ref: string,
+    params: TripsControllerSubcontractEmailParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tripsControllerSubcontractEmail>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getTripsControllerSubcontractEmailQueryOptions(ref,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getTripsControllerAssignUrl = (ref: string,) => {
 
 
 

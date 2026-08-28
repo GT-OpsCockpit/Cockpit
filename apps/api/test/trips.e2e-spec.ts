@@ -1424,4 +1424,139 @@ describe('Trips (e2e)', () => {
         .expect(200);
     });
   });
+  // A pre-filled mailto: draft the dispatcher still has to send themselves —
+  // openSubcontractEmailDraft (common.js:2636) and
+  // openCanceledSubcontractEmailDraft (:2686), neither of which was ported.
+  describe('GET /trips/:ref/subcontract-email', () => {
+    async function createPartner(overrides: Record<string, unknown> = {}) {
+      const res = await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({
+          firstName: 'Paul',
+          lastName: 'Partner',
+          phone: '0699000001',
+          company: 'Riviera Cars',
+          email: 'paul@riviera.test',
+          ...overrides,
+        })
+        .expect(201);
+      return res.body as { ref: string };
+    }
+
+    async function farmedOutTrip(partnerRef: string) {
+      const client = await createClient();
+      const res = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          subContractor: true,
+          partnerRef,
+          partnerRateEur: 150,
+        })
+        .expect(201);
+      return res.body as TripBody;
+    }
+
+    async function draft(ref: string, query: string) {
+      const res = await request(server())
+        .get(`/api/trips/${ref}/subcontract-email?${query}`)
+        .set('Cookie', cookie)
+        .expect(200);
+      return res.body as { to: string | null; subject: string; body: string };
+    }
+
+    it('recaps the mission to the partner chauffeur on file', async () => {
+      const partner = await createPartner();
+      const trip = await farmedOutTrip(partner.ref);
+
+      const mail = await draft(trip.ref, 'kind=assigned');
+      expect(mail.to).toBe('paul@riviera.test');
+      expect(mail.subject).toBe(`Booking ${trip.ref}`);
+      expect(mail.body).toContain(`Ref: ${trip.ref}`);
+      expect(mail.body).toContain('Partner rate net: 150.00€ Net');
+    });
+
+    // partnerRef is not required to point at a partner, and an internal
+    // driver carries no email obligation — so "no address to draft to" is
+    // reachable, and the legacy simply drew no draft in that case.
+    it('draws no draft at all when there is no address on file', async () => {
+      const client = await createClient();
+      const internal = await createDriver('0699000004');
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          subContractor: true,
+          partnerRef: internal.ref,
+          partnerRateEur: 150,
+        })
+        .expect(201);
+
+      const mail = await draft((created.body as TripBody).ref, 'kind=assigned');
+      expect(mail.to).toBeNull();
+      // The body is still written — the front decides what to do with it.
+      expect(mail.body).toContain('Partner rate net: 150.00€ Net');
+    });
+
+    it('writes the cancellation notice signed with the company on file', async () => {
+      await request(server())
+        .put('/api/company-info')
+        .set('Cookie', cookie)
+        .send({
+          name: 'Cockpit Transport',
+          legalName: 'Cockpit Transport SARL',
+          street1: '1 Rue de la Paix',
+          zipCode: '75002',
+          city: 'Paris',
+          countryCode: 'FR',
+          vatNbr: 'FR12345678901',
+          email: 'contact@cockpit.test',
+          website: 'https://cockpit.test',
+          ownerSurname: 'Dubois',
+          ownerName: 'Marc',
+          mobile: '0611111111',
+          ownerEmail: 'marc@cockpit.test',
+        })
+        .expect(200);
+
+      const partner = await createPartner({ phone: '0699000005' });
+      const trip = await farmedOutTrip(partner.ref);
+
+      const mail = await draft(trip.ref, 'kind=cancelled');
+      expect(mail.subject).toBe(`🚨 Canceled booking ${trip.ref}`);
+      expect(mail.body).toContain('Status : **Canceled**');
+      expect(mail.body.trimEnd().endsWith('Cockpit Transport')).toBe(true);
+    });
+
+    // The cancellation draft is read before partnerRef is cleared, but the
+    // override exists so the order can't silently produce an empty recipient.
+    it('accepts an explicit partnerRef, for a partner the trip no longer holds', async () => {
+      const partner = await createPartner({ phone: '0699000006' });
+      const other = await createPartner({
+        company: 'Alpine Cars',
+        phone: '0699000007',
+        email: 'other@alpine.test',
+      });
+      const trip = await farmedOutTrip(partner.ref);
+
+      expect(
+        (await draft(trip.ref, `kind=cancelled&partnerRef=${other.ref}`)).to,
+      ).toBe('other@alpine.test');
+    });
+
+    it('rejects an unknown kind', async () => {
+      const partner = await createPartner({ phone: '0699000008' });
+      const trip = await farmedOutTrip(partner.ref);
+
+      await request(server())
+        .get(`/api/trips/${trip.ref}/subcontract-email?kind=whatever`)
+        .set('Cookie', cookie)
+        .expect(400);
+    });
+  });
 });

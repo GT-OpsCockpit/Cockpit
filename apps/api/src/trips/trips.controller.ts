@@ -34,6 +34,8 @@ import { RequirePermission } from '../common/decorators/require-permission.decor
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { nameboardMulterOptions } from './nameboard-upload.config';
+import { SubcontractEmailQueryDto } from './dto/subcontract-email-query.dto';
+import { SubcontractEmailEntity } from './dto/subcontract-email.entity';
 
 interface UploadedNameboard {
   filename: string;
@@ -73,6 +75,15 @@ export class TripsController {
 
   // Lightweight counterpart to update() (PUT) above — the Planning Gantt's
   // drag&drop patches only driverRef/fleetRegNbr, not the whole booking form.
+  // A pre-filled mailto: draft, not a send — see TripsService.subcontractEmail.
+  @Get(':ref/subcontract-email')
+  subcontractEmail(
+    @Param('ref') ref: string,
+    @Query() query: SubcontractEmailQueryDto,
+  ): Promise<SubcontractEmailEntity> {
+    return this.tripsService.subcontractEmail(ref, query);
+  }
+
   @Patch(':ref/assign')
   assign(
     @Param('ref') ref: string,

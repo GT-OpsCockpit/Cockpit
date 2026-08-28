@@ -17,6 +17,16 @@ import { RealtimeService } from '../realtime/realtime.service';
 import { NAMEBOARD_URL_PREFIX } from './nameboard-upload.config';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { computeDriverName } from '../common/utils/driver-name';
+import { CompanyService } from '../company/company.service';
+import {
+  buildCanceledSubcontractEmail,
+  buildSubcontractEmail,
+} from './subcontract-email.util';
+import {
+  SubcontractEmailKind,
+  SubcontractEmailQueryDto,
+} from './dto/subcontract-email-query.dto';
+import { SubcontractEmailEntity } from './dto/subcontract-email.entity';
 import { compatibleFleetCategories } from '../common/constants/vehicle-compatibility';
 import {
   fleetVehicleEffectivelyActiveFilter,
@@ -112,6 +122,7 @@ export class TripsService {
     private readonly tripRef: TripRefService,
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeService,
+    private readonly company: CompanyService,
   ) {}
 
   list(query: ListTripsQueryDto): Promise<TripEntity[]> {
@@ -884,6 +895,55 @@ export class TripsService {
       create: { tripId, step },
       update: { occurredAt: new Date() },
     });
+  }
+
+  /**
+   * The mailto: draft for a sub-contracted job — the mission recap when it is
+   * farmed out, the cancellation notice when it is taken back
+   * (openSubcontractEmailDraft / openCanceledSubcontractEmailDraft,
+   * common.js:2636 and :2686). Nothing is sent by the app: the front opens
+   * the dispatcher's own mail client with this pre-filled, and they still
+   * press Send themselves.
+   *
+   * Composed here rather than in the browser for the same reason the invoice
+   * mailto isn't: the body needs the company sheet, the partner roster and
+   * the trip's own timezone, none of which the form holds.
+   */
+  async subcontractEmail(
+    ref: string,
+    query: SubcontractEmailQueryDto,
+  ): Promise<SubcontractEmailEntity> {
+    const trip = await this.findByRefOrThrow(ref);
+    const to = await this.resolvePartnerEmail(trip, query.partnerRef);
+
+    if (query.kind === SubcontractEmailKind.CANCELLED) {
+      const company = await this.company.get();
+      return buildCanceledSubcontractEmail(trip, to, company.name ?? null);
+    }
+    return buildSubcontractEmail(trip, to);
+  }
+
+  /**
+   * The partner's own email.
+   *
+   * The legacy fell back to any other record of the same company when the
+   * chosen partner had none (common.js:2636) — because its data allowed an
+   * emailless partner. v2's assertValidDriverFields does not: an email is
+   * required as soon as Company is set, whether or not the record carries a
+   * name. So that fallback would be unreachable and is not ported. Null is
+   * still possible, since partnerRef is not required to point at a partner:
+   * an internal driver has no email obligation.
+   */
+  private async resolvePartnerEmail(
+    trip: { partner: { email: string | null } | null },
+    partnerRefOverride?: string,
+  ): Promise<string | null> {
+    const partner = partnerRefOverride
+      ? await this.prisma.driver.findUnique({
+          where: { ref: partnerRefOverride },
+        })
+      : trip.partner;
+    return partner?.email ?? null;
   }
 
   private async findByRefOrThrow(ref: string) {

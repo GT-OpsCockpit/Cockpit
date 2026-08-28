@@ -4,9 +4,10 @@ import { TripsService } from './trips.service';
 import { TripRefService } from './trip-ref.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
+import { CompanyModule } from '../company/company.module';
 
 @Module({
-  imports: [NotificationsModule, RealtimeModule],
+  imports: [NotificationsModule, RealtimeModule, CompanyModule],
   controllers: [TripsController],
   providers: [TripsService, TripRefService],
 })

@@ -16,6 +16,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { TripFormFields } from './trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
+import { openSubcontractEmailDraft } from './subcontract-email'
 import { toCreateTripDto } from './trip-form-mapping'
 
 /**
@@ -141,6 +142,9 @@ export function BookingCreateDialog({
     try {
       const trip = await createTrip.mutateAsync({ data: toCreateTripDto(values, { dispatch: false }) })
       toast.success(`Trip ${trip.ref} created (account ${trip.client.ref}).`)
+      if (values.subContractor) {
+        await openSubcontractEmailDraft(trip.ref, 'assigned')
+      }
       afterCreate()
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Error during creation.'))
@@ -155,6 +159,11 @@ export function BookingCreateDialog({
         toast.success(`Trip ${trip.ref} created and dispatched.`)
       } catch (dispatchError) {
         toast.error(`Trip ${trip.ref} created, but dispatch failed: ${getApiErrorMessage(dispatchError, 'unknown error')}`)
+      }
+      // Independent of whether the WhatsApp dispatch above succeeded — the
+      // email is its own notification channel (common.js:4400).
+      if (values.subContractor) {
+        await openSubcontractEmailDraft(trip.ref, 'assigned')
       }
       afterCreate()
     } catch (error) {
