@@ -17,6 +17,13 @@ export interface ComboboxOption {
   value: string
   label: string
   description?: string
+  /**
+   * Shown but not selectable — the legacy's greyed-out entries (e.g. "Local",
+   * listed in every country's Area but only valid in France, see initAreaCombo
+   * / common.js:832). Greying it out rather than dropping it is deliberate: an
+   * absent option reads as "no such concept", a disabled one as "not here".
+   */
+  disabled?: boolean
 }
 
 interface SearchComboboxProps {
@@ -38,6 +45,15 @@ interface SearchComboboxProps {
   loading?: boolean
   /** Remote searches only: shown while `loading` and no result is on screen yet. */
   loadingText?: string
+  /**
+   * Lets the user commit whatever they typed, even when it matches no option
+   * — the field then suggests rather than closes the list. Needed by Area,
+   * constrained to the country's major cities yet still accepting a city that
+   * isn't catalogued, exactly as the legacy's was.
+   */
+  allowCustomValue?: boolean
+  /** `allowCustomValue` only: label of the row that commits the typed text. */
+  customValueLabel?: (search: string) => string
   /**
    * Fallback label for `value` when it isn't in `options` — a remote search
    * only ever holds the current slice of results, so the selected item drops
@@ -111,6 +127,8 @@ export function SearchCombobox({
   onSearchChange,
   loading = false,
   loadingText = 'Searching…',
+  allowCustomValue = false,
+  customValueLabel = (search) => `Use “${search}”`,
   selectedLabel,
   disabled,
   className,
@@ -121,12 +139,35 @@ export function SearchCombobox({
   'aria-label': ariaLabel,
 }: SearchComboboxProps) {
   const [open, setOpen] = useState(false)
+  // A free-text combobox has to read back what was typed in order to commit
+  // it, so it drives the search box itself unless the caller already does
+  // (remote mode). Cleared on close, or reopening would show the last search.
+  const [ownSearch, setOwnSearch] = useState('')
   const remote = onSearchChange !== undefined
+  const search = searchValue ?? (allowCustomValue ? ownSearch : undefined)
+  const handleSearchChange = onSearchChange ?? (allowCustomValue ? setOwnSearch : undefined)
   const labelMemory = useLabelMemory(options)
-  const currentLabel = options.find((o) => o.value === value)?.label ?? labelMemory.get(value) ?? selectedLabel
+  // A free-text value is its own label — it is whatever the user typed, and
+  // no option carries it.
+  const currentLabel =
+    options.find((o) => o.value === value)?.label ??
+    labelMemory.get(value) ??
+    selectedLabel ??
+    (allowCustomValue && value ? value : undefined)
+
+  const trimmedSearch = (search ?? '').trim()
+  const showCustomValue =
+    allowCustomValue &&
+    trimmedSearch.length > 0 &&
+    !options.some((o) => !o.disabled && o.label.toLowerCase() === trimmedSearch.toLowerCase())
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) setOwnSearch('')
+  }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -151,8 +192,8 @@ export function SearchCombobox({
         <Command shouldFilter={!remote}>
           <CommandInput
             placeholder={searchPlaceholder}
-            value={searchValue}
-            onValueChange={onSearchChange}
+            value={search}
+            onValueChange={handleSearchChange}
             loading={loading}
           />
           {/*
@@ -165,7 +206,24 @@ export function SearchCombobox({
             {loading && <CommandLoading>{loadingText}</CommandLoading>}
             {/* cmdk's <Command.Empty> renders on its own whenever nothing matched — gate it
                 off while loading so an in-flight search never reads as "No results." */}
-            {!loading && <CommandEmpty>{emptyText}</CommandEmpty>}
+            {/* With a free-text row on screen there is always something to pick,
+                so "No results." would be contradicting it. */}
+            {!loading && !showCustomValue && <CommandEmpty>{emptyText}</CommandEmpty>}
+            {showCustomValue && (
+              <CommandGroup forceMount>
+                <CommandItem
+                  forceMount
+                  value={`__custom__${trimmedSearch}`}
+                  onSelect={() => {
+                    onChange(trimmedSearch)
+                    handleOpenChange(false)
+                  }}
+                >
+                  <Check className={cn('mr-2 size-4', value === trimmedSearch ? 'opacity-100' : 'opacity-0')} />
+                  <span>{customValueLabel(trimmedSearch)}</span>
+                </CommandItem>
+              </CommandGroup>
+            )}
             <CommandGroup className={cn(loading && 'opacity-50 transition-opacity')}>
               {options.map((option) => (
                 <CommandItem
@@ -179,9 +237,10 @@ export function SearchCombobox({
                   // unreachable by keyboard.
                   key={option.value}
                   value={remote ? option.value || option.label : option.label}
+                  disabled={option.disabled}
                   onSelect={() => {
                     onChange(option.value)
-                    setOpen(false)
+                    handleOpenChange(false)
                   }}
                 >
                   <Check className={cn('mr-2 size-4', value === option.value ? 'opacity-100' : 'opacity-0')} />

@@ -1,6 +1,7 @@
 import type { UseFormReturn } from 'react-hook-form'
 import { ClientEntityBilling, ClientEntityClientType, useMetaControllerGetMeta } from '@cockpit/shared/api'
 import { SearchCombobox } from '@/components/search-combobox'
+import { AreaField } from '@/components/area-field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -19,6 +20,7 @@ export function ClientFormFields({
   const meta = useMetaControllerGetMeta()
 
   const clientType = form.watch('clientType')
+  const eventCountry = form.watch('eventCountry') ?? ''
   const isCompany = clientType === ClientEntityClientType.COMPANY
   const isEvent = clientType === ClientEntityClientType.EVENT
   const isIndividual = !isCompany && !isEvent
@@ -132,7 +134,14 @@ export function ClientFormFields({
                   <FormControl>
                     <SearchCombobox
                       value={field.value ?? ''}
-                      onChange={field.onChange}
+                      onChange={(value) => {
+                        field.onChange(value)
+                        // "Local" is France-only and a city belongs to one country,
+                        // so an Area already on file is now invalid — force a fresh
+                        // pick rather than let it silently rot (legacy
+                        // resetAreaField, common.js:871).
+                        form.setValue('eventArea', '')
+                      }}
                       options={countryOptions}
                       placeholder="Country…"
                       searchPlaceholder="Search country…"
@@ -149,7 +158,7 @@ export function ClientFormFields({
                 <FormItem>
                   <FormLabel>Event area</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <AreaField countryCode={eventCountry} value={field.value ?? ''} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

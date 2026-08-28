@@ -129,4 +129,77 @@ describe('SearchCombobox', () => {
     expect(screen.getByText('Searching…')).toBeInTheDocument()
     expect(screen.queryByText('No results.')).not.toBeInTheDocument()
   })
+  // The Area field suggests a country's major cities but must still accept a
+  // city that isn't catalogued — the legacy's field was free-form
+  // (initAreaCombo, common.js:832) and constraining it into a closed list
+  // would be a regression, not a fix.
+  describe('allowCustomValue', () => {
+    it('lets the user commit text that matches no option', () => {
+      const onChange = vi.fn()
+      render(<SearchCombobox value="" onChange={onChange} options={OPTIONS} allowCustomValue />)
+
+      fireEvent.click(screen.getByRole('combobox'))
+      fireEvent.change(screen.getByPlaceholderText('Search…'), { target: { value: 'Saint-Tropez' } })
+      fireEvent.click(screen.getByText('Use \u201cSaint-Tropez\u201d'))
+
+      expect(onChange).toHaveBeenCalledWith('Saint-Tropez')
+    })
+
+    it('shows the committed free-text value on the trigger, though no option carries it', () => {
+      render(<SearchCombobox value="Saint-Tropez" onChange={vi.fn()} options={OPTIONS} allowCustomValue />)
+      expect(screen.getByRole('combobox')).toHaveTextContent('Saint-Tropez')
+    })
+
+    it('does not offer to re-create a value that is already an option', () => {
+      render(<SearchCombobox value="" onChange={vi.fn()} options={OPTIONS} allowCustomValue />)
+
+      fireEvent.click(screen.getByRole('combobox'))
+      fireEvent.change(screen.getByPlaceholderText('Search…'), { target: { value: 'France (FR)' } })
+
+      expect(screen.queryByText('Use \u201cFrance (FR)\u201d')).not.toBeInTheDocument()
+    })
+
+    it('never claims there are no results while the free-text row is on screen', () => {
+      render(
+        <SearchCombobox value="" onChange={vi.fn()} options={OPTIONS} allowCustomValue emptyText="No results." />,
+      )
+
+      fireEvent.click(screen.getByRole('combobox'))
+      fireEvent.change(screen.getByPlaceholderText('Search…'), { target: { value: 'Zzz' } })
+
+      expect(screen.queryByText('No results.')).not.toBeInTheDocument()
+    })
+
+    it('forgets what was typed once the popover closes', () => {
+      const onChange = vi.fn()
+      render(<SearchCombobox value="" onChange={onChange} options={OPTIONS} allowCustomValue />)
+
+      fireEvent.click(screen.getByRole('combobox'))
+      fireEvent.change(screen.getByPlaceholderText('Search…'), { target: { value: 'Saint-Tropez' } })
+      fireEvent.click(screen.getByText('Use \u201cSaint-Tropez\u201d'))
+
+      fireEvent.click(screen.getByRole('combobox'))
+      expect(screen.getByPlaceholderText('Search…')).toHaveValue('')
+    })
+  })
+
+  // "Local" is shown in every country's Area list but is only a valid value
+  // in France (common.js:832) — greyed out, not absent.
+  it('shows a disabled option but refuses to select it', () => {
+    const onChange = vi.fn()
+    render(
+      <SearchCombobox
+        value=""
+        onChange={onChange}
+        options={[{ value: 'Local', label: 'Local', disabled: true }, ...OPTIONS]}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('combobox'))
+    const local = screen.getByRole('option', { name: 'Local' })
+    expect(local).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(local)
+
+    expect(onChange).not.toHaveBeenCalled()
+  })
 })

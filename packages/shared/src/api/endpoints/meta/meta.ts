@@ -21,6 +21,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AreaSuggestionsEntity,
+  MetaControllerGetAreaSuggestionsParams,
   MetaEntity
 } from '../../model';
 
@@ -129,6 +131,107 @@ export function useMetaControllerGetMeta<TData = Awaited<ReturnType<typeof metaC
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getMetaControllerGetMetaQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getMetaControllerGetAreaSuggestionsUrl = (params?: MetaControllerGetAreaSuggestionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/meta/areas?${stringifiedParams}` : `/api/meta/areas`
+}
+
+export const metaControllerGetAreaSuggestions = async (params?: MetaControllerGetAreaSuggestionsParams, options?: Parameters<typeof fetcher>[1]): Promise<AreaSuggestionsEntity> => {
+
+  return fetcher<AreaSuggestionsEntity>(getMetaControllerGetAreaSuggestionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getMetaControllerGetAreaSuggestionsQueryKey = (params?: MetaControllerGetAreaSuggestionsParams,) => {
+    return [
+    `/api/meta/areas`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getMetaControllerGetAreaSuggestionsQueryOptions = <TData = Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError = unknown>(params?: MetaControllerGetAreaSuggestionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMetaControllerGetAreaSuggestionsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>> = ({ signal }) => metaControllerGetAreaSuggestions(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type MetaControllerGetAreaSuggestionsQueryResult = NonNullable<Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>>
+export type MetaControllerGetAreaSuggestionsQueryError = unknown
+
+
+export function useMetaControllerGetAreaSuggestions<TData = Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError = unknown>(
+ params: undefined |  MetaControllerGetAreaSuggestionsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>,
+          TError,
+          Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMetaControllerGetAreaSuggestions<TData = Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError = unknown>(
+ params?: MetaControllerGetAreaSuggestionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>,
+          TError,
+          Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMetaControllerGetAreaSuggestions<TData = Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError = unknown>(
+ params?: MetaControllerGetAreaSuggestionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useMetaControllerGetAreaSuggestions<TData = Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError = unknown>(
+ params?: MetaControllerGetAreaSuggestionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof metaControllerGetAreaSuggestions>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getMetaControllerGetAreaSuggestionsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

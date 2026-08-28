@@ -405,7 +405,12 @@ describe('Permissions (e2e)', () => {
     const driver = await request(server())
       .post('/api/drivers')
       .set('Cookie', adminCookie)
-      .send({ firstName: 'Del', lastName: 'Etable', phone: '+33600000042', countryCode: 'FR' })
+      .send({
+        firstName: 'Del',
+        lastName: 'Etable',
+        phone: '+33600000042',
+        countryCode: 'FR',
+      })
       .expect(201);
     const vehicleType = await request(server())
       .post('/api/vehicles')
@@ -415,7 +420,15 @@ describe('Permissions (e2e)', () => {
     const fleetVehicle = await request(server())
       .post('/api/fleet-vehicles')
       .set('Cookie', adminCookie)
-      .send({ category: 'Business', regNbr: 'DEL-42-ZZ', make: 'Mercedes-Benz', model: 'E-Class', yearOfBuild: new Date().getFullYear() - 1, fourWD: false, nbPax: 3 })
+      .send({
+        category: 'Business',
+        regNbr: 'DEL-42-ZZ',
+        make: 'Mercedes-Benz',
+        model: 'E-Class',
+        yearOfBuild: new Date().getFullYear() - 1,
+        fourWD: false,
+        nbPax: 3,
+      })
       .expect(201);
 
     const targets: [string, string][] = [

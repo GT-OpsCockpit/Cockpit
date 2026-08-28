@@ -13,6 +13,11 @@ import {
 import { MAJOR_CITIES } from '../common/constants/major-cities';
 import { VEHICLE_COMPATIBILITY } from '../common/constants/vehicle-compatibility';
 import { MetaEntity } from './dto/meta.entity';
+import { AreaSuggestionsEntity } from './dto/area-suggestions.entity';
+import {
+  areaSuggestions,
+  isLocalAreaAllowed,
+} from '../common/business/area-suggestions';
 
 @Injectable()
 export class MetaService {
@@ -48,6 +53,23 @@ export class MetaService {
       categoryModels: CATEGORY_MODELS,
       fleetColors: FLEET_COLORS,
       fleetDefaultColor: FLEET_DEFAULT_COLOR,
+    };
+  }
+
+  /**
+   * The Area field is constrained, not free-for-all: it suggests the major
+   * cities of the country already chosen in the paired Country field, capped
+   * by zone, and only offers "Local" in France (common.js:832,
+   * initAreaCombo). The rule lives here rather than in the browser because
+   * `area` drives the Local/Farm-out split and driver eligibility — a wrong
+   * value cascades. Free text stays accepted, exactly as in the legacy: this
+   * endpoint suggests, it doesn't close the list.
+   */
+  getAreaSuggestions(countryCode = ''): AreaSuggestionsEntity {
+    return {
+      countryCode,
+      cities: areaSuggestions(countryCode),
+      localAllowed: isLocalAreaAllowed(countryCode),
     };
   }
 }

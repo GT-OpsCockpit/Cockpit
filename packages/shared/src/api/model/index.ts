@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0
  */
 
+export * from './areaSuggestionsEntity';
 export * from './assignTripDto';
 export * from './authMeEntity';
 export * from './authMeEntityPermissionsItem';
@@ -68,6 +69,7 @@ export * from './invoiceTripEntity';
 export * from './loginDto';
 export * from './loginResultEntity';
 export * from './majorCityEntity';
+export * from './metaControllerGetAreaSuggestionsParams';
 export * from './metaEntity';
 export * from './metaEntityCategoryModels';
 export * from './metaEntityFleetModelsByMake';

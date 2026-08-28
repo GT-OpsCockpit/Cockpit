@@ -19,6 +19,7 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
+import { AreaField } from '@/components/area-field'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import { Spinner } from '@/components/ui/spinner'
@@ -232,6 +233,11 @@ export function TripFormFields({
                     field.onChange(value)
                     const country = meta.data?.countries.find((c) => c.code === value)
                     if (country) form.setValue('pickupTimezone', country.tz)
+                    // "Local" is France-only and a city belongs to one country,
+                    // so an Area already on file is now invalid — force a fresh
+                    // pick rather than let it silently rot (legacy
+                    // resetAreaField, common.js:871).
+                    form.setValue('area', '')
                   }}
                   options={countryOptions}
                   placeholder="Country…"
@@ -249,7 +255,7 @@ export function TripFormFields({
             <FormItem>
               <FormLabel>Area</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <AreaField countryCode={countryCode} value={field.value} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>

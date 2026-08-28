@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { fillArea } from './helpers'
 
 /**
  * Covers the /events vertical (docs/handoff/2026-08-27-frontend-events.md):
@@ -38,14 +39,14 @@ test.describe('Events — select/create event, bulk-create bookings', () => {
     await page.goto('/events')
 
     // --- "New": create a brand-new Events account without leaving the page ---
-    await page.getByRole('button', { name: 'New' }).click()
+    await page.getByRole('button', { name: 'New', exact: true }).click()
     const newDialog = page.getByRole('dialog', { name: 'New Events account' })
     await expect(newDialog.getByLabel('Account type', { exact: true })).toHaveText('Events')
     await newDialog.getByLabel('Event name', { exact: true }).fill(eventName)
     await newDialog.getByLabel('Event country', { exact: true }).click()
     await page.getByPlaceholder('Search country…').fill('Fra')
     await page.getByRole('option', { name: 'France (FR)' }).click()
-    await newDialog.getByLabel('Event area', { exact: true }).fill('Monte-Carlo')
+    await fillArea(page, newDialog, 'Monte-Carlo', 'Event area')
     await newDialog.getByLabel('Start date', { exact: true }).fill('2027-06-01')
     await newDialog.getByLabel('End date', { exact: true }).fill('2027-06-03')
     await newDialog.getByRole('button', { name: 'Create' }).click()

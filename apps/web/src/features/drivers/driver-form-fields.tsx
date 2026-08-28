@@ -4,6 +4,7 @@ import { ClientsControllerListType, useClientsControllerList, useMetaControllerG
 import type { DriverEntity } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
+import { AreaField } from '@/components/area-field'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -33,6 +34,7 @@ export function DriverFormFields({
   })
 
   const eventsOnly = form.watch('eventsOnly')
+  const countryCode = form.watch('countryCode') ?? ''
 
   const countryOptions = (meta.data?.countries ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
 
@@ -124,7 +126,14 @@ export function DriverFormFields({
                 <FormControl>
                   <SearchCombobox
                     value={field.value ?? ''}
-                    onChange={field.onChange}
+                    onChange={(value) => {
+                      field.onChange(value)
+                      // "Local" is France-only and a city belongs to one country,
+                      // so an Area already on file is now invalid — force a fresh
+                      // pick rather than let it silently rot (legacy
+                      // resetAreaField, common.js:871).
+                      form.setValue('area', '')
+                    }}
                     options={countryOptions}
                     placeholder="Country…"
                     searchPlaceholder="Search country…"
@@ -140,7 +149,7 @@ export function DriverFormFields({
               <FormItem>
                 <FormLabel>Area</FormLabel>
                 <FormControl>
-                  <Input placeholder="Local" {...field} />
+                  <AreaField countryCode={countryCode} value={field.value ?? ''} onChange={field.onChange} />
                 </FormControl>
               </FormItem>
             )}

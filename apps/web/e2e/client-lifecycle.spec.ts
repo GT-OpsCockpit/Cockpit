@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { API_BASE_URL } from './config'
+import { fillArea } from './helpers'
 
 /**
  * Covers the paths the handoff (docs/handoff/2026-08-27-frontend-clients.md)
@@ -77,7 +78,7 @@ test.describe('Clients — account lifecycle', () => {
     await selectFromDropdown(page, 'Account type', 'Events')
     await dialog.getByLabel('Event name', { exact: true }).fill(eventName)
     await selectCountry(page, 'Event country', 'Fra', 'France (FR)')
-    await dialog.getByLabel('Event area', { exact: true }).fill('Nice')
+    await fillArea(page, dialog, 'Nice', 'Event area')
     await dialog.getByLabel('Start date', { exact: true }).fill('2026-09-01')
     await dialog.getByLabel('End date', { exact: true }).fill('2026-09-05')
     await dialog.getByRole('button', { name: 'Create' }).click()

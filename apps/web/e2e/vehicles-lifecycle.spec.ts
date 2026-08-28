@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { API_BASE_URL, dispatcherAuthFile } from './config'
+import { fillArea } from './helpers'
 
 /**
  * Covers the /vehicles vertical end-to-end: internal vs. external creation
@@ -67,7 +68,7 @@ test.describe('Vehicles — lifecycle (ADMIN)', () => {
     await dialog.getByLabel('Country', { exact: true }).click()
     await page.getByPlaceholder('Search country…').fill('France')
     await page.getByRole('option', { name: 'France (FR)' }).click()
-    await dialog.getByLabel('Area', { exact: true }).fill('Paris')
+    await fillArea(page, dialog, 'Paris')
     await dialog.getByLabel('Partner', { exact: true }).fill(`E2E Partner ${stamp}`)
     await dialog.getByRole('button', { name: 'Create' }).click()
     const externalToast = toast(page, /^Vehicle (\S+) created\.$/)

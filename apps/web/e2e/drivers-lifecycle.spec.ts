@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { API_BASE_URL, dispatcherAuthFile } from './config'
+import { fillArea } from './helpers'
 
 /**
  * Covers the /drivers vertical end-to-end: the four conditional-validation
@@ -80,7 +81,7 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
     await row(page, internalRef).getByRole('button', { name: 'Edit' }).click()
     await expect(dialog.getByRole('heading', { name: `Edit driver — ${internalRef}` })).toBeVisible()
     await expect(dialog.getByLabel('First name', { exact: true })).toHaveValue(`E2E${stamp}`)
-    await dialog.getByLabel('Area', { exact: true }).fill('Riviera')
+    await fillArea(page, dialog, 'Riviera')
     await dialog.getByRole('button', { name: 'Confirm' }).click()
     await expect(toast(page, `Driver ${internalRef} updated.`)).toBeVisible()
     await expect(row(page, internalRef).getByText('Riviera')).toBeVisible()
@@ -268,7 +269,7 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
     await linkDialog.getByLabel('Country', { exact: true }).click()
     await page.getByPlaceholder('Search country…').fill('France')
     await page.getByRole('option', { name: 'France (FR)' }).click()
-    await linkDialog.getByLabel('Area', { exact: true }).fill('Paris')
+    await fillArea(page, linkDialog, 'Paris')
     await linkDialog.getByRole('button', { name: 'Link' }).click()
 
     const vehicleToast = toast(page, new RegExp(`^Vehicle (\\S+) linked to ${company}\\.$`))

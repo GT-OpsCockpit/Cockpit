@@ -5,6 +5,12 @@ import { resetDatabase, TEST_ADMIN } from './utils/reset-db';
 import { loginAs } from './utils/auth';
 import { PrismaService } from '../src/prisma/prisma.service';
 
+interface AreaBody {
+  countryCode: string;
+  cities: string[];
+  localAllowed: boolean;
+}
+
 interface MetaBody {
   countries: unknown[];
   vehicleTypes: { ref: string }[];
@@ -95,5 +101,46 @@ describe('Meta (e2e)', () => {
     await request(app.getHttpServer() as Parameters<typeof request>[0])
       .get('/api/meta')
       .expect(401);
+  });
+  // The Area field is constrained by the paired Country field — see
+  // common/business/area-suggestions.ts and the audit's §8.5. Its rules are
+  // unit-tested there; this only asserts the endpoint wires them up and
+  // reads its country off the query string.
+  describe('GET /meta/areas', () => {
+    const areas = (countryCode?: string) =>
+      request(app.getHttpServer() as Parameters<typeof request>[0])
+        .get('/api/meta/areas')
+        .query(countryCode === undefined ? {} : { countryCode })
+        .set('Cookie', cookie)
+        .expect(200);
+
+    it('suggests the chosen country\'s cities, capped by zone, and only allows "Local" in France', async () => {
+      const fr = await areas('FR');
+      expect((fr.body as AreaBody).localAllowed).toBe(true);
+      expect((fr.body as AreaBody).cities).toContain('Nice');
+      expect((fr.body as AreaBody).cities.length).toBeLessThanOrEqual(25);
+
+      const it_ = await areas('IT');
+      expect((it_.body as AreaBody).localAllowed).toBe(false);
+      expect((it_.body as AreaBody).cities).not.toContain('Nice');
+      expect((it_.body as AreaBody).cities.length).toBeLessThanOrEqual(12);
+
+      const ny = await areas('US-NY');
+      expect((ny.body as AreaBody).localAllowed).toBe(false);
+      expect((ny.body as AreaBody).cities.length).toBeLessThanOrEqual(3);
+    });
+
+    it('offers nothing at all until a country is chosen', async () => {
+      const none = await areas();
+      expect((none.body as AreaBody).cities).toEqual([]);
+      expect((none.body as AreaBody).localAllowed).toBe(false);
+    });
+
+    it('requires authentication', async () => {
+      await request(app.getHttpServer() as Parameters<typeof request>[0])
+        .get('/api/meta/areas')
+        .query({ countryCode: 'FR' })
+        .expect(401);
+    });
   });
 });
