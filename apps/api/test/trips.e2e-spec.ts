@@ -468,7 +468,7 @@ describe('Trips (e2e)', () => {
       .expect(400);
   });
 
-  it('does not reset dispatched on a PUT that edits an unrelated field without reassigning', async () => {
+  it('resets dispatched on a PUT that edits any field, even without reassigning', async () => {
     const client = await createClient();
     const driver = await createDriver();
     const created = await request(server())
@@ -492,7 +492,9 @@ describe('Trips (e2e)', () => {
         pickupLocation: 'Nice Airport — Terminal 2',
       })
       .expect(200);
-    expect((putRes.body as { trip: TripBody }).trip.dispatched).toBe(true);
+    // The driver was told a pickup point that no longer holds — the Send
+    // button has to re-arm so they get the new one (server.js:2470).
+    expect((putRes.body as { trip: TripBody }).trip.dispatched).toBe(false);
   });
 
   it('clears a stale cancellationFee once the trip is reassigned', async () => {
@@ -635,7 +637,10 @@ describe('Trips (e2e)', () => {
     it('never leaks price, partner rate, or the raw client/driver records — track or driver view', async () => {
       const ref = await createTrackedTrip();
 
-      for (const url of [`/api/trips/${ref}`, `/api/trips/${ref}?viewer=driver`]) {
+      for (const url of [
+        `/api/trips/${ref}`,
+        `/api/trips/${ref}?viewer=driver`,
+      ]) {
         const res = await request(server()).get(url).expect(200);
         const body = res.body as PublicTripBody;
         expect(body.priceEur).toBeUndefined();
@@ -688,10 +693,16 @@ describe('Trips (e2e)', () => {
       expect(second.status).toBe(200);
 
       const finalSteps = (
-        await request(server()).get(`/api/trips/${ref}?viewer=driver`).expect(200)
+        await request(server())
+          .get(`/api/trips/${ref}?viewer=driver`)
+          .expect(200)
       ).body as TripBody;
-      expect(finalSteps.steps.filter((s) => s.step === 'RECEIVED')).toHaveLength(1);
-      expect(finalSteps.steps.filter((s) => s.step === 'TRANSMITTED')).toHaveLength(1);
+      expect(
+        finalSteps.steps.filter((s) => s.step === 'RECEIVED'),
+      ).toHaveLength(1);
+      expect(
+        finalSteps.steps.filter((s) => s.step === 'TRANSMITTED'),
+      ).toHaveLength(1);
     });
   });
 
@@ -711,38 +722,81 @@ describe('Trips (e2e)', () => {
       const past = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
-        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt: isoOffsetDays(-2) })
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          pickupAt: isoOffsetDays(-2),
+        })
         .expect(201);
       const future = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
-        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt: isoOffsetDays(2) })
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          pickupAt: isoOffsetDays(2),
+        })
         .expect(201);
 
-      const list = await request(server()).get('/api/trips').set('Cookie', cookie).expect(200);
+      const list = await request(server())
+        .get('/api/trips')
+        .set('Cookie', cookie)
+        .expect(200);
       const refs = (list.body as TripBody[]).map((t) => t.ref);
       expect(refs).toContain((future.body as TripBody).ref);
       expect(refs).not.toContain((past.body as TripBody).ref);
     });
 
-    it('period=all still hides a past+assigned trip, but keeps a past+unassigned one (needs-attention backlog)', async () => {
+    async function seedPastPair() {
       const client = await createClient();
       const driver = await createDriver();
       const pastAssigned = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
-        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt: isoOffsetDays(-2), driverRef: driver.ref })
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          pickupAt: isoOffsetDays(-2),
+          driverRef: driver.ref,
+        })
         .expect(201);
       const pastUnassigned = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
-        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt: isoOffsetDays(-2) })
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          pickupAt: isoOffsetDays(-2),
+        })
         .expect(201);
+      return {
+        assignedRef: (pastAssigned.body as TripBody).ref,
+        unassignedRef: (pastUnassigned.body as TripBody).ref,
+      };
+    }
 
-      const list = await request(server()).get('/api/trips?period=all').set('Cookie', cookie).expect(200);
+    it('board=true hides a past+assigned trip, but keeps a past+unassigned one (needs-attention backlog)', async () => {
+      const { assignedRef, unassignedRef } = await seedPastPair();
+
+      const list = await request(server())
+        .get('/api/trips?period=all&board=true')
+        .set('Cookie', cookie)
+        .expect(200);
       const refs = (list.body as TripBody[]).map((t) => t.ref);
-      expect(refs).not.toContain((pastAssigned.body as TripBody).ref);
-      expect(refs).toContain((pastUnassigned.body as TripBody).ref);
+      expect(refs).not.toContain(assignedRef);
+      expect(refs).toContain(unassignedRef);
+    });
+
+    it('period=all without board returns past assigned trips — Invoicing bills completed months', async () => {
+      const { assignedRef, unassignedRef } = await seedPastPair();
+
+      const list = await request(server())
+        .get('/api/trips?period=all')
+        .set('Cookie', cookie)
+        .expect(200);
+      const refs = (list.body as TripBody[]).map((t) => t.ref);
+      expect(refs).toContain(assignedRef);
+      expect(refs).toContain(unassignedRef);
     });
 
     it('the default category (daily) excludes Events-client trips, regardless of period', async () => {
@@ -762,16 +816,26 @@ describe('Trips (e2e)', () => {
       const trip = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
-        .send({ ...BASE_TRIP, clientRef: (eventClient.body as ClientBody).ref, pickupAt: isoOffsetDays(1) })
+        .send({
+          ...BASE_TRIP,
+          clientRef: (eventClient.body as ClientBody).ref,
+          pickupAt: isoOffsetDays(1),
+        })
         .expect(201);
 
-      const list = await request(server()).get('/api/trips?period=all').set('Cookie', cookie).expect(200);
+      const list = await request(server())
+        .get('/api/trips?period=all')
+        .set('Cookie', cookie)
+        .expect(200);
       const refs = (list.body as TripBody[]).map((t) => t.ref);
       expect(refs).not.toContain((trip.body as TripBody).ref);
     });
 
     it('rejects an invalid period value', async () => {
-      await request(server()).get('/api/trips?period=nonsense').set('Cookie', cookie).expect(400);
+      await request(server())
+        .get('/api/trips?period=nonsense')
+        .set('Cookie', cookie)
+        .expect(400);
     });
   });
 
@@ -805,27 +869,44 @@ describe('Trips (e2e)', () => {
       const dailyTrip = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
-        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt: isoOffsetDays(1) })
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          pickupAt: isoOffsetDays(1),
+        })
         .expect(201);
       const eventTrip = await request(server())
         .post('/api/trips')
         .set('Cookie', cookie)
-        .send({ ...BASE_TRIP, clientRef: eventClient.ref, pickupAt: isoOffsetDays(1) })
+        .send({
+          ...BASE_TRIP,
+          clientRef: eventClient.ref,
+          pickupAt: isoOffsetDays(1),
+        })
         .expect(201);
 
-      const eventOnly = await request(server()).get('/api/trips?period=all&category=event').set('Cookie', cookie).expect(200);
+      const eventOnly = await request(server())
+        .get('/api/trips?period=all&category=event')
+        .set('Cookie', cookie)
+        .expect(200);
       const eventRefs = (eventOnly.body as TripBody[]).map((t) => t.ref);
       expect(eventRefs).toContain((eventTrip.body as TripBody).ref);
       expect(eventRefs).not.toContain((dailyTrip.body as TripBody).ref);
 
-      const all = await request(server()).get('/api/trips?period=all&category=all').set('Cookie', cookie).expect(200);
+      const all = await request(server())
+        .get('/api/trips?period=all&category=all')
+        .set('Cookie', cookie)
+        .expect(200);
       const allRefs = (all.body as TripBody[]).map((t) => t.ref);
       expect(allRefs).toContain((eventTrip.body as TripBody).ref);
       expect(allRefs).toContain((dailyTrip.body as TripBody).ref);
     });
 
     it('rejects an invalid category value', async () => {
-      await request(server()).get('/api/trips?category=nonsense').set('Cookie', cookie).expect(400);
+      await request(server())
+        .get('/api/trips?category=nonsense')
+        .set('Cookie', cookie)
+        .expect(400);
     });
   });
 
@@ -837,7 +918,10 @@ describe('Trips (e2e)', () => {
 
     // Make/Model must be a valid combination for the given Category (see
     // CATEGORY_MODELS, apps/api/src/common/constants/fleet.ts).
-    const MAKE_MODEL_BY_CATEGORY: Record<string, { make: string; model: string }> = {
+    const MAKE_MODEL_BY_CATEGORY: Record<
+      string,
+      { make: string; model: string }
+    > = {
       Business: { make: 'Mercedes-Benz', model: 'E-Class' },
       SUV: { make: 'Mercedes-Benz', model: 'GLE' },
     };
@@ -909,7 +993,7 @@ describe('Trips (e2e)', () => {
       expect((res.body as { trip: TripBody }).trip.driverId).toBeNull();
     });
 
-    it('reassigning the fleet vehicle alone does not reset dispatched/steps (unlike a driver reassignment)', async () => {
+    it('reassigning the fleet vehicle alone resets dispatched but keeps the steps (unlike a driver reassignment)', async () => {
       const client = await createClient();
       const driver = await createDriver();
       const vehicle = await createFleetVehicle('Business', 'AB-123-CD');
@@ -938,10 +1022,14 @@ describe('Trips (e2e)', () => {
         .expect(200);
       const updated = res.body as { trip: FullTripBody };
       expect(updated.trip.fleetVehicleId).not.toBeNull();
-      expect(updated.trip.dispatched).toBe(true);
+      // Re-armed: the driver was told which car to take, and it changed.
+      expect(updated.trip.dispatched).toBe(false);
+      // ...but the pipeline itself doesn't restart — only a change of
+      // assignee wipes the recorded progress.
+      expect(updated.trip.steps.length).toBeGreaterThan(0);
     });
 
-    it('rejects a fleet vehicle whose category is incompatible with the trip\'s vehicleType', async () => {
+    it("rejects a fleet vehicle whose category is incompatible with the trip's vehicleType", async () => {
       const client = await createClient();
       const vehicle = await createFleetVehicle('SUV', 'AB-123-CD');
       const created = await request(server())
@@ -976,6 +1064,154 @@ describe('Trips (e2e)', () => {
         .set('Cookie', cookie)
         .send({ fleetRegNbr: 'NOPE' })
         .expect(400);
+    });
+  });
+  // Ported from autoAssignLinkedVehicleInBookingBar / quickUpdateTrip
+  // (common.js:989/3320): a partner chauffeur's reserved vehicle is honoured
+  // rather than left informational. Server-side here, so create, update and
+  // the Planning drag & drop all get it from one place.
+  describe('reserved vehicle auto-assignment', () => {
+    async function createReservedPair(regNbr = 'ZZ-999-ZZ') {
+      const driverRes = await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({
+          firstName: 'Res',
+          lastName: 'Erved',
+          phone: '0699999999',
+          company: 'Uber Elite',
+          email: 'reserved@example.com',
+        })
+        .expect(201);
+      const driver = driverRes.body as DriverBody;
+
+      const vehicleRes = await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send({
+          category: 'Business',
+          regNbr,
+          make: 'Mercedes-Benz',
+          model: 'E-Class',
+          yearOfBuild: new Date().getFullYear() - 1,
+          fourWD: false,
+          nbPax: 3,
+          isLocal: false,
+          countryCode: 'FR',
+          area: 'Nice',
+          partnerCompany: 'Uber Elite',
+          driverRef: driver.ref,
+        })
+        .expect(201);
+      return { driver, vehicle: vehicleRes.body as { ref: string } };
+    }
+
+    async function createPlainVehicle(
+      category: string,
+      regNbr: string,
+      model: string,
+    ): Promise<{ ref: string; regNbr: string }> {
+      const res = await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send({
+          category,
+          regNbr,
+          make: 'Mercedes-Benz',
+          model,
+          yearOfBuild: new Date().getFullYear() - 1,
+          fourWD: false,
+          nbPax: 3,
+        })
+        .expect(201);
+      return res.body as { ref: string; regNbr: string };
+    }
+
+    it('attaches the reserved vehicle when a booking is created with that driver and no Reg Nbr', async () => {
+      const client = await createClient();
+      const { driver, vehicle } = await createReservedPair();
+
+      const res = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          driverRef: driver.ref,
+          vehicleType: 'Business',
+        })
+        .expect(201);
+      expect(
+        (res.body as { fleetVehicle: { ref: string } | null }).fleetVehicle
+          ?.ref,
+      ).toBe(vehicle.ref);
+    });
+
+    it('never overrides a Reg Nbr the dispatcher named explicitly', async () => {
+      const client = await createClient();
+      const { driver } = await createReservedPair();
+      const chosen = await createPlainVehicle(
+        'Business',
+        'YY-888-YY',
+        'E-Class',
+      );
+
+      const res = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          driverRef: driver.ref,
+          vehicleType: 'Business',
+          fleetRegNbr: chosen.regNbr,
+        })
+        .expect(201);
+      expect(
+        (res.body as { fleetVehicle: { regNbr: string } | null }).fleetVehicle
+          ?.regNbr,
+      ).toBe(chosen.regNbr);
+    });
+
+    it('skips a reserved vehicle whose category is incompatible with the booking', async () => {
+      const client = await createClient();
+      const { driver } = await createReservedPair();
+
+      const res = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          driverRef: driver.ref,
+          // The reserved vehicle is a Business; a Van booking can't use it.
+          vehicleType: 'Van',
+          paxCount: 1,
+        })
+        .expect(201);
+      expect(
+        (res.body as { fleetVehicleId: string | null }).fleetVehicleId,
+      ).toBeNull();
+    });
+
+    it('applies on the Planning drag & drop too (PATCH /assign)', async () => {
+      const client = await createClient();
+      const { driver, vehicle } = await createReservedPair();
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, vehicleType: 'Business' })
+        .expect(201);
+
+      const res = await request(server())
+        .patch(`/api/trips/${(created.body as TripBody).ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ driverRef: driver.ref })
+        .expect(200);
+      expect(
+        (res.body as { trip: { fleetVehicle: { ref: string } | null } }).trip
+          .fleetVehicle?.ref,
+      ).toBe(vehicle.ref);
     });
   });
 });

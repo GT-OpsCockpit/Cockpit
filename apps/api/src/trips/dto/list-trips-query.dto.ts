@@ -1,4 +1,5 @@
-import { IsIn, IsOptional } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsIn, IsOptional } from 'class-validator';
 
 export const TRIP_PERIODS = [
   'upcoming',
@@ -25,4 +26,22 @@ export class ListTripsQueryDto {
   @IsOptional()
   @IsIn(TRIP_CATEGORIES)
   category?: TripCategory;
+
+  /**
+   * Opt-in "live dispatch board" window: drops a trip whose pickup was before
+   * today (Paris) once it already has a driver — an already-handled job is
+   * clutter on the board, while an unassigned one still needs attention.
+   *
+   * Off by default on purpose. In the legacy this was `baseVisibility`
+   * (dispatcher.html:349-363), applied client-side by the Bookings page and
+   * by nothing else: Invoicing, Events, the Partner log and the Planning
+   * Gantt all read the unfiltered list, and must keep seeing past assigned
+   * trips (Invoicing's whole job is billing completed months).
+   */
+  // Query params arrive as strings — @Type(() => Boolean) would map "false"
+  // to `true` (Boolean('false') is truthy), so this needs an explicit check.
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  board?: boolean;
 }

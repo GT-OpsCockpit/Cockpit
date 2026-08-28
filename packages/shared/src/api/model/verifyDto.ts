@@ -7,6 +7,7 @@
  */
 
 export interface VerifyDto {
+  /** Normalized like LoginDto's — the two have to resolve to the same account. */
   email: string;
   /** @pattern ^\d{6}$ */
   code: string;

@@ -11,6 +11,12 @@ import { EventLinkService } from '../common/event-link/event-link.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { letters } from '../common/utils/letters';
 import { computeDriverName } from '../common/utils/driver-name';
+import { searchTokensFilter } from '../common/utils/search-tokens';
+import {
+  driverEffectivelyActiveFilter,
+  driverEligibilityFilter,
+  todayUtcMidnight,
+} from '../common/business/assignability';
 import { can } from '../common/permissions/permissions';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { CreateDriverDto } from './dto/create-driver.dto';
@@ -22,7 +28,7 @@ import {
 } from './dto/driver.entity';
 import { DriverListEntity } from './dto/driver-list.entity';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
-import { DriverUnavailKind } from '../../generated/prisma/enums';
+import { ClientType, DriverUnavailKind } from '../../generated/prisma/enums';
 import type {
   Client,
   Driver,
@@ -121,19 +127,43 @@ export class DriversService {
     const where: Prisma.DriverWhereInput = {};
     if (!query.includeInactive) where.active = true;
 
-    const search = query.search?.trim();
-    if (search) {
-      // `name` is derived (computeDriverName), not a column — search the
-      // fields it's derived from instead, plus ref/email/phone.
-      where.OR = [
-        { ref: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { company: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
-      ];
+    // Assignment-picker rules, resolved here rather than by whoever renders
+    // the dropdown: "is this driver available today" and "may this driver
+    // service this booking" are business rules, and the list is paginated —
+    // a client-side filter would only ever see the current page.
+    const conditions: Prisma.DriverWhereInput[] = [];
+    if (query.availableOnly) {
+      conditions.push(driverEffectivelyActiveFilter(todayUtcMidnight()));
     }
+    if (query.tripClientRef) {
+      const tripClient = await this.prisma.client.findUnique({
+        where: { ref: query.tripClientRef },
+        select: { clientType: true },
+      });
+      conditions.push(
+        driverEligibilityFilter({
+          isEvent: tripClient?.clientType === ClientType.EVENT,
+          area: query.tripArea,
+          countryCode: query.tripCountryCode,
+          pickupLocation: query.tripPickupLocation,
+          dropoffLocation: query.tripDropoffLocation,
+        }),
+      );
+    }
+
+    // `name` is derived (computeDriverName), not a column — search the fields
+    // it's derived from instead, plus ref/email/phone. Token by token, so
+    // "Julien Petit" spans firstName + lastName (see searchTokensFilter).
+    const searchFilter = searchTokensFilter(query.search, [
+      'ref',
+      'firstName',
+      'lastName',
+      'company',
+      'email',
+      'phone',
+    ]);
+    if (searchFilter) conditions.push(...searchFilter.AND);
+    if (conditions.length) where.AND = conditions;
 
     const page = query.page ?? DEFAULT_PAGE;
     const limit = query.limit ?? DEFAULT_LIMIT;

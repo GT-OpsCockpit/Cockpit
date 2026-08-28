@@ -56,7 +56,12 @@ describe('Company (e2e)', () => {
       .expect(400);
   });
 
-  it('saves once all fields are provided, then locks further edits server-side', async () => {
+  // `saved` marks "filled in at least once" (it drives the read-only view +
+  // pencil in the UI), NOT a permanent lock: the legacy re-opened the sheet
+  // for editing behind the Owner password as often as needed
+  // (owner.html:269-280), and a company sheet you can never correct is not
+  // a workable product.
+  it('saves once all fields are provided, and stays editable afterwards', async () => {
     const putRes = await request(server())
       .put('/api/company-info')
       .set('Cookie', adminCookie)
@@ -68,13 +73,15 @@ describe('Company (e2e)', () => {
       .put('/api/company-info')
       .set('Cookie', adminCookie)
       .send({ ...FULL_PAYLOAD, city: 'Lyon' })
-      .expect(409);
+      .expect(200);
 
     const getRes = await request(server())
       .get('/api/company-info')
       .set('Cookie', adminCookie)
       .expect(200);
-    expect((getRes.body as { city: string }).city).toBe('Paris');
+    const info = getRes.body as { city: string; saved: boolean };
+    expect(info.city).toBe('Lyon');
+    expect(info.saved).toBe(true);
   });
 
   it('forbids a non-admin dispatcher from reading or writing company info', async () => {

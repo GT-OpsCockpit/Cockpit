@@ -62,6 +62,35 @@ describe('Meta (e2e)', () => {
     expect(body.fleetMaxYear - body.fleetMinYear).toBe(10);
   });
 
+  // /meta feeds the pickers a dispatcher creates FROM (the booking bar's
+  // Vehicle field, the fleet form's Category) — a type deactivated on the
+  // Vehicles page must stop being offered there. The Vehicles management
+  // table has its own endpoint and still lists it.
+  it('leaves out a deactivated vehicle type', async () => {
+    const server = app.getHttpServer() as Parameters<typeof request>[0];
+    await request(server)
+      .patch('/api/vehicles/V12/active')
+      .set('Cookie', cookie)
+      .send({ active: false })
+      .expect(200);
+
+    const res = await request(server)
+      .get('/api/meta')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect((res.body as MetaBody).vehicleTypes.map((v) => v.ref)).not.toContain(
+      'V12',
+    );
+
+    const managed = await request(server)
+      .get('/api/vehicles')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect((managed.body as { ref: string }[]).map((v) => v.ref)).toContain(
+      'V12',
+    );
+  });
+
   it('requires authentication', async () => {
     await request(app.getHttpServer() as Parameters<typeof request>[0])
       .get('/api/meta')

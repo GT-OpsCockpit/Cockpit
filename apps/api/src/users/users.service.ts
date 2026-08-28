@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
+import { normalizeEmail } from '@cockpit/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -36,15 +37,16 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto): Promise<PublicUserEntity> {
-    const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
+    // Stored normalized so login stays case-insensitive (see LoginDto) and
+    // the unique index can't be defeated by a different capitalization.
+    const email = normalizeEmail(dto.email);
+    const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('Email already in use');
 
     const passwordHash = await argon2.hash(dto.password);
     return this.prisma.user.create({
       data: {
-        email: dto.email,
+        email,
         passwordHash,
         role: dto.role,
         firstName: dto.firstName,
@@ -57,10 +59,9 @@ export class UsersService {
 
   async update(id: string, dto: UpdateUserDto): Promise<PublicUserEntity> {
     await this.findOrThrow(id);
-    if (dto.email) {
-      const existing = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-      });
+    const email = dto.email ? normalizeEmail(dto.email) : undefined;
+    if (email) {
+      const existing = await this.prisma.user.findUnique({ where: { email } });
       if (existing && existing.id !== id) {
         throw new ConflictException('Email already in use');
       }
@@ -68,7 +69,7 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id },
       data: {
-        email: dto.email,
+        email,
         role: dto.role,
         firstName: dto.firstName,
         lastName: dto.lastName,

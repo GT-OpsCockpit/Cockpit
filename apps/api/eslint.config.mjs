@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs'],
+    // Config-level files, outside tsconfig.json's project: the type-aware
+    // rules can't parse them.
+    ignores: ['eslint.config.mjs', 'jest-esm-js-transformer.cjs'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

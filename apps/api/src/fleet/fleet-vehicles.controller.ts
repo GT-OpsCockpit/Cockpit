@@ -27,7 +27,9 @@ export class FleetVehiclesController {
   constructor(private readonly fleetVehiclesService: FleetVehiclesService) {}
 
   @Get()
-  list(@Query() query: ListFleetVehiclesQueryDto): Promise<FleetVehicleListEntity> {
+  list(
+    @Query() query: ListFleetVehiclesQueryDto,
+  ): Promise<FleetVehicleListEntity> {
     return this.fleetVehiclesService.list(query);
   }
 

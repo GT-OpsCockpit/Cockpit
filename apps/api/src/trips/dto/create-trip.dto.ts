@@ -107,6 +107,11 @@ export class CreateTripDto {
   @IsString()
   tailNbr?: string;
 
+  /** Name to write on the pickup sign — the attached file is uploaded separately. */
+  @IsOptional()
+  @IsString()
+  nameboard?: string;
+
   @IsOptional()
   @IsString()
   pickupIata?: string;

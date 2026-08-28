@@ -356,7 +356,9 @@ describe('Drivers (e2e)', () => {
       .get('/api/drivers')
       .set('Cookie', cookie)
       .expect(200);
-    const found = (listed.body as DriverListBody).data.find((d) => d.ref === ref)!;
+    const found = (listed.body as DriverListBody).data.find(
+      (d) => d.ref === ref,
+    )!;
     expect(found.fleetReserved).toEqual(
       expect.objectContaining({ ref: vehicleRef, regNbr: BASE_VEHICLE.regNbr }),
     );
@@ -382,7 +384,11 @@ describe('Drivers (e2e)', () => {
       await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({ firstName: 'Riviera', lastName: `Driver${i}`, phone: `061111000${i}` })
+        .send({
+          firstName: 'Riviera',
+          lastName: `Driver${i}`,
+          phone: `061111000${i}`,
+        })
         .expect(201);
     }
     const other = await request(server())
@@ -433,5 +439,207 @@ describe('Drivers (e2e)', () => {
       .get('/api/drivers?limit=101')
       .set('Cookie', cookie)
       .expect(400);
+  });
+  // Ported from the legacy's driverEligibleForTrip + isEffectivelyActive
+  // (common.js:3010/3087), which gated every assignment picker client-side.
+  // They now live in the API (common/business/assignability.ts) because the
+  // list is paginated — filtering the rendered page would hide drivers
+  // rather than exclude them.
+  describe('GET /api/drivers — assignment-picker rules', () => {
+    function isoOffsetDays(days: number): string {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+
+    async function createEventClient(): Promise<ClientBody> {
+      const res = await request(server())
+        .post('/api/clients')
+        .set('Cookie', cookie)
+        .send({
+          clientType: 'EVENT',
+          company: 'Grand Prix',
+          eventCountry: 'MC',
+          eventArea: 'Monaco',
+          eventStartDate: isoOffsetDays(-1),
+          eventEndDate: isoOffsetDays(3),
+          pocPhone: '0611111111',
+        })
+        .expect(201);
+      return res.body as ClientBody;
+    }
+
+    async function createDailyClient(): Promise<ClientBody> {
+      const res = await request(server())
+        .post('/api/clients')
+        .set('Cookie', cookie)
+        .send({
+          clientType: 'COMPANY',
+          company: 'Acme Corp',
+          pocPhone: '0622222222',
+        })
+        .expect(201);
+      return res.body as ClientBody;
+    }
+
+    async function createInternalDriver(phone: string): Promise<DriverBody> {
+      const res = await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({ firstName: 'Inter', lastName: 'Nal', phone })
+        .expect(201);
+      return res.body as DriverBody;
+    }
+
+    async function createPartnerDriver(phone: string): Promise<DriverBody> {
+      const res = await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({
+          firstName: 'Part',
+          lastName: 'Ner',
+          phone,
+          company: 'Uber Elite',
+          email: 'partner@example.com',
+        })
+        .expect(201);
+      return res.body as DriverBody;
+    }
+
+    async function createEventsDriver(
+      phone: string,
+      eventRef: string,
+    ): Promise<DriverBody> {
+      const res = await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({
+          firstName: 'Even',
+          lastName: 'Tor',
+          phone,
+          company: 'Acme',
+          email: 'events@example.com',
+          eventsOnly: true,
+          eventCountry: 'MC',
+          eventArea: 'Monaco',
+          eventRef,
+        })
+        .expect(201);
+      return res.body as DriverBody;
+    }
+
+    async function listRefs(query: string): Promise<string[]> {
+      const res = await request(server())
+        .get(`/api/drivers?${query}`)
+        .set('Cookie', cookie)
+        .expect(200);
+      return (res.body as DriverListBody).data.map((d) => d.ref);
+    }
+
+    it('a daily booking excludes Events drivers, keeps in-house and partners', async () => {
+      const eventClient = await createEventClient();
+      const dailyClient = await createDailyClient();
+      const internal = await createInternalDriver('0630000001');
+      const partner = await createPartnerDriver('0630000002');
+      const events = await createEventsDriver('0630000003', eventClient.ref);
+
+      const refs = await listRefs(`tripClientRef=${dailyClient.ref}`);
+      expect(refs).toContain(internal.ref);
+      expect(refs).toContain(partner.ref);
+      expect(refs).not.toContain(events.ref);
+    });
+
+    it('a non-local Events booking keeps only Events drivers', async () => {
+      const eventClient = await createEventClient();
+      const internal = await createInternalDriver('0630000001');
+      const partner = await createPartnerDriver('0630000002');
+      const events = await createEventsDriver('0630000003', eventClient.ref);
+
+      const refs = await listRefs(
+        `tripClientRef=${eventClient.ref}&tripArea=Paris&tripCountryCode=FR`,
+      );
+      expect(refs).toContain(events.ref);
+      expect(refs).not.toContain(internal.ref);
+      expect(refs).not.toContain(partner.ref);
+    });
+
+    it('a LOCAL Events booking also keeps in-house drivers, but never partners', async () => {
+      const eventClient = await createEventClient();
+      const internal = await createInternalDriver('0630000001');
+      const partner = await createPartnerDriver('0630000002');
+      const events = await createEventsDriver('0630000003', eventClient.ref);
+
+      // Monaco makes the booking local (isLocalTrip), which is what lets an
+      // in-house driver take an Events job.
+      const refs = await listRefs(
+        `tripClientRef=${eventClient.ref}&tripCountryCode=MC&tripArea=Monaco`,
+      );
+      expect(refs).toContain(events.ref);
+      expect(refs).toContain(internal.ref);
+      expect(refs).not.toContain(partner.ref);
+    });
+
+    it('availableOnly drops a driver on a day off today, keeps one off tomorrow', async () => {
+      const offToday = await createInternalDriver('0630000001');
+      const offTomorrow = await createInternalDriver('0630000002');
+      for (const [driver, date] of [
+        [offToday, isoOffsetDays(0)],
+        [offTomorrow, isoOffsetDays(1)],
+      ] as const) {
+        await request(server())
+          .patch(`/api/drivers/${driver.ref}/unavailability`)
+          .set('Cookie', cookie)
+          .send({ type: 'OFF', date })
+          .expect(200);
+      }
+
+      const refs = await listRefs('availableOnly=true');
+      expect(refs).not.toContain(offToday.ref);
+      expect(refs).toContain(offTomorrow.ref);
+      // Without the flag the roster is unchanged — this is a picker filter,
+      // not a change to what the Drivers page shows.
+      expect(await listRefs('')).toContain(offToday.ref);
+    });
+
+    it('availableOnly drops a driver on holidays covering today', async () => {
+      const driver = await createInternalDriver('0630000001');
+      await request(server())
+        .patch(`/api/drivers/${driver.ref}/unavailability`)
+        .set('Cookie', cookie)
+        .send({
+          type: 'HOLIDAYS',
+          startDate: isoOffsetDays(-2),
+          endDate: isoOffsetDays(2),
+        })
+        .expect(200);
+
+      expect(await listRefs('availableOnly=true')).not.toContain(driver.ref);
+    });
+
+    it('availableOnly drops an Events driver whose event has not started yet', async () => {
+      const upcoming = await request(server())
+        .post('/api/clients')
+        .set('Cookie', cookie)
+        .send({
+          clientType: 'EVENT',
+          company: 'Next Year GP',
+          eventCountry: 'MC',
+          eventArea: 'Monaco',
+          eventStartDate: isoOffsetDays(30),
+          eventEndDate: isoOffsetDays(35),
+          pocPhone: '0611111111',
+        })
+        .expect(201);
+      const resting = await createEventsDriver(
+        '0630000003',
+        (upcoming.body as ClientBody).ref,
+      );
+
+      expect(await listRefs('availableOnly=true')).not.toContain(resting.ref);
+
+      const running = await createEventClient();
+      const active = await createEventsDriver('0630000004', running.ref);
+      expect(await listRefs('availableOnly=true')).toContain(active.ref);
+    });
   });
 });

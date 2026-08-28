@@ -17,4 +17,16 @@ period?: TripsControllerListPeriod;
  * Defaults to 'daily' in TripsService.list().
  */
 category?: TripsControllerListCategory;
+/**
+ * Opt-in "live dispatch board" window: drops a trip whose pickup was before
+ * today (Paris) once it already has a driver — an already-handled job is
+ * clutter on the board, while an unassigned one still needs attention.
+ *
+ * Off by default on purpose. In the legacy this was `baseVisibility`
+ * (dispatcher.html:349-363), applied client-side by the Bookings page and
+ * by nothing else: Invoicing, Events, the Partner log and the Planning
+ * Gantt all read the unfiltered list, and must keep seeing past assigned
+ * trips (Invoicing's whole job is billing completed months).
+ */
+board?: boolean;
 };

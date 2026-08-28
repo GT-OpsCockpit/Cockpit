@@ -494,7 +494,9 @@ describe('Fleet (e2e)', () => {
         .send({ ...BASE_VEHICLE, regNbr: 'ZZ-999-ZZ' })
         .expect(201);
       await request(server())
-        .patch(`/api/fleet-vehicles/${(other.body as FleetVehicleBody).ref}/active`)
+        .patch(
+          `/api/fleet-vehicles/${(other.body as FleetVehicleBody).ref}/active`,
+        )
         .set('Cookie', cookie)
         .send({ active: false })
         .expect(200);
@@ -536,6 +538,79 @@ describe('Fleet (e2e)', () => {
         .get('/api/fleet-vehicles?limit=101')
         .set('Cookie', cookie)
         .expect(400);
+    });
+  });
+  // Same porting rationale as the drivers picker rules — see the equivalent
+  // block in drivers.e2e-spec.ts.
+  describe('GET /api/fleet-vehicles — assignment-picker rules', () => {
+    function isoOffsetDays(days: number): string {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+
+    async function createVehicle(
+      regNbr: string,
+      category = 'Business',
+      model = 'E-Class',
+    ): Promise<FleetVehicleBody> {
+      const res = await request(server())
+        .post('/api/fleet-vehicles')
+        .set('Cookie', cookie)
+        .send({ ...BASE_VEHICLE, regNbr, category, model })
+        .expect(201);
+      return res.body as FleetVehicleBody;
+    }
+
+    async function listRefs(query: string): Promise<string[]> {
+      const res = await request(server())
+        .get(`/api/fleet-vehicles?${query}`)
+        .set('Cookie', cookie)
+        .expect(200);
+      return (res.body as { data: FleetVehicleBody[] }).data.map((v) => v.ref);
+    }
+
+    it('availableOnly drops a vehicle in the repair shop today, keeps one booked in later', async () => {
+      const inShop = await createVehicle('AA-111-AA');
+      const later = await createVehicle('BB-222-BB');
+      await request(server())
+        .patch(`/api/fleet-vehicles/${inShop.ref}/unavailability`)
+        .set('Cookie', cookie)
+        .send({
+          type: 'REPAIR',
+          startDate: isoOffsetDays(-1),
+          endDate: isoOffsetDays(1),
+        })
+        .expect(200);
+      await request(server())
+        .patch(`/api/fleet-vehicles/${later.ref}/unavailability`)
+        .set('Cookie', cookie)
+        .send({
+          type: 'SERVICE',
+          startDate: isoOffsetDays(10),
+          endDate: isoOffsetDays(12),
+        })
+        .expect(200);
+
+      const refs = await listRefs('availableOnly=true');
+      expect(refs).not.toContain(inShop.ref);
+      expect(refs).toContain(later.ref);
+      // Unfiltered, the Vehicles page still shows both.
+      expect(await listRefs('')).toContain(inShop.ref);
+    });
+
+    it('compatibleWith resolves the category compatibility table, not just an exact match', async () => {
+      const business = await createVehicle('AA-111-AA', 'Business', 'E-Class');
+      const van = await createVehicle('BB-222-BB', 'Van', 'V-Class');
+      const luggage = await createVehicle('CC-333-CC', 'Lugg.', 'Luggage Van');
+
+      // "Lugg." accepts a Lugg. or a Van (VEHICLE_COMPATIBILITY), never a Business.
+      const refs = await listRefs('compatibleWith=Lugg.');
+      expect(refs).toEqual(expect.arrayContaining([luggage.ref, van.ref]));
+      expect(refs).not.toContain(business.ref);
+
+      // A category absent from the table only accepts its own.
+      expect(await listRefs('compatibleWith=Business')).toEqual([business.ref]);
     });
   });
 });

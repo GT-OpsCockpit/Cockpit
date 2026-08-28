@@ -74,6 +74,8 @@ export interface TripEntity {
   /** @nullable */
   tailNbr: string | null;
   /** @nullable */
+  nameboard: string | null;
+  /** @nullable */
   nameboardUrl: string | null;
   /** @nullable */
   pickupIata: string | null;

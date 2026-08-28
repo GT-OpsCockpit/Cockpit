@@ -18,6 +18,10 @@ import { NAMEBOARD_URL_PREFIX } from './nameboard-upload.config';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { computeDriverName } from '../common/utils/driver-name';
 import { compatibleFleetCategories } from '../common/constants/vehicle-compatibility';
+import {
+  fleetVehicleEffectivelyActiveFilter,
+  todayUtcMidnight,
+} from '../common/business/assignability';
 import { MESSAGES } from '../common/constants/messages';
 import { FULL_STEP_ORDER } from '../common/constants/step-order';
 import { buildTripMessageContext } from './trip-message.util';
@@ -114,16 +118,20 @@ export class TripsService {
     const category = query.category ?? 'daily';
     const nowParis = DateTime.now().setZone(PARIS_ZONE);
 
-    // Unconditional (independent of `period`): a trip whose pickup was
-    // before *today* (Paris) drops out of view once it still has no driver
-    // — it's an unresolved needs-attention case, not clutter. Same rule the
-    // legacy showed by never letting a booking scroll off the live board.
-    const where: Prisma.TripWhereInput = {
-      OR: [
-        { pickupAt: { gte: nowParis.startOf('day').toJSDate() } },
-        { driverId: null },
-      ],
-    };
+    // Live dispatch board only (`board=true`, Bookings): a trip whose pickup
+    // was before *today* (Paris) drops out of view once it has a driver —
+    // an already-handled job is clutter, an unassigned one still needs
+    // attention. The legacy applied this client-side on the Bookings page
+    // and nowhere else, so it must stay opt-in: Invoicing bills completed
+    // months, and Events/Partner log/Planning all need their past history.
+    const where: Prisma.TripWhereInput = query.board
+      ? {
+          OR: [
+            { pickupAt: { gte: nowParis.startOf('day').toJSDate() } },
+            { driverId: null },
+          ],
+        }
+      : {};
     if (category === 'daily') {
       where.client = { clientType: { not: ClientType.EVENT } };
     } else if (category === 'event') {
@@ -251,10 +259,12 @@ export class TripsService {
       );
     }
 
-    const { data, client, driverId } = await this.resolveTripInputs(dto);
-
     const previousDriverId = trip.driverId;
     const previousPartnerId = trip.partnerId;
+
+    const { data, client, driverId } = await this.resolveTripInputs(dto, {
+      previousDriverId,
+    });
 
     let newRef = trip.ref;
     if (client.id !== trip.clientId) {
@@ -283,11 +293,13 @@ export class TripsService {
     const finalSubContractor =
       dto.subContractor !== undefined ? dto.subContractor : trip.subContractor;
     const locked = finalSubContractor && !finalPartnerId;
-    const dispatchedValue = locked
-      ? true
-      : reassigned
-        ? false
-        : trip.dispatched;
+    // Any saved edit — trip details as much as a driver/vehicle/partner
+    // reassignment — invalidates a previous dispatch and re-arms the Send
+    // button, so the dispatcher is prompted to re-send with the new
+    // information (server.js:2470: `trip.dispatched = false` unconditionally
+    // on every PUT). The locked company-only sub-contract is the one
+    // exception: it has no driver to re-send to and stays pinned at "Sent".
+    const dispatchedValue = locked;
 
     await this.prisma.trip.update({
       where: { id: trip.id },
@@ -357,6 +369,7 @@ export class TripsService {
     }
 
     const data: Prisma.TripUpdateInput = {};
+    let reassigned = false;
 
     if (dto.driverRef !== undefined) {
       const driver = dto.driverRef
@@ -372,7 +385,18 @@ export class TripsService {
         data.driver = newDriverId
           ? { connect: { id: newDriverId } }
           : { disconnect: true };
-        data.dispatched = false;
+        // Honour this driver's reserved vehicle, unless the caller is also
+        // naming one in the same call (see findReservedVehicle).
+        if (newDriverId && dto.fleetRegNbr === undefined) {
+          const reserved = await this.findReservedVehicle(
+            newDriverId,
+            trip.vehicleType?.name,
+          );
+          if (reserved) data.fleetVehicle = { connect: { id: reserved.id } };
+        }
+        // Only a change of assignee wipes the progress — a vehicle swap
+        // below re-arms the Send button without restarting the pipeline.
+        reassigned = true;
         data.assignmentCancelled = false;
         data.assignmentCancelledAt = null;
         data.cancellationFee = null;
@@ -395,8 +419,15 @@ export class TripsService {
       return { ok: true, trip };
     }
 
+    // Same rule as update(): any saved change invalidates a previous
+    // dispatch, because the driver was told a car and a schedule that no
+    // longer hold. In the legacy every one of these edits (Driver cell,
+    // Reg Nbr cell, Gantt drag & drop) went through the full PUT, which set
+    // dispatched = false unconditionally.
+    data.dispatched = false;
+
     await this.prisma.trip.update({ where: { id: trip.id }, data });
-    if (data.dispatched === false) {
+    if (reassigned) {
       await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
     }
 
@@ -594,7 +625,10 @@ export class TripsService {
    * their original order, so a doubly-invalid dto reports the same error it did
    * when each lookup was awaited in turn.
    */
-  private async resolveTripInputs(dto: CreateTripDto | UpdateTripDto) {
+  private async resolveTripInputs(
+    dto: CreateTripDto | UpdateTripDto,
+    { previousDriverId }: { previousDriverId?: string | null } = {},
+  ) {
     if (dto.service !== Service.ASD && !dto.dropoffLocation) {
       throw new BadRequestException(
         'dropoffLocation is required (except for an ASD service)',
@@ -679,6 +713,21 @@ export class TripsService {
       );
     }
 
+    // A partner chauffeur can have one fleet vehicle reserved for them (the
+    // padlock on Drivers & Partners). Assigning that chauffeur to a booking
+    // without naming a vehicle honours the reservation instead of leaving it
+    // informational — the legacy did this client-side in two places
+    // (autoAssignLinkedVehicleInBookingBar for the New booking bar,
+    // quickUpdateTrip for every later reassignment); doing it here covers
+    // create, update and the Planning drag & drop from one place.
+    // Only when the driver is actually being (re)assigned, never on an
+    // unrelated edit — otherwise deliberately clearing the Reg Nbr on a
+    // booking would silently re-add the reserved vehicle on every save.
+    const reservedVehicle =
+      driver && driver.id !== previousDriverId && !dto.fleetRegNbr?.trim()
+        ? await this.findReservedVehicle(driver.id, dto.vehicleType)
+        : null;
+
     let resolvedInstructions = dto.instructions || null;
     if (autoInstructionsNote) {
       const base = (dto.instructions ?? '').trim();
@@ -709,7 +758,7 @@ export class TripsService {
         tracking: dto.tracking !== false,
         paxCount: dto.paxCount ?? null,
         vehicleTypeId: vehicleType?.id ?? null,
-        fleetVehicleId: fleetVehicle?.id ?? null,
+        fleetVehicleId: fleetVehicle?.id ?? reservedVehicle?.id ?? null,
         priceEur: dto.priceEur ?? null,
         partnerRateEur: dto.partnerRateEur ?? null,
         billing: dto.billing ?? client.billing ?? null,
@@ -717,6 +766,7 @@ export class TripsService {
         bufferTime: dto.bufferTime ?? null,
         fboAddress: dto.fboAddress || null,
         tailNbr: dto.tailNbr || null,
+        nameboard: dto.nameboard || null,
         pickupIata: dto.pickupIata || null,
         dropoffIata: dto.dropoffIata || null,
       },
@@ -734,6 +784,31 @@ export class TripsService {
         `Vehicle ${fleetVehicle.regNbr} (${fleetVehicle.category.name}) cannot service a ${vehicleTypeName} trip — compatible categories: ${allowed.join(', ')}`,
       );
     }
+  }
+
+  /**
+   * The fleet vehicle reserved for this driver, if it's assignable right now:
+   * available today, within its event window, and of a category compatible
+   * with the booking. Never forces an incompatible or out-of-service vehicle
+   * — same guard the legacy applied before auto-filling the Reg Nbr field.
+   */
+  private async findReservedVehicle(
+    driverId: string,
+    vehicleTypeName: string | undefined,
+  ): Promise<FleetVehicleWithCategory | null> {
+    const vehicle = await this.prisma.fleetVehicle.findFirst({
+      where: {
+        driverId,
+        ...fleetVehicleEffectivelyActiveFilter(todayUtcMidnight()),
+        ...(vehicleTypeName && {
+          category: {
+            name: { in: compatibleFleetCategories(vehicleTypeName) },
+          },
+        }),
+      },
+      include: FLEET_VEHICLE_INCLUDE,
+    });
+    return vehicle;
   }
 
   private findFleetVehicle(

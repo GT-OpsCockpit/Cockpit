@@ -19,7 +19,13 @@ export class MetaService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getMeta(): Promise<MetaEntity> {
-    const vehicleTypes = await this.prisma.vehicleType.findMany();
+    // Active only: /meta feeds the pickers a dispatcher creates FROM (the
+    // booking bar's Vehicle field, the fleet form's Category), so a type
+    // deactivated on the Vehicles page must stop being offered. The Vehicles
+    // management table has its own endpoint and still lists deactivated ones.
+    const vehicleTypes = await this.prisma.vehicleType.findMany({
+      where: { active: true },
+    });
     vehicleTypes.sort(
       (a, b) =>
         (parseInt(a.ref.slice(1), 10) || 0) -

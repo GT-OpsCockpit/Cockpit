@@ -8,6 +8,12 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { EventLinkService } from '../common/event-link/event-link.service';
+import { searchTokensFilter } from '../common/utils/search-tokens';
+import {
+  fleetVehicleEffectivelyActiveFilter,
+  todayUtcMidnight,
+} from '../common/business/assignability';
+import { compatibleFleetCategories } from '../common/constants/vehicle-compatibility';
 import { can } from '../common/permissions/permissions';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import {
@@ -51,20 +57,39 @@ export class FleetVehiclesService {
     private readonly eventLink: EventLinkService,
   ) {}
 
-  async list(query: ListFleetVehiclesQueryDto): Promise<FleetVehicleListEntity> {
+  async list(
+    query: ListFleetVehiclesQueryDto,
+  ): Promise<FleetVehicleListEntity> {
     const where: Prisma.FleetVehicleWhereInput = {};
     if (!query.includeInactive) where.active = true;
 
-    const search = query.search?.trim();
-    if (search) {
-      where.OR = [
-        { ref: { contains: search, mode: 'insensitive' } },
-        { regNbr: { contains: search, mode: 'insensitive' } },
-        { make: { contains: search, mode: 'insensitive' } },
-        { model: { contains: search, mode: 'insensitive' } },
-        { acronym: { contains: search, mode: 'insensitive' } },
-      ];
+    // Same reasoning as DriversService.list(): "is this vehicle available
+    // today" and "can it service this booking's Category" are business
+    // rules, and the list is paginated — filtering the rendered page
+    // client-side would silently hide vehicles instead of excluding them.
+    const conditions: Prisma.FleetVehicleWhereInput[] = [];
+    if (query.availableOnly) {
+      conditions.push(fleetVehicleEffectivelyActiveFilter(todayUtcMidnight()));
     }
+    if (query.compatibleWith) {
+      conditions.push({
+        category: {
+          name: { in: compatibleFleetCategories(query.compatibleWith) },
+        },
+      });
+    }
+
+    // Token by token, so a vehicle typed the way it reads on screen
+    // ("Mercedes V-Class") spans make + model (see searchTokensFilter).
+    const searchFilter = searchTokensFilter(query.search, [
+      'ref',
+      'regNbr',
+      'make',
+      'model',
+      'acronym',
+    ]);
+    if (searchFilter) conditions.push(...searchFilter.AND);
+    if (conditions.length) where.AND = conditions;
 
     const page = query.page ?? DEFAULT_PAGE;
     const limit = query.limit ?? DEFAULT_LIMIT;

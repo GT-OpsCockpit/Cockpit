@@ -82,6 +82,7 @@ export class TripBaseEntity {
   bufferTime: number | null;
   fboAddress: string | null;
   tailNbr: string | null;
+  nameboard: string | null;
   nameboardUrl: string | null;
   pickupIata: string | null;
   dropoffIata: string | null;

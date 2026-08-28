@@ -93,9 +93,7 @@ describe('Permissions (e2e)', () => {
     return res.body as ClientBody;
   }
 
-  async function createDriver(
-    phone = '0622222222',
-  ): Promise<{ ref: string }> {
+  async function createDriver(phone = '0622222222'): Promise<{ ref: string }> {
     const res = await request(server())
       .post('/api/drivers')
       .set('Cookie', adminCookie)
@@ -194,7 +192,7 @@ describe('Permissions (e2e)', () => {
       .expect(200);
   });
 
-  it('trip:edit-past also gates the Planning Gantt\'s PATCH /assign — a DISPATCHER may reassign an upcoming trip but not one whose pickup already passed', async () => {
+  it("trip:edit-past also gates the Planning Gantt's PATCH /assign — a DISPATCHER may reassign an upcoming trip but not one whose pickup already passed", async () => {
     const client = await createClient();
     const driver = await createDriver();
 

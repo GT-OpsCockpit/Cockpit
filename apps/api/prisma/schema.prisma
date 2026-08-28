@@ -254,6 +254,10 @@ model Trip {
   bufferTime            Int?
   fboAddress            String?
   tailNbr               String?
+  /// Name to write on the pickup sign (legacy `nameboard`) — distinct from
+  /// nameboardUrl below, which is the optional attached file (a logo, or a
+  /// photo of the board itself).
+  nameboard             String?
   nameboardUrl          String? // fichier stocké (volume Docker), plus de base64 en mémoire
   pickupIata            String?
   dropoffIata           String?

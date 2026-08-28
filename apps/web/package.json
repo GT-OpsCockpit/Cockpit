@@ -15,12 +15,14 @@
   },
   "dependencies": {
     "@cockpit/shared": "workspace:*",
+    "@fontsource-variable/inter": "^5.3.0",
     "@hookform/resolvers": "^5.9.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.102.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "input-otp": "^1.5.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.34.0",
@@ -50,6 +52,7 @@
     "jsdom": "^30.0.1",
     "orval": "^8.26.0",
     "oxlint": "^1.79.0",
+    "tw-animate-css": "^1.4.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"

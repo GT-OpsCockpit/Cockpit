@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { TripMessageContext } from '../common/constants/messages';
 import { computeDriverName } from '../common/utils/driver-name';
 
@@ -8,20 +9,26 @@ export interface TripForMessage {
   pickupLocation: string;
   dropoffLocation: string | null;
   pickupAt: Date;
+  timezone: string | null;
   vehicleType: { name: string } | null;
   driver: { firstName: string | null; lastName: string | null } | null;
   partner: { firstName: string | null; lastName: string | null } | null;
 }
 
-// pickupAt is stored as a naive "local wall-clock at the pickup location"
-// value (like the legacy's separate pickupDate/pickupTime strings, no real
-// UTC conversion) — read back with the UTC getters to recover those exact
-// digits rather than the host's local time zone.
+// Every message template says "(local time)", and the legacy meant it: it
+// stored the pickup as the wall-clock date/time at the pickup location.
+// pickupAt here is a real instant, so it has to be read back in the trip's
+// own timezone — reading it in UTC (or in the server's zone) would announce
+// a pickup hours off from the one the dispatcher typed. Falls back to UTC
+// only when no timezone was resolved for the trip at all.
 export function buildTripMessageContext(
   trip: TripForMessage,
 ): TripMessageContext {
-  const pickupDate = trip.pickupAt.toISOString().slice(0, 10);
-  const pickupTime = trip.pickupAt.toISOString().slice(11, 16);
+  const localPickup = DateTime.fromJSDate(trip.pickupAt).setZone(
+    trip.timezone ?? 'utc',
+  );
+  const pickupDate = localPickup.toFormat('yyyy-MM-dd');
+  const pickupTime = localPickup.toFormat('HH:mm');
   return {
     ref: trip.ref,
     pocName: trip.pocName,

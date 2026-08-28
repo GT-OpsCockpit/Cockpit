@@ -91,6 +91,7 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
+      "packages/shared/.*\\.js$": "<rootDir>/../jest-esm-js-transformer.cjs",
       "packages/shared/.*\\.(t|j)s$": ["ts-jest", { "isolatedModules": true }],
       "^.+\\.(t|j)s$": "ts-jest"
     },

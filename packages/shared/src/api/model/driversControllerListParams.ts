@@ -13,6 +13,28 @@ export type DriversControllerListParams = {
 search?: string;
 includeInactive?: boolean;
 /**
+ * Drops drivers marked unavailable today (day off / holidays / sick) and
+ * Events-scoped drivers outside their event's date range — the legacy's
+ * isEffectivelyActive, which gated every assignment picker (common.js:3010).
+ */
+availableOnly?: boolean;
+/**
+ * The booking a driver is being picked FOR — enables the eligibility rule
+ * (Events driver vs in-house vs partner, see driverEligibilityFilter).
+ * Sent as the trip's own fields rather than a ref so the New booking bar
+ * can filter against a draft that doesn't exist yet, exactly as the legacy
+ * did with draftTripForEligibility() (common.js:4012).
+ *
+ * `tripClientRef` is what decides Events-vs-daily; the other four decide
+ * locality (isLocalTrip). Eligibility is skipped entirely when no
+ * tripClientRef is given.
+ */
+tripClientRef?: string;
+tripArea?: string;
+tripCountryCode?: string;
+tripPickupLocation?: string;
+tripDropoffLocation?: string;
+/**
  * @minimum 1
  */
 page?: number;

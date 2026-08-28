@@ -36,6 +36,8 @@ export interface CreateTripDto {
   bufferTime?: number;
   fboAddress?: string;
   tailNbr?: string;
+  /** Name to write on the pickup sign — the attached file is uploaded separately. */
+  nameboard?: string;
   pickupIata?: string;
   dropoffIata?: string;
   subContractor?: boolean;

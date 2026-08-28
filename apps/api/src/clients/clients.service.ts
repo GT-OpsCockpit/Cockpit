@@ -10,6 +10,7 @@ import { isValidEmail, normalizeEmail } from '@cockpit/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
+import { searchTokensFilter } from '../common/utils/search-tokens';
 import { can } from '../common/permissions/permissions';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -70,19 +71,19 @@ export class ClientsService {
     if (!query.includeInactive) where.active = true;
     if (query.type) where.clientType = query.type;
 
-    const search = query.search?.trim();
-    if (search) {
-      // `name` is derived (computeClientName), not a column — search the
-      // fields it's derived from instead, plus ref/email/acronym.
-      where.OR = [
-        { ref: { contains: search, mode: 'insensitive' } },
-        { company: { contains: search, mode: 'insensitive' } },
-        { contactFirstName: { contains: search, mode: 'insensitive' } },
-        { contactLastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { acronym: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    // `name` is derived (computeClientName), not a column — search the fields
+    // it's derived from instead, plus ref/email/acronym. Token by token, so a
+    // full name typed as "Marc Dubois" spans contactFirstName + contactLastName
+    // (see searchTokensFilter).
+    const searchFilter = searchTokensFilter(query.search, [
+      'ref',
+      'company',
+      'contactFirstName',
+      'contactLastName',
+      'email',
+      'acronym',
+    ]);
+    if (searchFilter) where.AND = searchFilter.AND;
 
     // Always bounded — no "give me everything" mode. Bookings' client
     // combobox (and anything else that used to want the full roster) now

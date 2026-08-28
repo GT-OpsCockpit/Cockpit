@@ -15,10 +15,13 @@ export interface AdminSeed {
 
 export async function seedAdmin(prisma: PrismaClient, admin: AdminSeed) {
   const passwordHash = await argon2.hash(admin.password);
+  // Normalized like every other write path (UsersService) so a capitalized
+  // ADMIN_EMAIL in .env still matches the case-insensitive login lookup.
+  const email = admin.email.trim().toLowerCase();
   await prisma.user.upsert({
-    where: { email: admin.email },
+    where: { email },
     create: {
-      email: admin.email,
+      email,
       passwordHash,
       role: Role.ADMIN,
       firstName: admin.firstName,
