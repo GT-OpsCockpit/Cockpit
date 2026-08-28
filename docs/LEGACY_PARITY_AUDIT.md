@@ -239,11 +239,32 @@
 restent en EUR. Le legacy additionnait des devises hétérogènes dans `totalHT` : ses factures étaient
 fausses hors zone euro. Mauvaise conception ≠ règle métier.
 
-**Reste ouvert :**
-- Champ Area contraint aux villes du pays, « Local » réservé à la France (8.5) — `area` alimente le
-  split Local/Farm-out **et** l'éligibilité chauffeur, donc ça compte.
-- Filtrage de la popup de rattachement à un événement (4.3) et `offerEventReactivation` (4.4).
-- Brouillons d'email de sous-traitance (6.6.3) et popups d'édition rapide, dont la règle
-  `isBeforeArrival` sur le POC (6.6.2).
-- `PATCH /trips/:ref/assign` ne notifie pas le POC et ne regénère pas la ref (6.6.1).
-- Endpoints `DELETE` définitifs sans permission (1.3).
+**Porté le 2026-08-28 (3ᵉ passe) — le reste de la liste, dans le même esprit : ce qui était écrit
+dans le legacy a été porté, sans rien reclasser en « choix produit ».**
+- ✅ **Permissions sur les `DELETE` définitifs (1.3)** — une seule permission `record:delete` pour
+  les quatre routes, parce que le legacy avait une seule porte pour les quatre
+  (`onPermanentDelete`, common.js:385-395). Aucune UI v2 ne les appelle encore, donc rien à
+  miroiter côté front.
+- ✅ **Champ Area contraint (8.5)** — `GET /meta/areas` + `common/business/area-suggestions.ts` :
+  villes du pays plafonnées par zone (US 3 / FR 25 / Europe 12 / reste 5), « Local » réservé à la
+  France, vidage au changement de pays. Le texte libre reste accepté : l'endpoint **suggère**, il ne
+  ferme pas la liste — d'où `allowCustomValue` sur `SearchCombobox`.
+- ✅ **Rattachement à un événement (4.3)** — filtres `eventCountry`/`eventArea`/`eventNotEnded` sur
+  `GET /clients` **et** validation à l'écriture dans `EventLinkService`. Les champs « Event
+  country/area » sont devenus des miroirs en lecture seule de la fiche, comme la popup legacy les
+  affichait. Une fiche sans localisation propre ne peut plus être rattachée.
+- ✅ **`offerEventReactivation` (4.4)** — `GET /clients/:ref/reactivation-candidates` +
+  `POST /clients/:ref/reactivate`, en une transaction là où le legacy enchaînait N PUT. Proposé
+  depuis les deux endroits où un compte Events se crée.
+- ✅ **`isBeforeArrival` sur le POC (6.6.2)** — `common/business/trip-progress.ts`, appliqué dans
+  `update()`. Les popups d'édition rapide restent volontairement non portées.
+- ✅ **`PATCH /trips/:ref/assign` (6.6.1)** — notification « updated » au POC selon la règle
+  `notifyDriver: hadDriver`, et respect du verrou de sous-traitance. La régénération de ref et
+  `trip:edit-price` sont **sans objet** ici : l'endpoint ne touche ni au compte client ni au prix.
+- ✅ **Brouillons d'email de sous-traitance (6.6.3)** — `GET /trips/:ref/subcontract-email`, le
+  front se contentant du `mailto:`. Le tarif partenaire est imprimé **en euros**, conformément à la
+  décision 7.1.
+
+**Reste ouvert :** plus rien de §14. Les seuls écarts encore listés dans ce document sont des
+décisions assumées : la sémantique de devise (7.1) et les popups d'édition rapide (6.6.2), dont la
+seule règle métier — `isBeforeArrival` — a été portée.
