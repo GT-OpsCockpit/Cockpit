@@ -1042,6 +1042,36 @@ describe('Trips (e2e)', () => {
       ).toBe(true);
     });
 
+    // A company-only farm-out is pinned at "Sent", which means it must
+    // actually carry the TRANSMITTED step that says so. Assigning a driver
+    // wipes the progress like any reassignment — and the step has to come
+    // back, or the booking shows "Send ?" on a Send button that is disabled
+    // because dispatched is still true. update() already restamped it here;
+    // /assign did not.
+    it('restamps "Sent" on a company-only sub-contract whose progress a reassignment wiped', async () => {
+      const client = await createClient();
+      const driver = await createDriver('+33677777777');
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, subContractor: true })
+        .expect(201);
+      const ref = (created.body as TripBody).ref;
+      expect((created.body as TripBody).steps.map((s) => s.step)).toEqual([
+        'TRANSMITTED',
+      ]);
+
+      const patched = await request(server())
+        .patch(`/api/trips/${ref}/assign`)
+        .set('Cookie', cookie)
+        .send({ driverRef: driver.ref })
+        .expect(200);
+
+      const trip = (patched.body as { trip: TripBody }).trip;
+      expect(trip.dispatched).toBe(true);
+      expect(trip.steps.map((s) => s.step)).toEqual(['TRANSMITTED']);
+    });
+
     it('reassigning the driver via /assign resets steps/dispatched/assignmentCancelled, same as the full PUT', async () => {
       const client = await createClient();
       const driverA = await createDriver('+33622222222');

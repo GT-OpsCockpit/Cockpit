@@ -177,6 +177,56 @@ describe('the Send button', () => {
   });
 });
 
+describe('restamping "Sent"', () => {
+  const transmitted = [{ step: 'TRANSMITTED' }];
+
+  // A locked sub-contract is pinned at "Sent", so it has to actually carry the
+  // step that says so — otherwise the booking reads "Send ?" on a Send button
+  // disabled as "Already sent".
+  it('restamps it when a reassignment has just wiped the progress it was part of', () => {
+    const decision = decide(
+      before({ steps: transmitted }),
+      unchanged({ subContractor: true, partnerId: null, driverId: 'driver-2' }),
+    );
+    expect(decision.reassigned).toBe(true);
+    expect(decision.stampTransmitted).toBe(true);
+  });
+
+  it('stamps it on a booking that is locked but has no progress at all yet', () => {
+    expect(
+      decide(
+        before({ steps: [] }),
+        unchanged({ subContractor: true, partnerId: null }),
+      ).stampTransmitted,
+    ).toBe(true);
+  });
+
+  it('leaves it alone when it is already there and nothing was reassigned', () => {
+    expect(
+      decide(
+        before({ steps: transmitted }),
+        unchanged({
+          subContractor: true,
+          partnerId: null,
+          pocName: 'John Roe',
+        }),
+      ).stampTransmitted,
+    ).toBe(false);
+  });
+
+  it('never stamps it on a booking that is not locked — that one re-arms its Send button', () => {
+    expect(
+      decide(before(), unchanged({ driverId: 'driver-2' })).stampTransmitted,
+    ).toBe(false);
+    expect(
+      decide(
+        before(),
+        unchanged({ subContractor: true, partnerId: 'partner-1' }),
+      ).stampTransmitted,
+    ).toBe(false);
+  });
+});
+
 describe('reassignment', () => {
   it('is true when the driver changes, including to nobody', () => {
     expect(

@@ -66,6 +66,13 @@ export interface AssignmentDecision {
   dispatched: boolean;
   /** The assignee changed: the pipeline restarts and any cancellation is undone. */
   reassigned: boolean;
+  /**
+   * The "Sent" step has to be (re)recorded. A locked sub-contract is pinned at
+   * "Sent", so it must actually carry the step that says so — and a
+   * reassignment has just wiped the progress it was part of. Without this the
+   * booking reads "Send ?" on a Send button disabled as "Already sent".
+   */
+  stampTransmitted: boolean;
   /** Send the POC the "updated" WhatsApp message. */
   notifyPoc: boolean;
 }
@@ -79,6 +86,8 @@ export interface DecideOptions {
    */
   pastEditAction: 'Editing' | 'Reassigning';
 }
+
+const TRANSMITTED_STEP = 'TRANSMITTED';
 
 export function decideAssignment(
   before: TripBeforeEdit,
@@ -94,6 +103,10 @@ export function decideAssignment(
 
   const decision: Omit<AssignmentDecision, 'refusal'> = {
     locked,
+    stampTransmitted:
+      locked &&
+      (reassigned ||
+        !before.steps.some((step) => step.step === TRANSMITTED_STEP)),
     // Any saved edit — trip details as much as a driver/vehicle/partner
     // reassignment — invalidates a previous dispatch and re-arms the Send
     // button, so the dispatcher is prompted to re-send with the new

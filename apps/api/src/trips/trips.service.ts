@@ -386,10 +386,7 @@ export class TripsService {
     if (decision.reassigned) {
       await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
     }
-    if (
-      decision.locked &&
-      !(await this.hasStep(trip.id, TripStepKind.TRANSMITTED))
-    ) {
+    if (decision.stampTransmitted) {
       await this.prisma.tripStep.create({
         data: { tripId: trip.id, step: TripStepKind.TRANSMITTED },
       });
@@ -522,6 +519,11 @@ export class TripsService {
     await this.prisma.trip.update({ where: { id: trip.id }, data });
     if (decision.reassigned) {
       await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
+    }
+    if (decision.stampTransmitted) {
+      await this.prisma.tripStep.create({
+        data: { tripId: trip.id, step: TripStepKind.TRANSMITTED },
+      });
     }
 
     // Non-blocking, exactly as in update(): the reassignment is saved either
@@ -959,13 +961,6 @@ export class TripsService {
       );
     }
     return fleetVehicle;
-  }
-
-  private async hasStep(tripId: string, step: TripStepKind): Promise<boolean> {
-    const found = await this.prisma.tripStep.findUnique({
-      where: { tripId_step: { tripId, step } },
-    });
-    return !!found;
   }
 
   private async stampStep(tripId: string, step: TripStepKind): Promise<void> {
