@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
-import { ClientsControllerListType, useClientsControllerList, useMetaControllerGetMeta } from '@cockpit/shared/api'
+import {
+  ClientsControllerListType,
+  useClientsControllerList,
+  useDriversControllerList,
+  useMetaControllerGetMeta,
+} from '@cockpit/shared/api'
 import type { FleetVehicleEntity } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
@@ -48,6 +53,24 @@ export function VehicleFormFields({
 
   const [eventSearch, setEventSearch] = useState('')
   const { debounced: debouncedEventSearch, pending: eventSearchPending } = useDebouncedSearch(eventSearch, EVENT_PICKER_DEBOUNCE_MS)
+
+  // The partner companies already on file, as the legacy suggested them
+  // (partnerCompanies, common.js:4024-4033). Narrowed by the query — a driver
+  // record carrying a Company is what "partner" means — and deduplicated,
+  // since a company has as many driver records as it has chauffeurs.
+  const [partnerSearch, setPartnerSearch] = useState('')
+  const { debounced: debouncedPartnerSearch, pending: partnerSearchPending } = useDebouncedSearch(
+    partnerSearch,
+    EVENT_PICKER_DEBOUNCE_MS,
+  )
+  const partners = useDriversControllerList({
+    partnersOnly: true,
+    search: debouncedPartnerSearch || undefined,
+    limit: EVENT_PICKER_LIMIT,
+  })
+  const partnerCompanyOptions = [
+    ...new Set((partners.data?.data ?? []).map((d) => d.company).filter((c): c is string => !!c)),
+  ].map((company) => ({ value: company, label: company }))
 
   const category = form.watch('category')
   const make = form.watch('make')
@@ -403,7 +426,23 @@ export function VehicleFormFields({
                 <FormItem>
                   <FormLabel>Partner</FormLabel>
                   <FormControl>
-                    <Input placeholder="Partner company…" {...field} />
+                    {/* Suggests the partner companies already on file, and
+                        still takes a name that isn't one — a vehicle can be
+                        registered for a partner before any of their chauffeurs
+                        is (partnerCompanies, common.js:4024-4033). */}
+                    <SearchCombobox
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      options={partnerCompanyOptions}
+                      placeholder="Partner company…"
+                      searchPlaceholder="Search a partner company…"
+                      searchValue={partnerSearch}
+                      onSearchChange={setPartnerSearch}
+                      loading={partnerSearchPending || partners.isFetching}
+                      allowCustomValue
+                      customValueLabel={(typed) => `Use “${typed}”`}
+                      selectedLabel={field.value || undefined}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

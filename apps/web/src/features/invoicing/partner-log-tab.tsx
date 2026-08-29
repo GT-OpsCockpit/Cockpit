@@ -13,6 +13,7 @@ import { downloadPartnerExcel } from './invoice-excel'
 import { PartnerFiltersBar } from './partner-filters-bar'
 import { defaultPartnerFilters } from './partner-filters'
 import { partnerLogView } from '../bookings/trip-views'
+import { driverLabel } from '@cockpit/shared'
 import { FilterCard } from '@/components/filter-card'
 import { filtersChanged } from '@/lib/utils'
 
@@ -37,7 +38,15 @@ export function PartnerLogTab() {
   const [nameboardTarget, setNameboardTarget] = useState<TripEntity | null>(null)
 
   const filteredTrips = trips.data ?? []
-  const targetLabel = filteredTrips[0]?.partner ? (filteredTrips[0].partner.firstName ?? filteredTrips[0].partner.company ?? 'AllPartners') : 'AllPartners'
+  // The file is named after the partner that was *selected*, as the legacy
+  // named it (invoicing.html:788-790) — reading it off the first result row
+  // put one partner's name on a file covering all of them.
+  const selectedPartner = filters.partnerRef
+    ? filteredTrips.find((t) => t.partner?.ref === filters.partnerRef)?.partner
+    : null
+  const targetLabel = selectedPartner
+    ? (driverLabel(selectedPartner) || selectedPartner.ref)
+    : 'AllPartners'
 
   return (
     <div className="grid gap-6">

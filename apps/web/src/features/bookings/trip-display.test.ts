@@ -1,0 +1,62 @@
+import { describe, expect, it } from 'vitest'
+import { itineraryLabel, shortPlaceLabel } from './trip-display'
+import { baseTrip } from './test-fixtures'
+import { TripEntityService } from '@cockpit/shared/api'
+
+// A full street address doesn't fit the Itinerary column next to Reg Nbr,
+// Sub-C and Driver — and cutting it at the first comma keeps the wrong end.
+// Ported from shortPlaceLabel (common.js:2032).
+describe('shortPlaceLabel', () => {
+  it('leads with the city and keeps the rest behind it', () => {
+    expect(shortPlaceLabel('Hotel Negresco, Nice, France', null, 'Europe/Paris')).toBe('Nice, Hotel Negresco')
+  })
+
+  it('names the Paris arrondissement a postal code gives away', () => {
+    expect(shortPlaceLabel('12 rue de Tolbiac, 75013 Paris', null, 'Europe/Paris')).toBe('Paris 13, 12 rue de Tolbiac')
+  })
+
+  it("leads with the trip's own city when the address names it, and strips it from the rest", () => {
+    expect(shortPlaceLabel('Gare de Lyon, Paris', null, 'Europe/Paris')).toBe('Paris, Gare de Lyon')
+  })
+
+  // "place, city, country" is the shape the address search returns, so the
+  // city is the second-to-last segment rather than the last.
+  it('takes the city segment of a comma-separated address', () => {
+    expect(shortPlaceLabel('Hotel Martinez, Cannes, France', null, 'Europe/Paris')).toBe('Cannes, Hotel Martinez')
+  })
+
+  it('keeps a one-segment address, behind the city when there is one', () => {
+    expect(shortPlaceLabel('Somewhere unlisted', null, 'Europe/Paris')).toBe('Paris, Somewhere unlisted')
+    expect(shortPlaceLabel('Somewhere unlisted', null, null)).toBe('Somewhere unlisted')
+  })
+
+  it('keeps an airport code behind its city', () => {
+    expect(shortPlaceLabel('Charles de Gaulle Airport', 'CDG', 'Europe/Paris')).toBe('Paris, CDG')
+    expect(shortPlaceLabel('Somewhere', 'JFK', null)).toBe('JFK')
+  })
+
+  it('falls back to an em dash rather than an empty cell', () => {
+    expect(shortPlaceLabel('', null, 'Europe/Paris')).toBe('—')
+    expect(shortPlaceLabel(null, null, null)).toBe('—')
+  })
+
+  it('reads a timezone city with an underscore as the name it stands for', () => {
+    expect(shortPlaceLabel('JFK Terminal 4, New York', null, 'America/New_York')).toBe('New York, JFK Terminal 4')
+  })
+})
+
+describe('itineraryLabel', () => {
+  it('shortens both ends', () => {
+    const trip = baseTrip({
+      pickupLocation: 'Hotel Negresco, Nice, France',
+      dropoffLocation: 'Aéroport, Cannes, France',
+      timezone: 'Europe/Paris',
+    })
+    expect(itineraryLabel(trip)).toBe('Nice, Hotel Negresco → Cannes, Aéroport')
+  })
+
+  it('says how long an at-disposal booking runs instead of a drop-off', () => {
+    const trip = baseTrip({ service: TripEntityService.ASD, hours: 4, pickupLocation: 'Nice, France' })
+    expect(itineraryLabel(trip)).toEqual(expect.stringContaining('→ ASD (4h)'))
+  })
+})

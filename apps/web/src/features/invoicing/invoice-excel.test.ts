@@ -3,6 +3,21 @@ import { baseClient, baseDriver, baseTrip } from '../bookings/test-fixtures'
 import { baseInvoice } from './test-fixtures'
 import { invoicesExcelRows, partnerTripsExcelRows, tripsExcelRows } from './invoice-excel'
 
+// These files go to the customer and to partners. On screen a booking with no
+// step yet reads "Send ?" — a prompt to the dispatcher, not a state — and the
+// legacy left the cell empty in the export (invoicing.html:646).
+describe('the exported Status column', () => {
+  it('leaves a not-yet-started booking blank rather than exporting "Send ?"', () => {
+    expect(tripsExcelRows([baseTrip({ steps: [] })])[0].Status).toBe('')
+    expect(partnerTripsExcelRows([baseTrip({ steps: [] })])[0].Status).toBe('')
+  })
+
+  it('exports the step a booking has reached', () => {
+    const trip = baseTrip({ steps: [{ id: 's1', tripId: 'trip-1', step: 'TRANSMITTED', occurredAt: '2026-01-01T00:00:00.000Z' }] })
+    expect(tripsExcelRows([trip])[0].Status).toBe('Sent')
+  })
+})
+
 describe('tripsExcelRows', () => {
   it('shapes one row per trip, sorted chronologically, with Driver/Partner combined', () => {
     const t1 = baseTrip({ ref: 'R1', pickupAt: '2026-06-02T10:00:00.000Z', driver: baseDriver({ firstName: 'Jean', lastName: 'D.' }), partner: null })

@@ -99,4 +99,29 @@ describe('DriverFormFields', () => {
       )
     })
   })
+
+  // Only a partner is ever emailed — the sub-contracting drafts go to their
+  // address, an in-house chauffeur is reached on WhatsApp. The legacy disabled
+  // and cleared the field for one (drivers.html:385-387).
+  it('locks the Email field for an in-house driver, and opens it once a Company is named', () => {
+    render(<Harness onValues={() => {}} defaults={{ company: '' }} />)
+    expect(screen.getByLabelText('Email')).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText('Company'), { target: { value: 'Riviera Cars' } })
+    expect(screen.getByLabelText('Email')).toBeEnabled()
+  })
+
+  it('clears an address left over from when the driver was a partner', () => {
+    let latest: DriverFormValues | undefined
+    render(
+      <Harness
+        onValues={(values) => (latest = values)}
+        defaults={{ company: 'Riviera Cars', email: 'paul@riviera.test' }}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Company'), { target: { value: '  ' } })
+    expect(latest?.email).toBe('')
+  })
+
 })

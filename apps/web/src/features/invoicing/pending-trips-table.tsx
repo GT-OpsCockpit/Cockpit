@@ -6,7 +6,8 @@ import { TableCard } from '@/components/table-card'
 import { EmptyState } from '@/components/empty-state'
 import { DispatchButton } from '../bookings/trip-actions-cell'
 import { StatusBadge } from '../bookings/status-badge'
-import { clientAccountLabel, itineraryLabel } from '../bookings/trip-display'
+import { clientAccountLabel } from '../bookings/trip-display'
+import { Itinerary } from '../bookings/itinerary'
 import { PickupTime } from '../bookings/pickup-time'
 
 /**
@@ -77,7 +78,7 @@ export function PendingTripsTable({
                     </div>
                     <div className="text-muted-foreground text-[10px]">{trip.passengerName}</div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{itineraryLabel(trip)}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs"><Itinerary trip={trip} /></TableCell>
                   <TableCell className="text-xs">{trip.vehicleType?.name ?? '—'}</TableCell>
                   <TableCell className="text-xs">{trip.client.refPoOther || '–'}</TableCell>
                   <TableCell className="text-center text-xs">

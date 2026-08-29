@@ -30,9 +30,21 @@ export function tripsExcelRows(trips: TripEntity[]) {
       'Driver / Partner': (t.driver && driverLabel(t.driver)) || (t.partner && driverLabel(t.partner)) || '',
       'Sub-C': t.subContractor ? 'Yes' : 'No',
       'Retail net (€)': t.priceEur != null ? Number(t.priceEur) : '',
-      Status: statusLabel(currentStatus(t)),
+      Status: exportedStatus(t),
     }
   })
+}
+
+/**
+ * The status as a spreadsheet should carry it. On screen a booking with no
+ * step yet reads "Send ?" — a prompt to the dispatcher, not a state — and the
+ * legacy left that cell empty in the export for the same reason
+ * (STEP_LABELS[currentStatus(t)], invoicing.html:646). These files go to the
+ * customer and to partners.
+ */
+function exportedStatus(trip: TripEntity): string {
+  const status = currentStatus(trip)
+  return status ? statusLabel(status) : ''
 }
 
 /** Partner log export — same shape, Partner + Partner rate instead of the generic Driver/Partner + Sub-C columns (invoicing.html:770-783). */
@@ -51,7 +63,7 @@ export function partnerTripsExcelRows(trips: TripEntity[]) {
       'Reg Nbr': t.fleetVehicle?.regNbr ?? '',
       Partner: (t.partner && driverLabel(t.partner)) || '',
       'Partner rate (€)': t.partnerRateEur != null ? Number(t.partnerRateEur) : '',
-      Status: statusLabel(currentStatus(t)),
+      Status: exportedStatus(t),
     }
   })
 }

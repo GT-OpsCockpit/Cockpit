@@ -68,7 +68,15 @@ function ActionCell({
             <Wrench className="size-3.5" />
           </Button>
         )}
-        <Button variant="ghost" size="icon" title="Edit" onClick={() => onEdit(vehicle)}>
+        {/* A vehicle out of the fleet is not edited, it is brought back first
+            — the legacy greyed the pencil the same way (vehicles.html:522). */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title={vehicle.active ? 'Edit' : 'Reactivate this vehicle to edit it'}
+          disabled={!vehicle.active}
+          onClick={() => onEdit(vehicle)}
+        >
           <Pencil className="size-3.5" />
         </Button>
         <Button

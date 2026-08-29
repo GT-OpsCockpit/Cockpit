@@ -15,7 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePermission } from '@/features/auth/use-permission'
 import { PermissionWarning } from '@/components/permission-warning'
-import { clientAccountLabel, itineraryLabel, tripDriverName } from './trip-display'
+import { clientAccountLabel, tripDriverName } from './trip-display'
+import { Itinerary } from './itinerary'
 import { PickupTime } from './pickup-time'
 
 const FEE_OPTIONS: { value: CancelAssignmentDtoCancellationFee; label: string }[] = [
@@ -105,7 +106,9 @@ export function BookingCancelDialog({
               <div>
                 <PickupTime trip={trip} />
               </div>
-              <div>{itineraryLabel(trip)}</div>
+              <div>
+                <Itinerary trip={trip} />
+              </div>
               <div>Driver: {tripDriverName(trip) ?? '—'}</div>
             </div>
             <div className="grid gap-2">

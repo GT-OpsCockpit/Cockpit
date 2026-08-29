@@ -30,6 +30,10 @@ export function DriverFormFields({
   const { debounced: debouncedEventSearch, pending: eventSearchPending } = useDebouncedSearch(eventSearch, EVENT_PICKER_DEBOUNCE_MS)
 
   const eventsOnly = form.watch('eventsOnly')
+  // "Partner" is a driver record carrying a Company — the same split as
+  // isPartner (driver-status.ts).
+  const company = form.watch('company')
+  const isPartner = !!company?.trim()
   const countryCode = form.watch('countryCode') ?? ''
   const area = form.watch('area') ?? ''
 
@@ -107,7 +111,17 @@ export function DriverFormFields({
               <FormItem>
                 <FormLabel>Company</FormLabel>
                 <FormControl>
-                  <Input placeholder="Leave empty for an internal driver" {...field} />
+                  <Input
+                    placeholder="Leave empty for an internal driver"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e)
+                      // An address kept from when this was a partner would sit
+                      // there greyed out and still get saved — the legacy
+                      // cleared it with the company (drivers.html:387).
+                      if (!e.target.value.trim()) form.setValue('email', '', { shouldDirty: true })
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -135,7 +149,16 @@ export function DriverFormFields({
             <FormItem className="max-w-sm">
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <EmailInput value={field.value ?? ''} onChange={field.onChange} />
+                {/* Only a partner is ever emailed — the sub-contracting drafts
+                    go to their address, and an in-house chauffeur is reached on
+                    WhatsApp. The legacy disabled and cleared the field for one
+                    (drivers.html:385-387). */}
+                <EmailInput
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  disabled={!isPartner}
+                  placeholder={isPartner ? undefined : 'Partner companies only'}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -70,16 +70,69 @@ export function urgencyRowClass(trip: TripEntity): string {
 }
 
 export function itineraryLabel(trip: TripEntity): string {
-  const pu = trip.pickupIata || shortenLocation(trip.pickupLocation)
+  const pu = shortPlaceLabel(trip.pickupLocation, trip.pickupIata, trip.timezone)
   const dropoff =
     trip.service === TripEntityService.ASD
       ? `ASD (${trip.hours ?? '?'}h)`
-      : trip.dropoffIata || shortenLocation(trip.dropoffLocation) || '—'
+      : shortPlaceLabel(trip.dropoffLocation, trip.dropoffIata, trip.timezone)
   return `${pu} → ${dropoff}`
 }
 
-function shortenLocation(location: string | null | undefined): string {
-  if (!location) return '—'
-  const firstSegment = location.split(',')[0]?.trim()
-  return firstSegment || location
+/** The city a timezone names — "Europe/Paris" is Paris, "America/New_York" is New York. */
+function timezoneCityName(timezone: string | null | undefined): string {
+  if (!timezone) return ''
+  return (timezone.split('/').pop() ?? '').replace(/_/g, ' ')
+}
+
+/**
+ * An address as one narrow column can carry it — always leading with the city,
+ * then whatever of the address fits after it.
+ *
+ * A full street address doesn't fit next to Reg Nbr, Sub-C and Driver, and
+ * cutting it at the first comma is the wrong end: "12 avenue des Fleurs" says
+ * far less than "Nice, 12 avenue des Fleurs". The city is picked in the
+ * legacy's own order (shortPlaceLabel, common.js:2032): a Paris arrondissement
+ * found via a 750xx postal code, then the trip's own city if the address names
+ * it, then the city segment of a comma-separated address. An airport keeps its
+ * IATA code behind the city — "Paris, CDG".
+ */
+export function shortPlaceLabel(
+  location: string | null | undefined,
+  iata: string | null | undefined,
+  timezone: string | null | undefined,
+): string {
+  const tzCity = timezoneCityName(timezone)
+  if (iata) return tzCity ? `${tzCity}, ${iata}` : iata
+  if (!location?.trim()) return '—'
+  const trimmed = location.trim()
+
+  const joinRest = (rest: string) =>
+    rest
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(', ')
+
+  const arrondissement = trimmed.match(/\b750(\d{2})\b/)
+  if (tzCity === 'Paris' && arrondissement) {
+    const rest = joinRest(
+      trimmed.split(arrondissement[0]).join('').replace(new RegExp(`\\b${tzCity}\\b`, 'i'), ''),
+    )
+    const label = `Paris ${parseInt(arrondissement[1], 10)}`
+    return rest ? `${label}, ${rest}` : label
+  }
+
+  if (tzCity && new RegExp(`\\b${tzCity}\\b`, 'i').test(trimmed)) {
+    const rest = joinRest(trimmed.replace(new RegExp(`\\b${tzCity}\\b`, 'i'), ''))
+    return rest ? `${tzCity}, ${rest}` : tzCity
+  }
+
+  const parts = trimmed.split(',').map((part) => part.trim()).filter(Boolean)
+  if (parts.length >= 2) {
+    const city = parts[parts.length - 2]
+    const rest = parts.slice(0, parts.length - 2).join(', ')
+    return rest ? `${city}, ${rest}` : city
+  }
+
+  return tzCity ? `${tzCity}, ${trimmed}` : trimmed
 }

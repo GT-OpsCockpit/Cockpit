@@ -6,7 +6,8 @@ import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from './status-badge'
-import { clientAccountLabel, itineraryLabel, shortDriverName, tripDriverName, urgencyRowClass } from './trip-display'
+import { clientAccountLabel, shortDriverName, tripDriverName, urgencyRowClass } from './trip-display'
+import { Itinerary } from './itinerary'
 import { PickupTime } from './pickup-time'
 import { TripActionsCell } from './trip-actions-cell'
 
@@ -92,7 +93,7 @@ export function BookingsTable({
                     </div>
                     <div className="text-muted-foreground text-[10px]">{trip.passengerName}</div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{itineraryLabel(trip)}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs"><Itinerary trip={trip} /></TableCell>
                   <TableCell className="text-xs">
                     {trip.vehicleType?.name ?? '—'}
                     <br />
