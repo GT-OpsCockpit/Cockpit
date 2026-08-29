@@ -15,6 +15,7 @@ import { isLocalTrip } from '@cockpit/shared'
 import { bookingListQuery, defaultBookingFilters } from './booking-filters'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
 import { Button } from '@/components/ui/button'
+import { FilterCard } from '@/components/filter-card'
 import { PageTitle } from '@/components/layout/page-title'
 import { filtersChanged } from '@/lib/utils'
 
@@ -62,9 +63,9 @@ export function BookingsPage() {
         </Button>
       </div>
 
-      <div className="grid gap-3">
-        <BookingFiltersBar filters={filters} onChange={setFilters} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
-      </div>
+      <FilterCard hasActiveFilters={hasActiveFilters} onReset={resetFilters}>
+        <BookingFiltersBar filters={filters} onChange={setFilters} />
+      </FilterCard>
 
       <div className="grid gap-2">
         <h2 className="text-lg font-semibold">Local</h2>

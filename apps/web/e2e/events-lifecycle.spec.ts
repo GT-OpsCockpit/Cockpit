@@ -31,8 +31,11 @@ async function selectSearchCombobox(
   await page.getByRole('option', { name: optionText }).click()
 }
 
-async function selectFromDropdown(page: Page, name: string, optionText: string) {
-  await page.getByRole('combobox', { name }).click()
+// Scoped for the same reason as above, and `name` is a substring match: the
+// page's own "Vehicle type" filter answers to "Vehicle" just as the dialog's
+// field does.
+async function selectFromDropdown(page: Page, scope: Locator, name: string, optionText: string) {
+  await scope.getByRole('combobox', { name }).click()
   await page.getByRole('option', { name: optionText, exact: true }).click()
 }
 
@@ -49,7 +52,7 @@ async function fillBookingForm(page: Page, dialog: Locator, passengerName: strin
   await fillArea(page, dialog, 'Nice')
   await dialog.locator('input[type="date"]').fill('2027-06-01')
   await dialog.locator('input[type="time"]').fill('10:00')
-  await selectFromDropdown(page, 'Vehicle', 'Business')
+  await selectFromDropdown(page, dialog, 'Vehicle', 'Business')
   await dialog.getByLabel('Pax Name').fill(passengerName)
   await dialog.getByLabel('PU', { exact: true }).fill('Nice Airport')
   await dialog.getByLabel('DO', { exact: true }).fill('Hotel Negresco')

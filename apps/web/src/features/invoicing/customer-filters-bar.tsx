@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { ClientsControllerListType, useClientsControllerList } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
+import { FilterField } from '@/components/filter-field'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { FilterResetButton } from '@/components/filter-reset-button'
 import type { CustomerFilters } from './customer-filters'
 
 const PICKER_LIMIT = 20
@@ -15,13 +15,9 @@ const PICKER_DEBOUNCE_MS = 300
 export function CustomerFiltersBar({
   filters,
   onChange,
-  hasActiveFilters,
-  onReset,
 }: {
   filters: CustomerFilters
   onChange: (filters: CustomerFilters) => void
-  hasActiveFilters: boolean
-  onReset: () => void
 }) {
   const [clientSearch, setClientSearch] = useState('')
   const { debounced: debouncedClientSearch, pending: clientSearchPending } = useDebouncedSearch(clientSearch, PICKER_DEBOUNCE_MS)
@@ -49,73 +45,83 @@ export function CustomerFiltersBar({
   const toggleEventsMode = (checked: boolean) => onChange({ ...filters, eventsMode: checked, clientRef: '', eventRef: '' })
 
   return (
-    <div className="flex flex-wrap items-end gap-2">
+    <div className="flex flex-wrap items-end gap-3">
       {filters.eventsMode ? (
-        <SearchCombobox
-          id="inv-cust-event"
-          aria-label="Event"
-          className="w-48"
-          value={filters.eventRef}
-          onChange={(v) => set('eventRef', v)}
-          options={eventOptions}
-          placeholder="All events"
-          searchPlaceholder="Search event…"
-          searchValue={eventSearch}
-          onSearchChange={setEventSearch}
-          loading={eventSearchPending || events.isFetching}
-        />
+        <FilterField label="Event" htmlFor="inv-cust-event" className="w-48">
+          <SearchCombobox
+            id="inv-cust-event"
+            className="w-full"
+            value={filters.eventRef}
+            onChange={(v) => set('eventRef', v)}
+            options={eventOptions}
+            placeholder="All events"
+            searchPlaceholder="Search event…"
+            searchValue={eventSearch}
+            onSearchChange={setEventSearch}
+            loading={eventSearchPending || events.isFetching}
+          />
+        </FilterField>
       ) : (
-        <SearchCombobox
-          id="inv-cust-client"
-          aria-label="Client"
-          className="w-48"
-          value={filters.clientRef}
-          onChange={(v) => set('clientRef', v)}
-          options={clientOptions}
-          placeholder="All clients"
-          searchPlaceholder="Search client…"
-          searchValue={clientSearch}
-          onSearchChange={setClientSearch}
-          loading={clientSearchPending || clients.isFetching}
-        />
+        <FilterField label="Client" htmlFor="inv-cust-client" className="w-48">
+          <SearchCombobox
+            id="inv-cust-client"
+            className="w-full"
+            value={filters.clientRef}
+            onChange={(v) => set('clientRef', v)}
+            options={clientOptions}
+            placeholder="All clients"
+            searchPlaceholder="Search client…"
+            searchValue={clientSearch}
+            onSearchChange={setClientSearch}
+            loading={clientSearchPending || clients.isFetching}
+          />
+        </FilterField>
       )}
 
-      <Input
-        className="w-36"
-        type="date"
-        value={filters.dateStart}
-        onChange={(e) => set('dateStart', e.target.value)}
-        aria-label="Date in"
-      />
-      <Input
-        className="w-36"
-        type="date"
-        value={filters.dateEnd}
-        onChange={(e) => set('dateEnd', e.target.value)}
-        aria-label="Date out"
-      />
+      <FilterField label="Date in" htmlFor="inv-cust-date-in" className="w-36">
+        <Input
+          id="inv-cust-date-in"
+          className="w-full"
+          type="date"
+          value={filters.dateStart}
+          onChange={(e) => set('dateStart', e.target.value)}
+        />
+      </FilterField>
+      <FilterField label="Date out" htmlFor="inv-cust-date-out" className="w-36">
+        <Input
+          id="inv-cust-date-out"
+          className="w-full"
+          type="date"
+          value={filters.dateEnd}
+          onChange={(e) => set('dateEnd', e.target.value)}
+        />
+      </FilterField>
 
-      <Input
-        className="w-40"
-        placeholder="Search ref/PO…"
-        value={filters.refPo}
-        onChange={(e) => set('refPo', e.target.value)}
-      />
-      <Input
-        className="w-40"
-        placeholder="Search passenger…"
-        value={filters.passenger}
-        onChange={(e) => set('passenger', e.target.value)}
-      />
+      <FilterField label="Ref/PO" htmlFor="inv-cust-ref-po" className="w-40">
+        <Input
+          id="inv-cust-ref-po"
+          className="w-full"
+          placeholder="Search ref/PO…"
+          value={filters.refPo}
+          onChange={(e) => set('refPo', e.target.value)}
+        />
+      </FilterField>
+      <FilterField label="Passenger" htmlFor="inv-cust-passenger" className="w-40">
+        <Input
+          id="inv-cust-passenger"
+          className="w-full"
+          placeholder="Search passenger…"
+          value={filters.passenger}
+          onChange={(e) => set('passenger', e.target.value)}
+        />
+      </FilterField>
 
-      <div className="flex items-center gap-2 pb-2">
+      <div className="flex h-9 items-center gap-2">
         <Checkbox id="inv-cust-events-toggle" checked={filters.eventsMode} onCheckedChange={(c) => toggleEventsMode(!!c)} />
         <Label htmlFor="inv-cust-events-toggle" title="Search by Event instead of Client">
           Events
         </Label>
       </div>
-
-      <FilterResetButton onReset={onReset} hasActiveFilters={hasActiveFilters} />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { API_BASE_URL, dispatcherAuthFile } from './config'
 import { fillArea } from './helpers'
 

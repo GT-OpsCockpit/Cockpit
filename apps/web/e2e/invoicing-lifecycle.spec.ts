@@ -35,8 +35,11 @@ async function selectInDialog(page: Page, scope: Locator, label: string, query: 
   await page.getByRole('option', { name: optionText }).click()
 }
 
-async function selectFromDropdown(page: Page, name: string, optionText: string) {
-  await page.getByRole('combobox', { name }).click()
+// Scoped like selectInDialog: `name` is a substring match, so the Bookings
+// filter card's "Vehicle type" answers to "Vehicle" as readily as the booking
+// dialog's own field.
+async function selectFromDropdown(page: Page, scope: Locator, name: string, optionText: string) {
+  await scope.getByRole('combobox', { name }).click()
   await page.getByRole('option', { name: optionText, exact: true }).click()
 }
 
@@ -60,14 +63,14 @@ test.describe('Invoicing — Customer tab lifecycle', () => {
     // so the form only exists while it is open.
     await page.getByRole('button', { name: 'New booking' }).click()
     const form = page.getByRole('dialog', { name: 'New booking' })
-    await selectSearchCombobox(page, 'Country', 'Fra', 'France (FR)')
+    await selectInDialog(page, form, 'Country', 'Fra', 'France (FR)')
     // Choosing a Country clears the Area (resetAreaField, common.js:871), so it
     // is always filled after the Country, never before.
     await fillArea(page, form, 'Nice')
     await form.locator('input[type="date"]').fill('2026-09-25')
     await form.locator('input[type="time"]').fill('14:30')
-    await selectFromDropdown(page, 'Vehicle', 'Business')
-    await selectSearchCombobox(page, 'Customer', clientName, clientName)
+    await selectFromDropdown(page, form, 'Vehicle', 'Business')
+    await selectInDialog(page, form, 'Customer', clientName, clientName)
     await form.getByLabel('Pax Name').fill('E2E Invoicing Passenger')
     await form.getByLabel('PU', { exact: true }).fill('Nice Airport')
     await form.getByLabel('DO', { exact: true }).fill('Cannes')
@@ -189,7 +192,7 @@ test.describe('Invoicing — Events mode', () => {
     await fillArea(page, bookingDialog, 'Nice')
     await bookingDialog.locator('input[type="date"]').fill('2027-06-01')
     await bookingDialog.locator('input[type="time"]').fill('10:00')
-    await selectFromDropdown(page, 'Vehicle', 'Business')
+    await selectFromDropdown(page, bookingDialog, 'Vehicle', 'Business')
     await bookingDialog.getByLabel('Pax Name').fill(`E2E Inv Event Pax ${stamp}`)
     await bookingDialog.getByLabel('PU', { exact: true }).fill('Nice Airport')
     await bookingDialog.getByLabel('DO', { exact: true }).fill('Hotel Negresco')

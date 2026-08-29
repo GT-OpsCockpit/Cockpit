@@ -136,7 +136,7 @@ test.describe('Planning — lifecycle (ADMIN)', () => {
     try {
       await page.goto('/planning')
       await page.getByRole('tab', { name: 'Timeline' }).click()
-      await page.locator('input[type="date"]').fill(tomorrowDateStr())
+      await page.getByLabel('Date', { exact: true }).fill(tomorrowDateStr())
 
       const card = page.locator(`[data-ref="${trip.ref}"]`)
       await expect(card).toBeVisible()
@@ -189,7 +189,7 @@ test.describe('Planning — lifecycle (ADMIN)', () => {
       await page.goto('/planning')
       await page.getByRole('tab', { name: 'Vehicles' }).click()
       await page.getByRole('tab', { name: 'Timeline' }).click()
-      await page.locator('input[type="date"]').fill(tomorrowDateStr())
+      await page.getByLabel('Date', { exact: true }).fill(tomorrowDateStr())
 
       const card = page.locator(`[data-ref="${trip.ref}"]`)
       await expect(card).toBeVisible()

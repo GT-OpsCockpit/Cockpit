@@ -12,6 +12,7 @@ import { NameboardUploadDialog } from '../bookings/nameboard-upload-dialog'
 import { downloadPartnerExcel } from './invoice-excel'
 import { PartnerFiltersBar } from './partner-filters-bar'
 import { applyPartnerFilters, defaultPartnerFilters, partnerListQuery } from './partner-filters'
+import { FilterCard } from '@/components/filter-card'
 import { filtersChanged } from '@/lib/utils'
 
 /**
@@ -40,10 +41,9 @@ export function PartnerLogTab() {
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-3">
-        <h2 className="text-lg font-semibold">Partner log</h2>
-        <PartnerFiltersBar filters={filters} onChange={setFilters} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
-      </div>
+      <FilterCard title="Partner log" hasActiveFilters={hasActiveFilters} onReset={resetFilters}>
+        <PartnerFiltersBar filters={filters} onChange={setFilters} />
+      </FilterCard>
 
       <div className="grid gap-2">
         <div className="flex items-center gap-3">

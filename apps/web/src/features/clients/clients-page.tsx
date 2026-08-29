@@ -6,6 +6,7 @@ import { getClientsControllerListQueryKey, useClientsControllerList, useClientsC
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
+import { FilterCard } from '@/components/filter-card'
 import { ListPagination } from '@/components/list-pagination'
 import { BookingCreateDialog, type BookingPrefill } from '@/features/bookings/booking-create-dialog'
 import { ClientCreateDialog } from './client-create-dialog'
@@ -67,7 +68,9 @@ export function ClientsPage() {
         <ClientCreateDialog />
       </div>
 
-      <ClientFiltersBar filters={filters} onChange={handleFiltersChange} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
+      <FilterCard hasActiveFilters={hasActiveFilters} onReset={resetFilters}>
+        <ClientFiltersBar filters={filters} onChange={handleFiltersChange} />
+      </FilterCard>
 
       <ClientsTable
         clients={clients.data?.data ?? []}

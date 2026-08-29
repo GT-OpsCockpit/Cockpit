@@ -24,6 +24,7 @@ import { downloadCustomerPendingExcel, downloadInvoicesExcel } from './invoice-e
 import { InvoiceCreateDialog } from './invoice-create-dialog'
 import { InvoicedTable } from './invoiced-table'
 import { PendingTripsTable } from './pending-trips-table'
+import { FilterCard } from '@/components/filter-card'
 import { filtersChanged } from '@/lib/utils'
 
 export function CustomerTab() {
@@ -71,10 +72,9 @@ export function CustomerTab() {
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-3">
-        <h2 className="text-lg font-semibold">Customer</h2>
-        <CustomerFiltersBar filters={filters} onChange={setFilters} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
-      </div>
+      <FilterCard title="Customer" hasActiveFilters={hasActiveFilters} onReset={resetFilters}>
+        <CustomerFiltersBar filters={filters} onChange={setFilters} />
+      </FilterCard>
 
       <div className="grid gap-2">
         <div className="flex items-center gap-3">

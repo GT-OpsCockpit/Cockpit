@@ -3,9 +3,9 @@ import { ClientsControllerListType, useClientsControllerList } from '@cockpit/sh
 import type { ClientEntity } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
+import { FilterField } from '@/components/filter-field'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EventClientCreateDialog } from './event-client-create-dialog'
 
 const PICKER_LIMIT = 20
@@ -24,6 +24,10 @@ function formatEventDates(client: ClientEntity | null): string {
  * Customer field to it. Confirming a different event later just re-targets
  * the lock (there's no "unconfirm" — same as legacy, this page is scoped to
  * event bookings).
+ *
+ * Renders its fields alone, without a card of its own: EventsPage sits them and
+ * the ride filters in one <FilterCard> — choosing the event and narrowing its
+ * rides are one gesture, and two stacked cards said otherwise.
  */
 export function EventSelectPanel({
   confirmedEvent,
@@ -50,62 +54,48 @@ export function EventSelectPanel({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Select event</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-4 sm:items-end">
-        <div className="grid gap-2">
-          <label className="text-sm font-medium" htmlFor="event-select-client">
-            Client
-          </label>
-          <SearchCombobox
-            id="event-select-client"
-            value={pendingClient?.ref ?? ''}
-            onChange={handleChange}
-            options={options}
-            placeholder="Choose an event client…"
-            searchPlaceholder="Search event client…"
-            searchValue={search}
-            onSearchChange={setSearch}
-            loading={searchPending || eventClients.isFetching}
-            selectedLabel={pendingClient?.name}
-          />
-        </div>
-        <div className="grid gap-2">
-          <label className="text-sm font-medium" htmlFor="event-select-name">
-            Event
-          </label>
-          <Input
-            id="event-select-name"
-            disabled
-            value={pendingClient?.company ?? pendingClient?.name ?? ''}
-            placeholder="—"
-          />
-        </div>
-        <div className="grid gap-2">
-          <label className="text-sm font-medium" htmlFor="event-select-dates">
-            Dates
-          </label>
-          <Input id="event-select-dates" disabled value={formatEventDates(pendingClient)} placeholder="—" />
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setPendingClient(null)
-              setSearch('')
-            }}
-          >
-            Cancel
-          </Button>
-          <EventClientCreateDialog onCreated={setPendingClient} />
-          <Button type="button" disabled={!pendingClient} onClick={() => pendingClient && onConfirm(pendingClient)}>
-            Confirm
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
+      <FilterField label="Client" htmlFor="event-select-client">
+        <SearchCombobox
+          id="event-select-client"
+          value={pendingClient?.ref ?? ''}
+          onChange={handleChange}
+          options={options}
+          placeholder="Choose an event client…"
+          searchPlaceholder="Search event client…"
+          searchValue={search}
+          onSearchChange={setSearch}
+          loading={searchPending || eventClients.isFetching}
+          selectedLabel={pendingClient?.name}
+        />
+      </FilterField>
+      <FilterField label="Event" htmlFor="event-select-name">
+        <Input
+          id="event-select-name"
+          disabled
+          value={pendingClient?.company ?? pendingClient?.name ?? ''}
+          placeholder="—"
+        />
+      </FilterField>
+      <FilterField label="Dates" htmlFor="event-select-dates">
+        <Input id="event-select-dates" disabled value={formatEventDates(pendingClient)} placeholder="—" />
+      </FilterField>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setPendingClient(null)
+            setSearch('')
+          }}
+        >
+          Cancel
+        </Button>
+        <EventClientCreateDialog onCreated={setPendingClient} />
+        <Button type="button" disabled={!pendingClient} onClick={() => pendingClient && onConfirm(pendingClient)}>
+          Confirm
+        </Button>
+      </div>
+    </div>
   )
 }

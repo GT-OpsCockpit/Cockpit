@@ -147,14 +147,12 @@ test.describe('Clients — account lifecycle', () => {
     await expect(row(page, companyRef)).toHaveCount(0)
     await search.fill('')
 
-    await page.getByRole('combobox').filter({ hasText: 'All types' }).click()
-    await page.getByRole('option', { name: 'Individual', exact: true }).click()
+    await selectFromDropdown(page, 'Type', 'Individual')
     await expect(page.getByRole('row', { name: 'Marc Dubois' })).toBeVisible()
     await expect(row(page, companyRef)).toHaveCount(0)
     await expect(row(page, eventRef)).toHaveCount(0)
 
-    await page.getByRole('combobox').filter({ hasText: 'Individual' }).click()
-    await page.getByRole('option', { name: 'All types', exact: true }).click()
+    await selectFromDropdown(page, 'Type', 'All types')
     await showOnly(page, companyRef)
     await expect(row(page, companyRef)).toBeVisible()
   })

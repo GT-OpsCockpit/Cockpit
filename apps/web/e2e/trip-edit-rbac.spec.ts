@@ -48,10 +48,8 @@ test.describe('Trip edit — RBAC (DISPATCHER)', () => {
     await page.goto('/bookings')
 
     // Reveal past trips too — default period filter is "Upcoming", which would
-    // hide the past fixture entirely. The filter bar's period <Select> has no
-    // <FormLabel> (unlike the create-bar's fields), so no accessible name to
-    // target — matched by its rendered text instead.
-    await page.getByRole('combobox').filter({ hasText: 'Upcoming' }).click()
+    // hide the past fixture entirely.
+    await page.getByRole('combobox', { name: 'Period' }).click()
     await page.getByRole('option', { name: 'All' }).click()
 
     const search = page.getByPlaceholder('Search by ref., account, passenger or driver…')

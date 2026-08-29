@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fillArea } from './helpers'
 
 /**
@@ -23,21 +23,27 @@ const ADVANCE_STEP_COUNT = 6 // Sent -> Received -> Confirmed -> OTW -> IP -> PO
 // FormControl's id/aria-* the same way shadcn's <SelectTrigger> already did — see
 // docs/handoff/2026-08-27-frontend-bookings-10.md), so a plain accessible-name lookup works
 // here now, same as selectFromDropdown below.
+// `scope` is the dialog, not the page: the Bookings filter card behind it now labels its own
+// Customer / Driver / Vehicle type / Service fields, so a page-wide lookup matches those too.
+// The popover the trigger opens is portalled to <body>, so the search box and the options
+// stay page-scoped.
 // `optionText` is matched as a substring (not exact) on purpose: client/driver option labels
 // are "Name (REF)", and REF is a sequential counter that isn't necessarily "1" — e.g. after
 // prior local runs against the same DB (see the module comment above) — so matching just the
 // name keeps this from being coupled to a specific ref.
-async function selectSearchCombobox(page: Page, label: string, query: string, optionText: string) {
-  await page.getByLabel(label, { exact: true }).click()
+async function selectSearchCombobox(page: Page, scope: Locator, label: string, query: string, optionText: string) {
+  await scope.getByLabel(label, { exact: true }).click()
   await page.getByPlaceholder(`Search ${label.toLowerCase()}…`).fill(query)
   await page.getByRole('option', { name: optionText }).click()
 }
 
 // Service/Vehicle/Payment/Reg Nbr use shadcn's <Select>, which *is* properly
 // wired to its FormLabel (FormControl forwards the id) — a plain accessible
-// name lookup works.
-async function selectFromDropdown(page: Page, name: string, optionText: string) {
-  await page.getByRole('combobox', { name }).click()
+// name lookup works. Scoped for the same reason as above; `name` is a
+// substring match, so the filter card's "Vehicle type" would answer to
+// "Vehicle" as readily as the dialog's own field.
+async function selectFromDropdown(page: Page, scope: Locator, name: string, optionText: string) {
+  await scope.getByRole('combobox', { name }).click()
   await page.getByRole('option', { name: optionText, exact: true }).click()
 }
 
@@ -57,21 +63,21 @@ test.describe('Booking lifecycle', () => {
     await page.getByRole('button', { name: 'New booking' }).click()
     const form = page.getByRole('dialog', { name: 'New booking' })
 
-    await selectSearchCombobox(page, 'Country', 'Fra', 'France (FR)')
+    await selectSearchCombobox(page, form, 'Country', 'Fra', 'France (FR)')
     // Choosing a Country clears the Area (resetAreaField, common.js:871), so it
     // is always filled after the Country, never before.
     await fillArea(page, form, 'Nice')
     await form.locator('input[type="date"]').fill('2026-09-25')
     await form.locator('input[type="time"]').fill('14:30')
-    await selectFromDropdown(page, 'Vehicle', 'Business')
-    await selectSearchCombobox(page, 'Customer', 'Marc', 'Marc Dubois')
+    await selectFromDropdown(page, form, 'Vehicle', 'Business')
+    await selectSearchCombobox(page, form, 'Customer', 'Marc', 'Marc Dubois')
     await form.getByLabel('Pax Name').fill('E2E Playwright Passenger')
     await form.getByLabel('PU', { exact: true }).fill('Nice Airport')
     await form.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
     await form.getByLabel('POC Name').fill('Sophie Durand')
     await form.getByLabel('POC Mobile').fill('+33612345678')
-    await selectSearchCombobox(page, 'Driver', 'Julien', 'Julien Petit')
-    await selectFromDropdown(page, 'Reg Nbr', 'AA-001-BC — Business')
+    await selectSearchCombobox(page, form, 'Driver', 'Julien', 'Julien Petit')
+    await selectFromDropdown(page, form, 'Reg Nbr', 'AA-001-BC — Business')
     await form.getByLabel('Retail net').fill('150')
 
     const createAndDispatch = form.getByRole('button', { name: 'Create & Dispatch' })

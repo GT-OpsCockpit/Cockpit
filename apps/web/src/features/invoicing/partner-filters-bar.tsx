@@ -3,8 +3,8 @@ import { partnerLabel } from '@cockpit/shared'
 import { ClientsControllerListType, useClientsControllerList, useDriversControllerList } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
+import { FilterField } from '@/components/filter-field'
 import { Input } from '@/components/ui/input'
-import { FilterResetButton } from '@/components/filter-reset-button'
 import type { PartnerFilters } from './partner-filters'
 
 const PICKER_LIMIT = 20
@@ -14,13 +14,9 @@ const PICKER_DEBOUNCE_MS = 300
 export function PartnerFiltersBar({
   filters,
   onChange,
-  hasActiveFilters,
-  onReset,
 }: {
   filters: PartnerFilters
   onChange: (filters: PartnerFilters) => void
-  hasActiveFilters: boolean
-  onReset: () => void
 }) {
   const [partnerSearch, setPartnerSearch] = useState('')
   const { debounced: debouncedPartnerSearch, pending: partnerSearchPending } = useDebouncedSearch(partnerSearch, PICKER_DEBOUNCE_MS)
@@ -50,56 +46,65 @@ export function PartnerFiltersBar({
   const setEvent = (v: string) => onChange({ ...filters, eventRef: v, partnerRef: v ? '' : filters.partnerRef })
 
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <SearchCombobox
-        aria-label="Partner"
-        className="w-56"
-        value={filters.partnerRef}
-        onChange={setPartner}
-        options={partnerOptions}
-        placeholder="All partners"
-        searchPlaceholder="Search partner…"
-        searchValue={partnerSearch}
-        onSearchChange={setPartnerSearch}
-        loading={partnerSearchPending || partners.isFetching}
-      />
+    <div className="flex flex-wrap items-end gap-3">
+      <FilterField label="Partner" htmlFor="inv-part-partner" className="w-56">
+        <SearchCombobox
+          id="inv-part-partner"
+          className="w-full"
+          value={filters.partnerRef}
+          onChange={setPartner}
+          options={partnerOptions}
+          placeholder="All partners"
+          searchPlaceholder="Search partner…"
+          searchValue={partnerSearch}
+          onSearchChange={setPartnerSearch}
+          loading={partnerSearchPending || partners.isFetching}
+        />
+      </FilterField>
 
-      <Input
-        className="w-36"
-        type="date"
-        value={filters.dateStart}
-        onChange={(e) => set('dateStart', e.target.value)}
-        aria-label="Date in"
-      />
-      <Input
-        className="w-36"
-        type="date"
-        value={filters.dateEnd}
-        onChange={(e) => set('dateEnd', e.target.value)}
-        aria-label="Date out"
-      />
+      <FilterField label="Date in" htmlFor="inv-part-date-in" className="w-36">
+        <Input
+          id="inv-part-date-in"
+          className="w-full"
+          type="date"
+          value={filters.dateStart}
+          onChange={(e) => set('dateStart', e.target.value)}
+        />
+      </FilterField>
+      <FilterField label="Date out" htmlFor="inv-part-date-out" className="w-36">
+        <Input
+          id="inv-part-date-out"
+          className="w-full"
+          type="date"
+          value={filters.dateEnd}
+          onChange={(e) => set('dateEnd', e.target.value)}
+        />
+      </FilterField>
 
-      <Input
-        className="w-44"
-        placeholder="Search ref/PO…"
-        value={filters.refPo}
-        onChange={(e) => set('refPo', e.target.value)}
-      />
+      <FilterField label="Ref/PO" htmlFor="inv-part-ref-po" className="w-44">
+        <Input
+          id="inv-part-ref-po"
+          className="w-full"
+          placeholder="Search ref/PO…"
+          value={filters.refPo}
+          onChange={(e) => set('refPo', e.target.value)}
+        />
+      </FilterField>
 
-      <SearchCombobox
-        aria-label="Event"
-        className="w-56"
-        value={filters.eventRef}
-        onChange={setEvent}
-        options={eventOptions}
-        placeholder="All events"
-        searchPlaceholder="Search event…"
-        searchValue={eventSearch}
-        onSearchChange={setEventSearch}
-        loading={eventSearchPending || events.isFetching}
-      />
-
-      <FilterResetButton onReset={onReset} hasActiveFilters={hasActiveFilters} />
+      <FilterField label="Event" htmlFor="inv-part-event" className="w-56">
+        <SearchCombobox
+          id="inv-part-event"
+          className="w-full"
+          value={filters.eventRef}
+          onChange={setEvent}
+          options={eventOptions}
+          placeholder="All events"
+          searchPlaceholder="Search event…"
+          searchValue={eventSearch}
+          onSearchChange={setEventSearch}
+          loading={eventSearchPending || events.isFetching}
+        />
+      </FilterField>
     </div>
   )
 }

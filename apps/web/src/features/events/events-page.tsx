@@ -14,6 +14,8 @@ import { EventFiltersBar } from './event-filters-bar'
 import { applyEventFilters, defaultEventFilters } from './event-filters'
 import { EventSelectPanel } from './event-select-panel'
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { FilterCard } from '@/components/filter-card'
 import { PageTitle } from '@/components/layout/page-title'
 import { filtersChanged } from '@/lib/utils'
 
@@ -49,12 +51,14 @@ export function EventsPage() {
         </Button>
       </div>
 
-      <EventSelectPanel confirmedEvent={confirmedEvent} onConfirm={setConfirmedEvent} />
-
-      <div className="grid gap-3">
-        <h2 className="text-lg font-semibold">Search</h2>
-        <EventFiltersBar filters={filters} onChange={setFilters} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
-      </div>
+      {/* One card, not two: picking the event and filtering its rides are the
+          same gesture — the legacy's separate "Search" heading had no content
+          of its own beyond the row underneath it. */}
+      <FilterCard title="Event" hasActiveFilters={hasActiveFilters} onReset={resetFilters}>
+        <EventSelectPanel confirmedEvent={confirmedEvent} onConfirm={setConfirmedEvent} />
+        <Separator className="my-4" />
+        <EventFiltersBar filters={filters} onChange={setFilters} />
+      </FilterCard>
 
       <div className="grid gap-2">
         <h2 className="text-lg font-semibold">Ride list</h2>

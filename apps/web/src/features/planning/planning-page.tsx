@@ -28,6 +28,7 @@ import { PlanningList } from './planning-list'
 import { coversDate, defaultPlanningFilters, vehicleTypeColor, type PlanningResource } from './planning-status'
 import { PlanningTimeline, type TimelineRow } from './planning-timeline'
 import { timelineWindow } from '../bookings/trip-query'
+import { FilterCard } from '@/components/filter-card'
 import { PageTitle } from '@/components/layout/page-title'
 import { filtersChanged } from '@/lib/utils'
 
@@ -156,14 +157,14 @@ export function PlanningPage() {
         </Tabs>
       </div>
 
-      <PlanningFiltersBar
-        filters={filters}
-        onChange={setFilters}
-        resourceOptions={resourceOptions}
-        resourceLabel={filters.resource === 'drivers' ? 'driver' : 'vehicle'}
-        hasActiveFilters={hasActiveFilters}
-        onReset={resetFilters}
-      />
+      <FilterCard hasActiveFilters={hasActiveFilters} onReset={resetFilters}>
+        <PlanningFiltersBar
+          filters={filters}
+          onChange={setFilters}
+          resourceOptions={resourceOptions}
+          resourceLabel={filters.resource === 'drivers' ? 'driver' : 'vehicle'}
+        />
+      </FilterCard>
 
       {filters.view === 'list' ? (
         <PlanningList

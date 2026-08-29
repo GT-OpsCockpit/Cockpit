@@ -11,6 +11,7 @@ import {
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
+import { FilterCard } from '@/components/filter-card'
 import { ListPagination } from '@/components/list-pagination'
 import { usePermission } from '@/features/auth/use-permission'
 import { BookingCreateDialog, type BookingPrefill } from '@/features/bookings/booking-create-dialog'
@@ -79,7 +80,9 @@ export function VehiclesPage() {
         <VehicleCreateDialog />
       </div>
 
-      <VehicleFiltersBar filters={filters} onChange={handleFiltersChange} hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
+      <FilterCard hasActiveFilters={hasActiveFilters} onReset={resetFilters}>
+        <VehicleFiltersBar filters={filters} onChange={handleFiltersChange} />
+      </FilterCard>
 
       <VehiclesTable
         vehicles={vehicles.data?.data ?? []}
