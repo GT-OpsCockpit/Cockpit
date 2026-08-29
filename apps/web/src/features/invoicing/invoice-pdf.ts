@@ -13,7 +13,6 @@ import { invoiceLineRows, round2 } from './invoice-calc'
  */
 export async function downloadInvoicePdf(
   invoice: InvoiceEntity,
-  vehicleTypeNameById: Record<string, string>,
   /** The client's country spelled out — an invoice address reads "France", not "FR". */
   countryName: string | null,
 ): Promise<void> {
@@ -62,7 +61,7 @@ export async function downloadInvoicePdf(
   doc.setFont('helvetica', 'normal')
   doc.text(`Invoice date: ${invoice.createdAt.slice(0, 10)}`, 14, y)
 
-  const rows = invoiceLineRows(invoice, vehicleTypeNameById)
+  const rows = invoiceLineRows(invoice)
   autoTable(doc, {
     startY: y + 5,
     head: [['Date', 'Passenger', 'Itinerary', 'Category', 'Net €', 'VAT €', 'Gross €']],

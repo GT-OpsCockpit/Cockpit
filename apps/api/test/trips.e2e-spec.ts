@@ -2032,4 +2032,96 @@ describe('Trips (e2e)', () => {
         .expect(400);
     });
   });
+
+  // Un-ticking "Sub-contracted" is how a booking is taken back in-house. The
+  // client says so by sending an empty partnerRef (legacy quickUpdateTrip,
+  // common.js:2795-2802 -> server.js:2436-2440), but "not sub-contracted, yet
+  // still farmed out to a partner" is incoherent whatever the payload says:
+  // the Partner log lists such a booking and the Bookings row shows the
+  // partner as its driver. The invariant is settled here rather than trusted
+  // to whichever client sent the PUT.
+  describe('taking a sub-contracted booking back in-house', () => {
+    async function subContractedTrip() {
+      const client = await createClient();
+      const partner = await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({
+          firstName: 'Paul',
+          lastName: 'Partner',
+          phone: '+33699100001',
+          company: 'Riviera Cars',
+          email: 'paul@riviera.test',
+        })
+        .expect(201);
+      const created = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          subContractor: true,
+          partnerRef: (partner.body as DriverBody).ref,
+          partnerRateEur: 90,
+        })
+        .expect(201);
+      return {
+        client,
+        trip: created.body as TripBody & { partnerId: string | null },
+      };
+    }
+
+    it('detaches the partner when the PUT says subContractor is false', async () => {
+      const { client, trip } = await subContractedTrip();
+      expect(trip.partnerId).not.toBeNull();
+
+      const updated = await request(server())
+        .put(`/api/trips/${trip.ref}`)
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          subContractor: false,
+          partnerRef: '',
+          partnerRateEur: 90,
+        })
+        .expect(200);
+
+      const body = (
+        updated.body as {
+          trip: {
+            partnerId: string | null;
+            subContractor: boolean;
+            partnerRateEur: string | number | null;
+          };
+        }
+      ).trip;
+      expect(body.partnerId).toBeNull();
+      expect(body.subContractor).toBe(false);
+      // What the partner was quoted survives taking the job back: the legacy's
+      // payload builder always echoed the rate (tripToPutPayload,
+      // common.js:3286-3300) and its edit popup showed the field either way.
+      expect(Number(body.partnerRateEur)).toBe(90);
+    });
+
+    it('detaches the partner even when the PUT omits partnerRef entirely', async () => {
+      const { client, trip } = await subContractedTrip();
+
+      const updated = await request(server())
+        .put(`/api/trips/${trip.ref}`)
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          subContractor: false,
+          partnerRateEur: 90,
+        })
+        .expect(200);
+
+      expect(
+        (updated.body as { trip: { partnerId: string | null } }).trip.partnerId,
+      ).toBeNull();
+    });
+  });
+
 });

@@ -6,10 +6,10 @@
  * OpenAPI spec version: 1.0
  */
 
-export type TripBaseEntityService = typeof TripBaseEntityService[keyof typeof TripBaseEntityService];
+export type InvoiceTripRecordEntityService = typeof InvoiceTripRecordEntityService[keyof typeof InvoiceTripRecordEntityService];
 
 
-export const TripBaseEntityService = {
+export const InvoiceTripRecordEntityService = {
   TSF: 'TSF',
   ASD: 'ASD',
   SPEC: 'SPEC',

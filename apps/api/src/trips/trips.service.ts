@@ -276,8 +276,18 @@ export class TripsService {
       }
       partnerId = partner?.id ?? null;
     }
+    // "Not sub-contracted" and "still has a partner" cannot both hold: the
+    // Partner log would list the booking and its Bookings row would show the
+    // partner as the driver. Un-ticking Sub-C is how a job is taken back
+    // in-house, and the legacy client said so by sending an empty partnerRef
+    // (quickUpdateTrip, common.js:2795-2802). Settled here so it holds whatever
+    // the payload leaves out.
     const finalPartnerId =
-      partnerId !== undefined ? partnerId : previousPartnerId;
+      dto.subContractor === false
+        ? null
+        : partnerId !== undefined
+          ? partnerId
+          : previousPartnerId;
 
     const decision = decideAssignment(
       toBeforeEdit(trip),
@@ -317,7 +327,10 @@ export class TripsService {
         ...(dto.subContractor !== undefined && {
           subContractor: dto.subContractor,
         }),
-        ...(partnerId !== undefined && { partnerId }),
+        // finalPartnerId already carries "unchanged" as the previous value, so
+        // writing it unconditionally is the same edit — and it is the one the
+        // sub-contract invariant above was applied to.
+        partnerId: finalPartnerId,
         dispatched: decision.dispatched,
         ...(decision.reassigned && {
           assignmentCancelled: false,

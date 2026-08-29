@@ -61,6 +61,10 @@ function toTripDto(values: TripFormValues): CreateTripDto {
     countryCode: values.countryCode,
     area: values.area,
     pickupAt: toPickupAt(values),
+    // Sent alongside the instant it was used to build, so the booking is
+    // re-read and announced in the zone its pickup is actually in — a country's
+    // default zone is the wrong one wherever it spans several.
+    pickupTimezone: values.pickupTimezone || undefined,
     pickupLocation: values.pickupLocation,
     dropoffLocation: values.dropoffLocation || undefined,
     service: values.service,
@@ -113,8 +117,19 @@ export function toUpdateTripDto(values: TripFormValues, { notifyDriver }: { noti
     driverRef: values.driverRef || undefined,
     fleetRegNbr: values.fleetRegNbr || undefined,
     subContractor: values.subContractor,
-    partnerRef: values.subContractor ? values.partnerRef || undefined : undefined,
-    partnerRateEur: values.subContractor ? values.partnerRateEur : undefined,
+    // Un-ticking Sub-C is how a booking is taken back in-house, so the detach
+    // has to be *said*: an omitted key never reaches the API's
+    // `if (dto.partnerRef !== undefined)`, and the booking silently keeps its
+    // partner. Legacy said it the same way — quickUpdateTrip(trip, {
+    // subContractor: false, partnerRef: '' }), common.js:2795-2802.
+    partnerRef: values.subContractor ? values.partnerRef || undefined : '',
+    // Sent whatever the Sub-C state: this PUT replaces the booking, so an
+    // omitted rate is a cleared rate. The legacy always echoed it back
+    // (tripToPutPayload, common.js:3286-3300) and kept the field visible in the
+    // edit popup regardless — what a partner was quoted survives taking the job
+    // back. It also keeps `priceChanged` (trip-assignment) from reading the
+    // loss as a price edit and 403-ing a DISPATCHER.
+    partnerRateEur: values.partnerRateEur,
     notifyDriver,
   }
 }

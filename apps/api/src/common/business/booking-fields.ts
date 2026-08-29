@@ -32,6 +32,12 @@ export interface BookingFieldsDto {
   countryCode: string;
   area?: string;
   pickupAt: string;
+  /**
+   * The IANA zone the client read the typed wall-clock in when it built
+   * `pickupAt` — geocoded from the pickup address, so it is the booking's real
+   * local zone rather than its country's headline one.
+   */
+  pickupTimezone?: string;
   pickupLocation: string;
   dropoffLocation?: string;
   service: Service;
@@ -222,10 +228,24 @@ export function resolveBookingFields<TClient extends BookingClient>(
     data: {
       countryCode: dto.countryCode,
       area: dto.area?.trim() || 'Local',
-      timezone: countryInfo?.defaultTimezone ?? null,
+      // `pickupAt` is an instant the client derived from the typed wall-clock
+      // read in this very zone. Storing the country's default instead makes
+      // the stored instant and the zone it is re-read in disagree wherever a
+      // country spans several (Canaries under ES, Azores under PT) — the
+      // booking then shows, and is announced to the POC, an hour or more off.
+      timezone: dto.pickupTimezone || countryInfo?.defaultTimezone || null,
       pickupAt: new Date(dto.pickupAt),
       pickupLocation: dto.pickupLocation,
-      dropoffLocation: dto.dropoffLocation || null,
+      // An "at disposal" booking has no drop-off of its own: it ends where it
+      // started. The legacy mirrored the pickup into the field as you typed
+      // (common.js:1478-1486, syncDropoffFromPickup) so the column was never
+      // empty — the onboard and dropped WhatsApp templates interpolate it with
+      // no fallback, and a null reaches the POC as "On the way to null".
+      // Answered here rather than in the form so create, update, assign and the
+      // Events bulk all get it.
+      dropoffLocation:
+        dto.dropoffLocation ||
+        (dto.service === Service.ASD ? dto.pickupLocation : null),
       service: dto.service,
       hours: dto.service === Service.ASD ? (dto.hours ?? null) : null,
       instructions: resolvedInstructions,

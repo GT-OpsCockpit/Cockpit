@@ -5,15 +5,18 @@
  * Cockpit v2 dispatch/booking API
  * OpenAPI spec version: 1.0
  */
-import type { TripBaseEntityBilling } from './tripBaseEntityBilling';
-import type { TripBaseEntityCancellationFee } from './tripBaseEntityCancellationFee';
-import type { TripBaseEntityService } from './tripBaseEntityService';
+import type { InvoiceTripRecordEntityBilling } from './invoiceTripRecordEntityBilling';
+import type { InvoiceTripRecordEntityCancellationFee } from './invoiceTripRecordEntityCancellationFee';
+import type { InvoiceTripRecordEntityService } from './invoiceTripRecordEntityService';
+import type { VehicleTypeEntity } from './vehicleTypeEntity';
 
-export interface TripBaseEntity {
+export interface InvoiceTripRecordEntity {
   /** @nullable */
   priceEur: string | null;
   /** @nullable */
   partnerRateEur: string | null;
+  /** @nullable */
+  vehicleType: VehicleTypeEntity | null;
   id: string;
   ref: string;
   /** @nullable */
@@ -26,7 +29,7 @@ export interface TripBaseEntity {
   pickupLocation: string;
   /** @nullable */
   dropoffLocation: string | null;
-  service: TripBaseEntityService;
+  service: InvoiceTripRecordEntityService;
   /** @nullable */
   hours: number | null;
   /** @nullable */
@@ -49,7 +52,7 @@ export interface TripBaseEntity {
   /** @nullable */
   driverId: string | null;
   /** @nullable */
-  billing: TripBaseEntityBilling;
+  billing: InvoiceTripRecordEntityBilling;
   /** @nullable */
   flightNumber: string | null;
   /** @nullable */
@@ -75,7 +78,7 @@ export interface TripBaseEntity {
   /** @nullable */
   assignmentCancelledAt: string | null;
   /** @nullable */
-  cancellationFee: TripBaseEntityCancellationFee;
+  cancellationFee: InvoiceTripRecordEntityCancellationFee;
   createdAt: string;
   updatedAt: string;
 }

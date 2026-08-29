@@ -22,7 +22,7 @@ describe('invoiceLineRows', () => {
       ],
     })
 
-    const rows = invoiceLineRows(invoice, {})
+    const rows = invoiceLineRows(invoice)
     expect(rows.map((r) => r.ref)).toEqual(['R2', 'R1']) // sorted chronologically
 
     const r1 = rows.find((r) => r.ref === 'R1')!
@@ -34,20 +34,28 @@ describe('invoiceLineRows', () => {
   it('treats a null priceEur as 0', () => {
     const trip = baseTrip({ ref: 'R1', priceEur: null })
     const invoice = baseInvoice({ trips: [{ invoiceId: 'invoice-1', tripId: 'trip-1', trip }] })
-    const [row] = invoiceLineRows(invoice, {})
+    const [row] = invoiceLineRows(invoice)
     expect(row).toMatchObject({ net: 0, vat: 0, gross: 0 })
   })
 
-  it('resolves Category from the vehicleTypeNameById lookup, falling back to a dash', () => {
-    const withType = baseTrip({ ref: 'R1', vehicleTypeId: 'type-1' })
-    const withoutType = baseTrip({ ref: 'R2', vehicleTypeId: null })
+  // An invoice is immutable, so it carries the vehicle type it was billed with.
+  // Resolving the name against GET /meta instead — which lists active types
+  // only — blanked this column on every invoice already issued with a type
+  // retired since.
+  it('names Category from the type carried on the billed trip, falling back to a dash', () => {
+    const withType = baseTrip({
+      ref: 'R1',
+      vehicleTypeId: 'type-1',
+      vehicleType: { id: 'type-1', ref: 'V1', name: 'Business', maxPax: 3, active: false, createdAt: '2026-01-01T00:00:00.000Z' },
+    })
+    const withoutType = baseTrip({ ref: 'R2', vehicleTypeId: null, vehicleType: null })
     const invoice = baseInvoice({
       trips: [
         { invoiceId: 'invoice-1', tripId: 'trip-1', trip: withType },
         { invoiceId: 'invoice-1', tripId: 'trip-2', trip: withoutType },
       ],
     })
-    const rows = invoiceLineRows(invoice, { 'type-1': 'Business' })
+    const rows = invoiceLineRows(invoice)
     expect(rows.find((r) => r.ref === 'R1')?.category).toBe('Business')
     expect(rows.find((r) => r.ref === 'R2')?.category).toBe('—')
   })

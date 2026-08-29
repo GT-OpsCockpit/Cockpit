@@ -9,10 +9,10 @@
 /**
  * @nullable
  */
-export type TripBaseEntityBilling = typeof TripBaseEntityBilling[keyof typeof TripBaseEntityBilling] | null;
+export type InvoiceTripRecordEntityBilling = typeof InvoiceTripRecordEntityBilling[keyof typeof InvoiceTripRecordEntityBilling] | null;
 
 
-export const TripBaseEntityBilling = {
+export const InvoiceTripRecordEntityBilling = {
   ACCOUNT: 'ACCOUNT',
   CASH: 'CASH',
   CARD: 'CARD',

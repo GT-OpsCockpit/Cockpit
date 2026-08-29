@@ -283,4 +283,56 @@ describe('Invoices (e2e)', () => {
       .expect(200);
     expect(res.body as InvoiceBody[]).toHaveLength(1);
   });
+
+  // The "Category" column of an invoice PDF/Excel names the trip's vehicle
+  // type. It used to be resolved client-side against GET /meta, which only
+  // lists *active* types — so retiring a type silently blanked that column on
+  // every invoice already issued with it. An invoice is immutable: it has to
+  // carry the type it was billed with.
+  it('carries each billed trip\'s vehicle type, including one retired since', async () => {
+    const client = await createClient();
+    const type = await request(server())
+      .post('/api/vehicles')
+      .set('Cookie', cookie)
+      .send({ name: 'Retired Class', maxPax: 3 })
+      .expect(201);
+    const typeName = (type.body as { name: string }).name;
+
+    const created = await request(server())
+      .post('/api/trips')
+      .set('Cookie', cookie)
+      .send({
+        ...BASE_TRIP,
+        clientRef: client.ref,
+        priceEur: 100,
+        vehicleType: typeName,
+      })
+      .expect(201);
+    const trip = created.body as TripBody;
+
+    await request(server())
+      .post('/api/invoices')
+      .set('Cookie', cookie)
+      .send({ clientRef: client.ref, tripRefs: [trip.ref] })
+      .expect(201);
+
+    await request(server())
+      .patch(`/api/vehicles/${(type.body as { ref: string }).ref}/active`)
+      .set('Cookie', cookie)
+      .send({ active: false })
+      .expect(200);
+
+    const invoices = await request(server())
+      .get('/api/invoices')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const billed = (
+      invoices.body as {
+        trips: { trip: { vehicleType: { name: string } | null } }[];
+      }[]
+    )[0].trips[0].trip;
+    expect(billed.vehicleType?.name).toBe('Retired Class');
+  });
+
 });

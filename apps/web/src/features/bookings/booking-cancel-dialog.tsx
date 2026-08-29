@@ -24,6 +24,23 @@ const FEE_OPTIONS: { value: CancelAssignmentDtoCancellationFee; label: string }[
   { value: CancelAssignmentDtoCancellationFee.HUNDRED, label: '100%' },
 ]
 
+/**
+ * The fee this booking already carries. A cancelled booking can be reopened —
+ * and the select has to show what it was cancelled with, not "Free": the
+ * server reads FREE as "no fee at all" and deletes the row outright
+ * (TripsService.cancelAssignment), so defaulting a booking cancelled at 50%
+ * back to Free destroys it on the second confirm. The legacy filled the popup
+ * from the booking for the same reason (common.js:2483).
+ *
+ * `TripEntity` and `CancelAssignmentDto` carry the same four values under two
+ * generated enum types.
+ */
+function alreadyCancelledAt(trip: TripEntity): CancelAssignmentDtoCancellationFee {
+  return (
+    (trip.cancellationFee as CancelAssignmentDtoCancellationFee | null) ?? CancelAssignmentDtoCancellationFee.FREE
+  )
+}
+
 export function BookingCancelDialog({
   trip,
   onOpenChange,
@@ -32,6 +49,7 @@ export function BookingCancelDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const [fee, setFee] = useState<CancelAssignmentDtoCancellationFee>(CancelAssignmentDtoCancellationFee.FREE)
+  const [feeLoadedFor, setFeeLoadedFor] = useState<string | null>(null)
   const cancelAssignment = useTripsControllerCancelAssignment()
 
   // UX-layer mirror of the server-side gate (TripsController.cancelAssignment,
@@ -39,8 +57,15 @@ export function BookingCancelDialog({
   // independently regardless of what's disabled here.
   const canCancel = usePermission('trip:cancel')
 
+  // The dialog is mounted once and handed a different booking each time it
+  // opens, so the fee is (re)read from whichever booking it is showing now.
+  if (trip && trip.ref !== feeLoadedFor) {
+    setFeeLoadedFor(trip.ref)
+    setFee(alreadyCancelledAt(trip))
+  }
+
   const close = (open: boolean) => {
-    if (!open) setFee(CancelAssignmentDtoCancellationFee.FREE)
+    if (!open) setFeeLoadedFor(null)
     onOpenChange(open)
   }
 

@@ -125,6 +125,15 @@ export class CreateTripDto {
   @IsString()
   dropoffIata?: string;
 
+  /**
+   * IANA zone the client read the typed date/time in to build `pickupAt`
+   * (geocoded from the pickup address). Optional: falls back to the country's
+   * default timezone, which is all the legacy ever had.
+   */
+  @IsOptional()
+  @IsString()
+  pickupTimezone?: string;
+
   @IsOptional()
   @IsBoolean()
   subContractor?: boolean;

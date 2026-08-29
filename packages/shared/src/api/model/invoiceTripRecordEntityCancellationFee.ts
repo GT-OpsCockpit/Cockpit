@@ -9,10 +9,10 @@
 /**
  * @nullable
  */
-export type TripBaseEntityCancellationFee = typeof TripBaseEntityCancellationFee[keyof typeof TripBaseEntityCancellationFee] | null;
+export type InvoiceTripRecordEntityCancellationFee = typeof InvoiceTripRecordEntityCancellationFee[keyof typeof InvoiceTripRecordEntityCancellationFee] | null;
 
 
-export const TripBaseEntityCancellationFee = {
+export const InvoiceTripRecordEntityCancellationFee = {
   FREE: 'FREE',
   FIFTY: 'FIFTY',
   SEVENTYFIVE: 'SEVENTYFIVE',

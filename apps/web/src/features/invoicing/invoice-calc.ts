@@ -25,12 +25,12 @@ export interface InvoiceLineRow {
  * hardcoded 0.1 client-side too, but the backend already generalized this —
  * see InvoicesService.create). Mirrors invoiceDetailRows (invoicing.html:465-479).
  *
- * `vehicleTypeNameById` resolves the "Category" column: InvoiceEntity nests
- * the lean TripBaseEntity (id/name only relations stripped), so the vehicle
- * type's display name has to come from the caller's already-loaded meta
- * (GET /meta, vehicleTypes) rather than the trip record itself.
+ * The "Category" column reads the vehicle type carried on the billed trip.
+ * It used to be resolved against the caller's GET /meta, which lists *active*
+ * types only — so retiring a type blanked that column on every invoice already
+ * issued with it. An invoice is immutable; it names what it was billed with.
  */
-export function invoiceLineRows(invoice: InvoiceEntity, vehicleTypeNameById: Record<string, string>): InvoiceLineRow[] {
+export function invoiceLineRows(invoice: InvoiceEntity): InvoiceLineRow[] {
   const vatRate = Number(invoice.vatRate)
 
   return invoice.trips
@@ -48,7 +48,7 @@ export function invoiceLineRows(invoice: InvoiceEntity, vehicleTypeNameById: Rec
         passenger: trip.passengerName,
         pickup: trip.pickupLocation,
         dropoff: trip.dropoffLocation ?? '',
-        category: (trip.vehicleTypeId && vehicleTypeNameById[trip.vehicleTypeId]) || '—',
+        category: trip.vehicleType?.name || '—',
         net,
         vat,
         gross,

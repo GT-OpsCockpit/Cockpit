@@ -5,10 +5,10 @@
  * Cockpit v2 dispatch/booking API
  * OpenAPI spec version: 1.0
  */
-import type { TripBaseEntity } from './tripBaseEntity';
+import type { InvoiceTripRecordEntity } from './invoiceTripRecordEntity';
 
 export interface InvoiceTripEntity {
   invoiceId: string;
   tripId: string;
-  trip: TripBaseEntity;
+  trip: InvoiceTripRecordEntity;
 }

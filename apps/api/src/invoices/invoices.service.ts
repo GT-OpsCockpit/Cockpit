@@ -11,9 +11,13 @@ import { DateTime } from 'luxon';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+// The vehicle type comes along with each billed trip: an invoice is immutable,
+// so the "Category" column has to name the type it was billed with. Resolving
+// it client-side against GET /meta blanked the column for any type retired
+// since (GET /meta lists active types only).
 const INVOICE_INCLUDE = {
   client: true,
-  trips: { include: { trip: true } },
+  trips: { include: { trip: { include: { vehicleType: true } } } },
 } as const;
 
 @Injectable()

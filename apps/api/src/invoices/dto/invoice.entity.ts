@@ -1,13 +1,24 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ClientBaseEntity } from '../../clients/dto/client.entity';
 import { TripBaseEntity } from '../../trips/dto/trip.entity';
+import { VehicleTypeEntity } from '../../fleet/dto/vehicle-type.entity';
 import type { Prisma } from '../../../generated/prisma/client';
 
-/** Invoice <-> Trip join row, with the (relation-free) trip it links to. */
+/**
+ * A billed trip: the lean record, plus the vehicle type the invoice's
+ * "Category" column names. Carried on the invoice rather than looked up by the
+ * reader, because an invoice is immutable and the type it was billed with may
+ * since have been retired (GET /meta only lists active ones).
+ */
+export class InvoiceTripRecordEntity extends TripBaseEntity {
+  vehicleType: VehicleTypeEntity | null;
+}
+
+/** Invoice <-> Trip join row, with the trip it links to. */
 export class InvoiceTripEntity {
   invoiceId: string;
   tripId: string;
-  trip: TripBaseEntity;
+  trip: InvoiceTripRecordEntity;
 }
 
 export class InvoiceEntity {

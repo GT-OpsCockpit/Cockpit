@@ -39,6 +39,12 @@ export interface UpdateTripDto {
   nameboard?: string;
   pickupIata?: string;
   dropoffIata?: string;
+  /**
+     * IANA zone the client read the typed date/time in to build `pickupAt`
+     * (geocoded from the pickup address). Optional: falls back to the country's
+     * default timezone, which is all the legacy ever had.
+     */
+  pickupTimezone?: string;
   subContractor?: boolean;
   partnerRef?: string;
   /** "Confirm and send" checkbox — best-effort WhatsApp to the POC after saving. */

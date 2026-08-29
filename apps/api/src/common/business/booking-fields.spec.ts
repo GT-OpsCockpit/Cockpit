@@ -70,12 +70,35 @@ describe('resolveBookingFields', () => {
       ).toBe('dropoffLocation is required (except for an ASD service)');
     });
 
-    it('accepts an ASD booking with no dropoff, since it has none to give', () => {
+    // An "at disposal" booking ends where it started, and the legacy said so by
+    // mirroring the pickup into the dropoff field (common.js:1478-1486,
+    // syncDropoffFromPickup). That is not cosmetic: the onboard and dropped
+    // WhatsApp templates interpolate dropoffLocation with no fallback, so a
+    // null here reaches the POC as "On the way to null".
+    it('gives an ASD booking the pickup as its dropoff, since it returns where it started', () => {
       const result = resolveBookingFields(
-        dto({ service: Service.ASD, dropoffLocation: '', hours: 4 }),
+        dto({
+          service: Service.ASD,
+          pickupLocation: 'Hotel Martinez, Cannes',
+          dropoffLocation: '',
+          hours: 4,
+        }),
         deps(),
       );
-      expect(columnsOf(result).dropoffLocation).toBeNull();
+      expect(columnsOf(result).dropoffLocation).toBe('Hotel Martinez, Cannes');
+    });
+
+    it('keeps a dropoff the dispatcher typed on an ASD booking', () => {
+      const result = resolveBookingFields(
+        dto({
+          service: Service.ASD,
+          pickupLocation: 'Nice',
+          dropoffLocation: 'Monaco',
+          hours: 4,
+        }),
+        deps(),
+      );
+      expect(columnsOf(result).dropoffLocation).toBe('Monaco');
     });
 
     it.each([
@@ -200,7 +223,23 @@ describe('resolveBookingFields', () => {
       ).toBe('Nice');
     });
 
-    it("takes the timezone from the booking's country", () => {
+    // pickupAt is an instant, and the client builds it by reading the typed
+    // wall-clock in the timezone it geocoded from the pickup address. Storing
+    // the country's default instead makes the two disagree wherever a country
+    // spans more than one zone (Canaries under ES, Azores under PT) — the
+    // booking is then re-read, and announced to the POC, an hour or more off.
+    it('stores the timezone the pickup was actually geocoded in', () => {
+      expect(
+        columnsOf(
+          resolveBookingFields(
+            dto({ countryCode: 'ES', pickupTimezone: 'Atlantic/Canary' }),
+            deps({ countryInfo: { defaultTimezone: 'Europe/Madrid' } }),
+          ),
+        ).timezone,
+      ).toBe('Atlantic/Canary');
+    });
+
+    it("falls back to the country's timezone when the pickup was never geocoded", () => {
       expect(columnsOf(resolveBookingFields(dto(), deps())).timezone).toBe(
         'Europe/Paris',
       );
