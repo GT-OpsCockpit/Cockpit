@@ -87,6 +87,15 @@ describe('dropoffApplies / showAirportInfo', () => {
     expect(tripFormRules(values({ pickupIata: 'NCE' })).showAirportInfo).toBe(true)
     expect(tripFormRules(values({ dropoffIata: 'CDG' })).showAirportInfo).toBe(true)
   })
+
+  // Geocoding recognises an airport more often than it can name one: JFK comes
+  // back as an airport with no IATA in its tags. Keyed on the code alone, an
+  // airport pickup then had nowhere to enter its flight number at all — the
+  // legacy opened its Flight info popup on "is an airport" (common.js:1406).
+  it('reveals it for an airport the geocoder could not name a code for', () => {
+    expect(tripFormRules(values({ pickupIata: '', pickupIsAirport: true })).showAirportInfo).toBe(true)
+    expect(tripFormRules(values({ dropoffIata: '', dropoffIsAirport: true })).showAirportInfo).toBe(true)
+  })
 })
 
 describe('price hints', () => {

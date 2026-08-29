@@ -13,6 +13,10 @@ const meta: BookingMeta = {
   countries: [
     { name: 'France', code: 'FR', tz: 'Europe/Paris', currency: 'EUR' },
     { name: 'Morocco', code: 'MA', tz: 'Africa/Casablanca', currency: 'MAD' },
+    // A country spanning several zones is listed once per zone, sharing a
+    // code prefix — which is what makes the geocoded timezone the tiebreak.
+    { name: 'United States (East)', code: 'US-NY', tz: 'America/New_York', currency: 'USD' },
+    { name: 'United States (West)', code: 'US-CA', tz: 'America/Los_Angeles', currency: 'USD' },
   ],
   vehicleTypes: [
     { id: '1', ref: 'VT1', name: 'Business', maxPax: 3, active: true, createdAt: '2026-01-01T00:00:00.000Z' },
@@ -88,10 +92,78 @@ describe('applyBookingEdit — sub-contracted', () => {
 })
 
 describe('applyBookingEdit — geocode', () => {
-  it('fills the pickup IATA and timezone', () => {
+  it('fills the pickup IATA, timezone and country', () => {
     expect(
       applyBookingEdit(draft(), { kind: 'geocode', field: 'pickupLocation', result: geocode() }, meta),
-    ).toEqual({ pickupIata: 'NCE', pickupTimezone: 'Europe/Paris' })
+    ).toEqual({
+      pickupIata: 'NCE',
+      pickupIsAirport: true,
+      pickupTimezone: 'Europe/Paris',
+      countryCode: 'FR',
+      area: '',
+    })
+  })
+
+  // The legacy filled the Country from the pickup it had just geocoded rather
+  // than making the dispatcher pick it (autoFillCountry, common.js:1399/1430),
+  // and cleared the Area with it, exactly as a manual country change does.
+  it('fills the country from the geocoded pickup, clearing the area with it', () => {
+    const patch = applyBookingEdit(
+      draft({ countryCode: 'MA', area: 'Casablanca' }),
+      { kind: 'geocode', field: 'pickupLocation', result: geocode() },
+      meta,
+    )
+    expect(patch.countryCode).toBe('FR')
+    expect(patch.area).toBe('')
+  })
+
+  it('leaves the area alone when the geocoded country is the one already set', () => {
+    const patch = applyBookingEdit(
+      draft({ countryCode: 'FR', area: 'Nice' }),
+      { kind: 'geocode', field: 'pickupLocation', result: geocode() },
+      meta,
+    )
+    expect(patch.countryCode).toBeUndefined()
+    expect(patch.area).toBeUndefined()
+  })
+
+  // A country listed once per timezone is one country as far as geocoding is
+  // concerned: the zone picks the right entry (matchCountryByGeocode,
+  // common.js:1420).
+  it('picks the sub-entry whose timezone matches the address', () => {
+    const patch = applyBookingEdit(
+      draft(),
+      {
+        kind: 'geocode',
+        field: 'pickupLocation',
+        result: geocode({ countryCode: 'US', tz: 'America/Los_Angeles', iata: 'LAX' }),
+      },
+      meta,
+    )
+    expect(patch.countryCode).toBe('US-CA')
+  })
+
+  it('falls back to the first sub-entry when no timezone matches', () => {
+    const patch = applyBookingEdit(
+      draft(),
+      {
+        kind: 'geocode',
+        field: 'pickupLocation',
+        result: geocode({ countryCode: 'US', tz: 'America/Anchorage', iata: 'ANC' }),
+      },
+      meta,
+    )
+    expect(patch.countryCode).toBe('US-NY')
+  })
+
+  it('says nothing about the country when geocoding did not name one', () => {
+    const patch = applyBookingEdit(
+      draft({ countryCode: 'FR', area: 'Nice' }),
+      { kind: 'geocode', field: 'pickupLocation', result: geocode({ countryCode: null }) },
+      meta,
+    )
+    expect(patch.countryCode).toBeUndefined()
+    expect(patch.area).toBeUndefined()
   })
 
   it('fills only the drop-off IATA — the trip keeps the pickup timezone', () => {
@@ -101,7 +173,7 @@ describe('applyBookingEdit — geocode', () => {
         { kind: 'geocode', field: 'dropoffLocation', result: geocode({ tz: 'Europe/Rome', iata: 'FCO' }) },
         meta,
       ),
-    ).toEqual({ dropoffIata: 'FCO' })
+    ).toEqual({ dropoffIata: 'FCO', dropoffIsAirport: true })
   })
 
   it('clears a stale IATA when the new address is not an airport', () => {
@@ -111,7 +183,13 @@ describe('applyBookingEdit — geocode', () => {
         { kind: 'geocode', field: 'pickupLocation', result: geocode({ isAirport: false, iata: null }) },
         meta,
       ),
-    ).toEqual({ pickupIata: '', pickupTimezone: 'Europe/Paris' })
+    ).toEqual({
+      pickupIata: '',
+      pickupIsAirport: false,
+      pickupTimezone: 'Europe/Paris',
+      countryCode: 'FR',
+      area: '',
+    })
   })
 
   it('pre-fills the FBO address the directory knows', () => {

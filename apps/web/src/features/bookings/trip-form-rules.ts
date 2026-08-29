@@ -26,6 +26,8 @@ export interface TripFormRulesInput {
   dropoffLocation?: string | null
   pickupIata?: string | null
   dropoffIata?: string | null
+  pickupIsAirport?: boolean
+  dropoffIsAirport?: boolean
   pickupDate?: string | null
   pickupTime?: string | null
   pickupTimezone?: string | null
@@ -43,7 +45,7 @@ export interface TripFormRules {
   parisHint: string
   /** An at-disposal booking has no drop-off — the car stays with the passenger. */
   dropoffApplies: boolean
-  /** The flight block only shows once one of the two IATA codes is known. */
+  /** The flight block shows as soon as either end is known to be an airport. */
   showAirportInfo: boolean
   /** Grand total under an ASD hourly rate — undefined when not computable. */
   retailAsdTotal?: string
@@ -95,7 +97,12 @@ export function tripFormRules(values: TripFormRulesInput, trip?: TripEntity | nu
     parisHint: parisHintFor(values),
     // The schema mirrors this (trip-form-schema.ts's superRefine).
     dropoffApplies: service !== TripEntityService.ASD,
-    showAirportInfo: !!values.pickupIata || !!values.dropoffIata,
+    // Not gated on the IATA code alone: geocoding recognises an airport more
+    // often than it can name one, and an airport pickup whose code came back
+    // empty then had nowhere to enter its flight number. The legacy opened the
+    // popup on "is an airport" (common.js:1406).
+    showAirportInfo:
+      !!values.pickupIata || !!values.dropoffIata || !!values.pickupIsAirport || !!values.dropoffIsAirport,
     retailAsdTotal: formatTotal(asdTotal({ rate: priceEur, hours, service })),
     partnerAsdTotal: formatTotal(asdTotal({ rate: partnerRateEur, hours, service })),
     marginHint: margin === null ? undefined : `% Margin: ${margin.toFixed(1)} %`,

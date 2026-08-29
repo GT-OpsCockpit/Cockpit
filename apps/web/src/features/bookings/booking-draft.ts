@@ -1,4 +1,4 @@
-import type { CountryEntity, FboLookupEntity, GeocodeTzEntity, VehicleTypeEntity } from '@cockpit/shared/api'
+import type { CountryEntity, FboLookupEntity, VehicleTypeEntity } from '@cockpit/shared/api'
 import type { TripFormValues } from './trip-form-schema'
 
 /**
@@ -22,6 +22,19 @@ export interface BookingMeta {
   vehicleTypes: VehicleTypeEntity[]
 }
 
+/**
+ * What a located address tells us, from either endpoint: a suggestion picked
+ * out of the search list, or the geocode of an address typed straight in.
+ * GeocodeSearchHitEntity and GeocodeTzEntity both satisfy it — the search one
+ * may not have resolved a timezone, hence the null.
+ */
+export interface LocatedAddress {
+  tz: string | null
+  countryCode: string | null
+  isAirport: boolean
+  iata: string | null
+}
+
 export type BookingChange =
   | { kind: 'countryCode'; value: string }
   | { kind: 'vehicleType'; value: string }
@@ -29,10 +42,30 @@ export type BookingChange =
   | {
       kind: 'geocode'
       field: 'pickupLocation' | 'dropoffLocation'
-      result: GeocodeTzEntity
+      result: LocatedAddress
       /** The FBO directory's answer, when the component looked it up. */
       fbo?: FboLookupEntity
     }
+
+/**
+ * The country entry a geocoded address belongs to.
+ *
+ * A country spanning several timezones is listed once per zone under a shared
+ * code prefix (US-NY, US-CA…), while geocoding only ever returns the bare ISO
+ * code — so the zone it also returned is the tiebreak. Ported from
+ * matchCountryByGeocode (common.js:1420).
+ */
+function countryFromGeocode(
+  countries: CountryEntity[],
+  countryCode: string | null | undefined,
+  tz: string | null | undefined,
+): CountryEntity | null {
+  if (!countryCode) return null
+  const upper = countryCode.toUpperCase()
+  const candidates = countries.filter((c) => c.code === upper || c.code.startsWith(`${upper}-`))
+  if (candidates.length <= 1) return candidates[0] ?? null
+  return candidates.find((c) => c.tz === tz) ?? candidates[0]
+}
 
 /**
  * The patch to apply on top of the current values — not the whole draft.
@@ -75,9 +108,23 @@ export function applyBookingEdit(
     case 'geocode': {
       const patch: Partial<TripFormValues> = {
         [change.field === 'pickupLocation' ? 'pickupIata' : 'dropoffIata']: change.result.iata ?? '',
+        // Kept apart from the IATA code: geocoding recognises an airport more
+        // often than it can name one, and the flight block keys on this.
+        [change.field === 'pickupLocation' ? 'pickupIsAirport' : 'dropoffIsAirport']: change.result.isAirport,
       }
       if (change.field !== 'pickupLocation') return patch
-      patch.pickupTimezone = change.result.tz
+      // A suggestion the geocoder couldn't resolve a zone for leaves the one
+      // already on the draft alone rather than blanking it.
+      if (change.result.tz) patch.pickupTimezone = change.result.tz
+      // The pickup address names the country, so the dispatcher doesn't have
+      // to (autoFillCountry, common.js:1399/1430) — and the Area goes with it,
+      // exactly as it does on a manual country change: a city belongs to one
+      // country, and "Local" is France-only.
+      const country = countryFromGeocode(meta.countries, change.result.countryCode, change.result.tz)
+      if (country && country.code !== values.countryCode) {
+        patch.countryCode = country.code
+        patch.area = ''
+      }
       // Airport pickup: pre-fill the handling agent's (FBO) address from the
       // directory, as the legacy's Flight info popup did (common.js:1544).
       // `found: false` just means this airport isn't in the directory yet —

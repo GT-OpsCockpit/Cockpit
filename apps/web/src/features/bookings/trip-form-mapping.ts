@@ -44,6 +44,10 @@ export function tripToFormValues(trip: TripEntity): TripFormValues {
     nameboard: trip.nameboard ?? '',
     pickupIata: trip.pickupIata ?? '',
     dropoffIata: trip.dropoffIata ?? '',
+    // Form-only, never stored: a saved booking is known to be an airport one
+    // by the code it carries, so the flight block stays open when it reopens.
+    pickupIsAirport: !!trip.pickupIata,
+    dropoffIsAirport: !!trip.dropoffIata,
     pickupTimezone: trip.timezone ?? '',
     notifyDriver: false,
   }

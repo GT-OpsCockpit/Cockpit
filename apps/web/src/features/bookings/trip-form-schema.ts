@@ -35,6 +35,15 @@ export const tripFormSchema = z
     pickupIata: z.string().optional(),
     dropoffIata: z.string().optional(),
     pickupTimezone: z.string().optional(),
+    /**
+     * Whether the located pickup/drop-off is an airport. Form-only, never
+     * sent: the flight block used to appear only once an IATA code was known,
+     * and geocoding does not always return one — an airport pickup with no
+     * IATA on file then had nowhere to enter its flight number at all. The
+     * legacy opened its Flight info popup on "is an airport" (common.js:1406).
+     */
+    pickupIsAirport: z.boolean().optional(),
+    dropoffIsAirport: z.boolean().optional(),
     notifyDriver: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
@@ -113,6 +122,8 @@ export function tripFormDefaults(): TripFormValues {
     pickupIata: '',
     dropoffIata: '',
     pickupTimezone: '',
+    pickupIsAirport: false,
+    dropoffIsAirport: false,
     notifyDriver: false,
   }
 }

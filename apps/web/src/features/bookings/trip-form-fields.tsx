@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { CalendarDays, CircleCheck, Clock, Info, LocateFixed, MapPin, Plane, TriangleAlert, User } from 'lucide-react'
+import { CalendarDays, CircleCheck, Clock, Info, MapPin, Plane, TriangleAlert, User } from 'lucide-react'
 import type { UseFormReturn } from 'react-hook-form'
 import {
   geoControllerFboLookup,
@@ -11,6 +11,7 @@ import {
   useClientsControllerList,
   useDriversControllerList,
   useFleetVehiclesControllerList,
+  useGeoControllerGeocodeSearch,
   useMetaControllerGetMeta,
 } from '@cockpit/shared/api'
 import type { TripEntity } from '@cockpit/shared/api'
@@ -22,7 +23,6 @@ import { AreaField } from '@/components/area-field'
 import { PhoneInput } from '@/components/phone-input'
 import { useCountryOptions } from '@/hooks/use-country-options'
 import { Input } from '@/components/ui/input'
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -44,7 +44,7 @@ import {
 } from '@/components/ui/form'
 import type { TripFormValues } from './trip-form-schema'
 import { tripFormRules } from './trip-form-rules'
-import { applyBookingEdit, type BookingChange, type BookingMeta } from './booking-draft'
+import { applyBookingEdit, type BookingChange, type BookingMeta, type LocatedAddress } from './booking-draft'
 import { clientDisplayName, driverLabel, partnerLabel } from '@cockpit/shared'
 
 /**
@@ -65,6 +65,11 @@ const POC_LOCKED_REASON = 'The driver is already in position — the on-site con
 
 const PICKER_LIMIT = 20
 const PICKER_DEBOUNCE_MS = 300
+// The address suggestions go out to Nominatim, so they wait longer than the
+// in-house pickers do — the legacy's own address combobox used 450ms
+// (makeAddressCombobox, common.js:1824). The endpoint needs two characters.
+const ADDRESS_DEBOUNCE_MS = 450
+const ADDRESS_MIN_CHARS = 2
 
 export function TripFormFields({
   form,
@@ -132,6 +137,8 @@ export function TripFormFields({
   const dropoffLocation = form.watch('dropoffLocation')
   const pickupIata = form.watch('pickupIata')
   const dropoffIata = form.watch('dropoffIata')
+  const pickupIsAirport = form.watch('pickupIsAirport')
+  const dropoffIsAirport = form.watch('dropoffIsAirport')
   const pickupDate = form.watch('pickupDate')
   const pickupTime = form.watch('pickupTime')
   const pickupTimezone = form.watch('pickupTimezone')
@@ -224,6 +231,7 @@ export function TripFormFields({
   // changes it always did.
   const rules = tripFormRules(
     { service, countryCode, area, pickupLocation, dropoffLocation, pickupIata, dropoffIata,
+      pickupIsAirport, dropoffIsAirport,
       pickupDate, pickupTime, pickupTimezone, priceEur, partnerRateEur, hours },
     trip,
   )
@@ -715,36 +723,73 @@ function LocationField({
   /** Column span inside the enclosing FormSection grid. */
   className?: string
 }) {
+  const [search, setSearch] = useState('')
+  const { debounced, pending } = useDebouncedSearch(search, ADDRESS_DEBOUNCE_MS)
   const [resolving, setResolving] = useState(false)
   const [hint, setHint] = useState<string | null>(null)
+
+  // Type "JFK" and get New York's airport back, as the legacy's address
+  // combobox did (makeAddressCombobox, common.js:1824/1859) — the endpoint
+  // existed in v2 from the start and nothing called it, so every address had
+  // to be typed in full and then resolved by hand.
+  const query = debounced.trim()
+  const suggestions = useGeoControllerGeocodeSearch(
+    { q: query, limit: '8' },
+    { query: { enabled: query.length >= ADDRESS_MIN_CHARS } },
+  )
+  const hits = suggestions.data?.results ?? []
 
   // The two calls and the spinner belong here; which fields the answer fills
   // in — and that an FBO address already typed is never overwritten — is
   // applyBookingEdit's, so it can be asserted without rendering a form.
-  const resolve = async () => {
-    const value = form.getValues(name)
-    if (!value?.trim()) return
+  const locate = async (result: LocatedAddress, address: string) => {
+    // Airport pickup: the handling agent's (FBO) address comes from the
+    // directory, as the legacy's Flight info popup did (common.js:1544).
+    // `found: false` just means this airport isn't in the directory yet.
+    const fbo = name === 'pickupLocation' && result.isAirport ? await geoControllerFboLookup({ q: address }) : undefined
+    const patch = applyEdit({ kind: 'geocode', field: name, result, fbo })
+
+    const fboName = patch.fboAddress === undefined ? null : (fbo?.name ?? null)
+    setHint(
+      result.isAirport
+        ? `Airport detected${result.iata ? ` (${result.iata})` : ''}${result.tz ? ` — ${result.tz}` : ''}${fboName ? ` · FBO pre-filled (${fboName})` : ''}`
+        : result.tz,
+    )
+  }
+
+  /**
+   * An address committed rather than picked. The legacy geocoded it too, on
+   * blur, so a pasted or hand-typed airport still filled in its timezone and
+   * IATA (detectPickupTz, common.js:1384/1852).
+   */
+  const resolveTyped = async (address: string) => {
+    if (!address.trim()) {
+      setHint(null)
+      return
+    }
     setResolving(true)
     setHint(null)
     try {
-      const result = await geoControllerGeocodeTz({ q: value })
-      // Airport pickup: the handling agent's (FBO) address comes from the
-      // directory, as the legacy's Flight info popup did (common.js:1544).
-      // `found: false` just means this airport isn't in the directory yet.
-      const fbo = name === 'pickupLocation' && result.isAirport ? await geoControllerFboLookup({ q: value }) : undefined
-      const patch = applyEdit({ kind: 'geocode', field: name, result, fbo })
-
-      const fboName = patch.fboAddress === undefined ? null : (fbo?.name ?? null)
-      setHint(
-        result.isAirport
-          ? `Airport detected${result.iata ? ` (${result.iata})` : ''} — ${result.tz}${fboName ? ` · FBO pre-filled (${fboName})` : ''}`
-          : result.tz,
-      )
+      await locate(await geoControllerGeocodeTz({ q: address }), address)
     } catch (error) {
       setHint(getApiErrorMessage(error, 'Location lookup unavailable.'))
     } finally {
       setResolving(false)
     }
+  }
+
+  const commit = (value: string, onChange: (value: string) => void) => {
+    onChange(value)
+    const hit = hits.find((h) => h.displayName === value)
+    if (hit) {
+      setResolving(true)
+      setHint(null)
+      void locate(hit, value)
+        .catch((error: unknown) => setHint(getApiErrorMessage(error, 'Location lookup unavailable.')))
+        .finally(() => setResolving(false))
+      return
+    }
+    void resolveTyped(value)
   }
 
   return (
@@ -757,30 +802,36 @@ function LocationField({
             <MapPin className="size-4" aria-hidden="true" />
             {label}
           </FormLabel>
-          <InputGroup>
-            <InputGroupAddon align="inline-start">
-              <MapPin />
-            </InputGroupAddon>
-            <FormControl>
-              <InputGroupInput placeholder="E.g. JFK, CDG, address…" {...field} />
-            </FormControl>
-            {/* Was a bare 📍 button floating next to the field, with nothing
-                saying what it did. Same action, now inside the field and
-                labelled: it geocodes what's typed to fill the IATA code and
-                (for pickup) the trip's timezone. */}
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                size="icon-xs"
-                aria-label="Detect airport code and timezone"
-                title="Detect airport code and timezone from this address"
-                disabled={resolving}
-                onClick={resolve}
-              >
-                {resolving ? <Spinner /> : <LocateFixed />}
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
-          {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
+          <FormControl>
+            <SearchCombobox
+              icon={MapPin}
+              value={field.value ?? ''}
+              onChange={(value) => commit(value, field.onChange)}
+              options={hits.map((hit) => ({
+                value: hit.displayName,
+                label: hit.displayName,
+                description: hit.isAirport && hit.iata ? `Airport · ${hit.iata}` : (hit.tz ?? undefined),
+              }))}
+              placeholder="E.g. JFK, CDG, address…"
+              searchPlaceholder="Search an address or airport…"
+              searchValue={search}
+              onSearchChange={setSearch}
+              loading={query.length >= ADDRESS_MIN_CHARS && (pending || suggestions.isFetching)}
+              loadingText="Searching addresses…"
+              // An address is whatever the dispatcher says it is: the list
+              // suggests, it never closes the field — same as the legacy's,
+              // which geocoded a typed address on blur rather than refusing it.
+              allowCustomValue
+              customValueLabel={(typed) => `Use “${typed}”`}
+              selectedLabel={field.value || undefined}
+            />
+          </FormControl>
+          {(resolving || hint) && (
+            <p className="text-muted-foreground flex items-center gap-1 text-xs">
+              {resolving && <Spinner />}
+              {resolving ? 'Locating…' : hint}
+            </p>
+          )}
           <FormMessage />
         </FormItem>
       )}
