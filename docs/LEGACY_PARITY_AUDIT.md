@@ -13,11 +13,15 @@
 
 ---
 
-> **État : les 6 bugs ET les règles legacy non portées sont corrigés**, à l'exception de la
-> liste résiduelle en fin de §14. Décision produit actée : la sémantique de devise des tarifs
-> **ne revient pas** au legacy (voir 7.1) — c'était une mauvaise conception, pas une règle métier.
-> Les lignes 🔴 ci-dessous décrivent l'écart tel qu'il a été constaté, suivi de la correction appliquée.
-> Les 🟡/🟠 restent ouverts : ce sont des choix produit, pas des bugs.
+> **État (2026-08-29) : refermé après DEUX passes.** La première (2026-08-28) a corrigé les 6 bugs
+> et la plupart des règles non portées, puis s'est déclarée close — à tort. Une seconde passe
+> indépendante le 2026-08-29 a trouvé **5 bugs métier de plus et une quinzaine de règles legacy
+> encore non portées** : voir §15, qui fait foi. Les sections 1 à 13 restent le relevé
+> feature-par-feature, avec les corrections apportées par §15 signalées en face.
+>
+> **Ce document a été faux.** Cinq de ses lignes affirmaient une conformité qui n'existait pas, ou
+> déclaraient ouvert un point déjà corrigé (3.7, 5.5, 6.6.1, 8.5, 7.4). Elles sont rectifiées
+> ci-dessous. La leçon est en tête de §15 : vérifier l'appelant, pas seulement l'endpoint.
 
 ## 0. Synthèse — les 3 régressions bloquantes (corrigées)
 
@@ -61,7 +65,7 @@
 | 3.4 | 🟠 | Le `PUT` exige désormais pays/area/plage de dates pour un compte Event. Le legacy ne contrôlait que `company` en édition (le contrôle complet n'existait qu'à la création). |
 | 3.5 | 🟠 | Le `PUT` **efface** les champs événement quand le type n'est plus `EVENT`. Le legacy les conservait. |
 | 3.6 | 🟠 | La liste est **paginée (20/page)** et **masque les inactifs par défaut** (bascule « show inactive »). Le legacy renvoyait tout, inactifs grisés en bas de liste. |
-| 3.7 | ✅ | Séries `CI/CC/CE{n}` indépendantes, `name` dérivé (company → contact → `Account {ref}`), `pocName` retombant sur le nom du contact, `pocPhone` normalisé chiffres, champs événement forcés `null` hors type Event à la création, tri actifs d'abord puis `ref` : conformes. |
+| 3.7 | ✅ / 🟠 | Séries `CI/CC/CE{n}` indépendantes, `name` dérivé (company → contact → `Account {ref}`), `pocName` retombant sur le nom du contact, `pocPhone` normalisé chiffres, champs événement forcés `null` hors type Event à la création : conformes. **Rectification 2026-08-29 :** le tri ne l'est pas — legacy actifs puis `ref`, v2 actifs puis `createdAt` (idem chauffeurs, véhicules, comptes). Écart réel, **assumé** (§15). |
 | 3.8 | ✅ | Porte « créer un événement dans le passé » (`clients.html:474` / `events.html:439`, mot de passe Owner) → `client:create-past-event`. Portée. |
 
 ## 4. Chauffeurs & partenaires
@@ -85,7 +89,7 @@
 | 5.2 | 🟠 **corrigé** | `/meta` renvoyait **tous** les types de véhicule, y compris désactivés (`findMany()` sans filtre) → un type désactivé reste proposé dans la barre de réservation. Incohérence introduite par 5.1. |
 | 5.3 | 🟠 | `FleetVehicle.driverId` est **unique** : un chauffeur ne peut être réservé qu'à un seul véhicule (409 sinon). Le legacy n'avait aucune contrainte (`findLinkedVehicleFor` prenait le premier trouvé). |
 | 5.4 | 🟠 | `PATCH /:ref/driver` refuse désormais de lier un chauffeur à un véhicule **local**. Le legacy l'acceptait (et le `PUT` le remettait à `null` ensuite). |
-| 5.5 | 🟠 | `acr` > 6 caractères : le legacy renvoyait 400, v2 **tronque silencieusement** (`slice(0,6)`, pas de `@MaxLength`). |
+| 5.5 | ✅ **rectifié** | `acr` > 6 caractères : le 400 est bien en place (`@MaxLength(6)` sur le DTO + `slice(0,6)` défensif). Cette ligne décrivait un écart déjà corrigé. |
 | 5.6 | 🟠 | Liste paginée + actifs seulement par défaut (cf. 3.6). |
 | 5.7 | ✅ | Toute la chaîne de validation création/édition est portée à l'identique : local/externe (pays+area+partenaire requis), catégorie existante, `regNbr` requis et unique insensible à la casse, `make` ∈ `FLEET_MAKES`, `model` ∈ `FLEET_MODELS_BY_MAKE`, couple make/model ∈ `CATEGORY_MODELS[category]`, `yob` dans la fenêtre glissante 10 ans, 4WD, `nbPax` 0–50, couleur ∈ palette. Indisponibilité réservée aux véhicules internes, `driverRef` non écrasé si absent du body : conformes. |
 | 5.8 | ✅ | `defaultFleetPax` (nb pax auto par catégorie/modèle) porté verbatim. |
@@ -141,7 +145,7 @@
 
 | # | Type | Écart |
 |---|------|-------|
-| 6.6.1 | 🟠 | Nouvel endpoint `PATCH /trips/:ref/assign` (drag & drop Planning) qui **ne fait pas** : regénération de ref, verrou sous-traitance, notification « updated » au POC, contrôle `trip:edit-price`, auto-assignation du véhicule réservé. (Le réarmement de `dispatched` y a été aligné sur le legacy, cf. 6.3.1.) Le legacy passait par le `PUT` complet via `quickUpdateTrip` (avec `notifyDriver: hadDriver`). |
+| 6.6.1 | ✅ **rectifié** | *(La notification « updated » au POC et le verrou de sous-traitance sont en place depuis la 3ᵉ passe du 2026-08-28 ; cette ligne les listait encore comme manquants.)* Nouvel endpoint `PATCH /trips/:ref/assign` (drag & drop Planning) qui **ne faisait pas** : regénération de ref, verrou sous-traitance, notification « updated » au POC, contrôle `trip:edit-price`, auto-assignation du véhicule réservé. (Le réarmement de `dispatched` y a été aligné sur le legacy, cf. 6.3.1.) Le legacy passait par le `PUT` complet via `quickUpdateTrip` (avec `notifyDriver: hadDriver`). |
 | 6.6.2 | 🟡 | **Les popups d'édition rapide ne sont pas portées** (cellules cliquables Compte / Passager+POC / Véhicule / Reg Nbr / Sub-C / Chauffeur). Avec elles disparaissent : la règle `isBeforeArrival` (le POC n'est modifiable que tant que le chauffeur n'est pas « In position »), l'auto-assignation du véhicule réservé au chauffeur, et le déclenchement des brouillons d'email de sous-traitance. |
 | 6.6.3 | 🟡 | **Brouillons d'email de sous-traitance non portés** : `openSubcontractEmailDraft` (mailto au partenaire avec le récapitulatif complet de la mission + tarif partenaire dans la devise du pays) et `openCanceledSubcontractEmailDraft` (annulation, signée du nom de la société lu depuis `/api/company-info`). |
 
@@ -152,7 +156,7 @@
 | 7.1 | 🟠 **écart assumé et documenté** | **Sémantique de devise inversée.** Legacy : « Retail net » saisi dans la **devise retail** (`bookingCurrency()` : EUR / CHF / GBP, sinon USD selon le pays) et « Partner rate net » dans la **devise du pays de la course** ; les deux stockés bruts dans `priceEur` / `partnerRate` (d'où des totaux de facture hétérogènes — bug legacy). v2 : les deux champs sont **en EUR** (suffixe €), l'indication convertit EUR → devise locale. C'est une correction, mais les nombres saisis et stockés n'ont plus le même sens que dans le legacy, et les totaux de facture changent. <br>**Décision (2026-08-28) : on garde l'EUR.** Le legacy additionnait des euros, des francs suisses et des dollars dans un même `totalHT` — ses totaux de facture étaient faux dès qu'un client avait des courses hors zone euro. C'est une mauvaise conception, pas une règle métier : la fidélité ne s'y applique pas. |
 | 7.2 | 🟡 **corrigé** | **Le calcul de marge avait disparu.** Legacy `updateMarginHint` : France → `(retail − partenaire) / retail` ; étranger → `((retail / 1.1) − partenaire) / (retail / 1.1)` (on retire la TVA française du retail, le tarif partenaire étranger n'en portant pas). Restauré tel quel — le `/1.1` porte sur la TVA, pas sur la devise, donc la formule vaut inchangée en EUR. `marginPercent()` dans `packages/shared/src/business/pricing.js`, affiché sous le Partner rate. |
 | 7.3 | 🟡 **corrigé** | Les indications « Total net = tarif × Nb H » pour un service ASD (`updateAsdTotalHints`) sont restaurées (`asdTotal()`, même module partagé). |
-| 7.4 | 🟡 | La règle des 4 devises retail et la table des symboles de devise (~70 entrées) ne sont pas portées. |
+| 7.4 | ✅ **corrigé le 2026-08-29** | La règle des 4 devises retail (EUR / CHF / GBP, **USD partout ailleurs**) est portée : `retailCurrency()` dans `packages/shared/src/business/pricing.js`, appliquée au champ Retail net. §14 la déclarait fermée en la rangeant sous la décision 7.1 — à tort : 7.1 traite du **stockage** des montants, 7.4 de la **devise dans laquelle on les lit**. La table des ~70 symboles reste non portée (le code ISO est affiché) : cosmétique. |
 
 ## 8. Barre de réservation — règles d'assignation
 
@@ -162,7 +166,7 @@
 | 8.2 | 🟡 **corrigé (backend)** | **`isEffectivelyActive` n'était pas portée** (`active` + fenêtre d'événement + fenêtre d'indisponibilité). Conséquence : un chauffeur en congé / arrêt maladie / jour off, ou un véhicule au garage (réparation / révision / carrosserie), **reste proposé à l'assignation** ; un chauffeur/véhicule rattaché à un événement reste proposé **hors des dates de cet événement**. Portée dans l'API sous `GET /drivers?availableOnly=true` et `GET /fleet-vehicles?availableOnly=true`. Filtre Prisma et non prédicat JS : la liste étant paginée, un filtre côté front n'aurait vu que la page affichée. |
 | 8.3 | 🟡 **corrigé (backend)** | L'auto-assignation du véhicule réservé au chauffeur est restaurée — côté serveur cette fois (`TripsService.findReservedVehicle`), ce qui couvre d'un seul endroit la création, l'édition et le drag & drop du Planning, là où le legacy la dupliquait dans deux fonctions front. Ne se déclenche qu'à une (ré)assignation réelle du chauffeur et jamais par-dessus un Reg Nbr choisi explicitement. |
 | 8.4 | 🟠 **corrigé** | Le filtre `isLocal` surnuméraire est retiré (le legacy proposait aussi les véhicules externes) et le filtre de disponibilité est rétabli. La compatibilité de catégorie passe elle aussi côté serveur (`compatibleWith`). |
-| 8.5 | 🟡 | Le champ **Area est devenu un texte libre**. Legacy : combobox sur les grandes villes du pays sélectionné, plafond par zone (US 3 / FR 25 / Europe 12 / reste 5), valeur « Local » **sélectionnable uniquement pour la France**, champ vidé à chaque changement de pays. Cette règle compte : `area` alimente le split Local / Farm out et l'éligibilité chauffeur. |
+| 8.5 | ✅ **rectifié** | *(Corrigé : `GET /meta/areas` + `area-suggestions.ts`, cf. §14. Cette ligne restait listée comme ouverte à tort.)* Le champ **Area était devenu un texte libre**. Legacy : combobox sur les grandes villes du pays sélectionné, plafond par zone (US 3 / FR 25 / Europe 12 / reste 5), valeur « Local » **sélectionnable uniquement pour la France**, champ vidé à chaque changement de pays. Cette règle compte : `area` alimente le split Local / Farm out et l'éligibilité chauffeur. |
 | 8.6 | 🟡 **corrigé** | **Le pré-remplissage FBO n'était pas branché** : l'endpoint `GET /geo/fbo-lookup` existe côté API mais n'est appelé nulle part dans le front. `LocationField` appelle désormais `/geo/fbo-lookup` quand le PU est détecté comme aéroport, sans jamais écraser une adresse déjà saisie. |
 | 8.7 | 🟠 | La popup « Flight info » ne s'ouvre plus automatiquement (et de façon bloquante) quand le PU est détecté comme un aéroport ; les champs sont inline, affichés dès qu'un code IATA est présent. |
 | 8.8 | 🟡 **corrigé** | Le champ Reg Nbr est de nouveau désactivé pour un brouillon non local. Différence assumée : le legacy *vidait* aussi le champ, ce que v2 ne fait pas — le même composant sert la création et l'édition, et vider effacerait le véhicule d'une course non locale existante à la simple ouverture du dialogue. |
@@ -265,6 +269,87 @@ dans le legacy a été porté, sans rien reclasser en « choix produit ».**
   front se contentant du `mailto:`. Le tarif partenaire est imprimé **en euros**, conformément à la
   décision 7.1.
 
-**Reste ouvert :** plus rien de §14. Les seuls écarts encore listés dans ce document sont des
-décisions assumées : la sémantique de devise (7.1) et les popups d'édition rapide (6.6.2), dont la
-seule règle métier — `isBeforeArrival` — a été portée.
+**Reste ouvert :** rien de §14 — mais §14 avait tort de conclure que le chantier était clos.
+Lire §15.
+
+
+---
+
+## 15. Deuxième passe — 2026-08-29
+
+Relecture indépendante des deux codebases, sans se fier au présent document. Elle a trouvé
+**5 bugs métier** et **une quinzaine de règles legacy non portées** que la première passe avait
+manqués, et a établi que ce document était faux sur cinq points (rectifiés en face).
+
+### Pourquoi la première passe est passée à côté
+
+Deux angles morts, à garder en tête pour toute vérification future :
+
+1. **Elle a vérifié les endpoints sans vérifier leurs appelants.** `GET /geo/geocode-search`,
+   `GET /geo/poc-search` et les quatre `DELETE` existaient, étaient corrects, et **aucune UI ne les
+   appelait** — classés « portés ». Même angle mort pour `isEffectivelyActive` (porté dans les
+   pickers d'assignation, absent des tables de gestion) et pour la ligne « HH:mm Paris » (calculée
+   par `displayPickup`, rendue nulle part).
+2. **Elle a examiné les domaines séparément.** `/meta` filtré aux types actifs et la facturation ont
+   été validés chacun de leur côté, sans croiser les deux — d'où une régression **créée** par une
+   correction (colonne Category vide sur toute facture dont le type de véhicule a été désactivé).
+
+### Corrigé le 2026-08-29
+
+**Bugs métier** (données fausses, message faux, perte de données) :
+
+| # | Écart | Correction |
+|---|-------|-----------|
+| B4 | Décocher « Sub-contracted » **laissait le partenaire attaché** (`partnerRef` omis du JSON, donc la garde `!== undefined` ne se déclenchait jamais) **et effaçait le tarif partenaire** — lu ensuite comme un changement de prix, d'où un 403 pour un DISPATCHER. | Le front dit le détachement (`partnerRef: ''`, comme `quickUpdateTrip`, common.js:2795) et renvoie toujours le tarif ; le serveur tient l'invariant « pas sous-traité ⇒ pas de partenaire ». |
+| B5 | Course **ASD** : `dropoffLocation` nul, et les templates `onboard`/`dropped` l'interpolent sans repli → le POC recevait **« On the way to null »**. | Règle serveur : un ASD prend son PU comme DO (`syncDropoffFromPickup`, common.js:1478). Vaut pour create, update, assign et le bulk. |
+| B6 | Le dialogue d'annulation s'ouvrait toujours sur « Free ». Le serveur lit FREE comme « aucun frais » et **supprime la course** : rouvrir une course annulée à 50 % et confirmer la détruisait. | Le frais est pré-chargé depuis la course (common.js:2483). |
+| B7 | **Colonne « Category » vide** sur toute facture PDF/Excel dont le type de véhicule a été désactivé depuis — régression créée par la correction 5.2. | La facture porte le type avec lequel elle a été émise (`INVOICE_INCLUDE` joint `vehicleType`). |
+| B8 | **Dérive de fuseau** : le front convertissait avec la timezone géocodée, le back stockait celle du pays. Divergentes dès qu'un pays en couvre plusieurs (Canaries, Açores) → heure affichée et heure annoncée au POC décalées. | `pickupTimezone` fait partie du DTO et est persisté ; repli sur la timezone du pays. |
+
+**Règles legacy non portées, désormais portées :**
+
+- Sélecteurs Partner / Client de la facturation : filtre métier en JS **après** pagination →
+  `partnersOnly` sur `GET /drivers`, `excludeType` sur `GET /clients` (filtres Prisma).
+- `isEffectivelyActive` dans les tables Drivers et Vehicles : grisage + badge nommant la cause
+  (`packages/shared/src/business/effective-activity.js`).
+- Ligne « HH:mm Paris » sous l'heure locale, partout où une course est listée.
+- Ordre des dates d'événement (`eventEndDate >= eventStartDate`), acronyme ≤ 4 caractères,
+  `phone` requis sur un compte d'accès, tarif partenaire requis pour sous-traiter, `tracking`
+  forcé par le Create bulk.
+- Colonnes Sub-C et Action de la liste Planning ; suppression définitive exposée dans l'UI.
+- Recherche d'adresse (`geocode-search`), auto-remplissage du pays depuis le géocodage
+  (`matchCountryByGeocode`), combobox POC (`poc-search`), verrou FBO/Tail sur un vol commercial,
+  règle des 4 devises retail, `shortPlaceLabel` + n° de vol dans la colonne Itinéraire, email
+  réservé aux partenaires, combobox des sociétés partenaires, crayon grisé sur un véhicule retiré.
+- Bloc « Flight info » déclenché par « c'est un aéroport » et non par la présence d'un code IATA :
+  le géocodeur reconnaît un aéroport plus souvent qu'il ne sait le nommer (JFK), et une prise en
+  charge sans IATA n'avait **nulle part** où saisir son numéro de vol.
+
+**Trou propre à v2, comblé :** aucun moyen de changer un mot de passe. v2 en impose un à la
+création, la désactivation est à sens unique — un compte dont le mot de passe était perdu était
+irrécupérable. `PATCH /users/:id/password` + l'action dans la table Users.
+
+### Écarts assumés — décision de Romain, 2026-08-29
+
+Identifiés, réels, **volontairement non corrigés**. Un écart écarté se documente ; il ne se tait pas.
+
+| Écart | Legacy | v2 — conservé |
+|-------|--------|---------------|
+| **Indisponibilité** | type verrouillé et **non annulable**, dates modifiables (common.js:3611-3615) | dates figées + bouton « Clear » : on peut corriger une erreur de type, au prix d'une re-saisie pour déplacer une date |
+| **Tri des listes** | actifs puis `ref` (server.js:1725, 1820, 1909, 252) | actifs puis `createdAt` |
+| **Bornes de facturation** | classement sur la **date murale** du PU (invoicing.html:291) | instant ramené à minuit Paris — une course NY du 30/06 22:00 LT part sur la facture de juillet |
+| **Recherche** | insensible aux accents dans tous les pickers (common.js:443) | ILIKE Postgres : « Herve » ne trouve pas « Hervé » |
+| **Devises (7.1)** | Retail en devise retail, Partner en devise pays, stockés bruts | tout en EUR — le legacy additionnait des devises hétérogènes dans `totalHT` |
+| **Popups d'édition rapide (6.6.2)** | cellules cliquables | non portées ; leur seule règle métier (`isBeforeArrival`) l'est |
+| **Confirm de la popup vol** | Confirm bloqué tant que vol validé **ou** FBO + Tail(5) | non porté : cette popup avait un Cancel, donc la règle ne bloquait que sa propre validation, jamais la création. Inline, elle bloquerait la course elle-même — plus strict que le legacy |
+
+### Deux tightenings assumés, introduits le 2026-08-29
+
+- **Tarif partenaire requis pour sous-traiter** : le legacy l'exigeait dans la popup de
+  sous-traitance (common.js:2812), pas dans la barre de création. v2 n'ayant qu'un formulaire, la
+  règle s'applique aussi à la création.
+- **Colonne Itinéraire** : `shortPlaceLabel` fait précéder l'adresse de la ville du fuseau quand
+  l'adresse ne la nomme pas. Sur une adresse saisie à la main en un seul segment (« Nice Airport »
+  sur une course en fuseau Paris) cela donne « Paris, Nice Airport ». C'est le comportement legacy —
+  qui supposait des adresses issues de son autocomplétion. Celle-ci étant rétablie, les nouvelles
+  courses portent des adresses complètes.
