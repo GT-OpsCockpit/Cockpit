@@ -938,7 +938,7 @@ describe('Trips (e2e)', () => {
         };
         return {
           clientRef: (client.body as ClientBody).ref,
-          otherClientRef: (other as ClientBody).ref,
+          otherClientRef: other.ref,
           driverRef: (driver.body as { ref: string }).ref,
           mine: await mk({
             clientRef: (client.body as ClientBody).ref,
@@ -948,7 +948,7 @@ describe('Trips (e2e)', () => {
             service: 'TSF',
           }),
           theirs: await mk({
-            clientRef: (other as ClientBody).ref,
+            clientRef: other.ref,
             passengerName: 'Bob Other',
             service: 'SPEC',
             instructions: 'Bring a booster seat',
@@ -1040,6 +1040,205 @@ describe('Trips (e2e)', () => {
         expect(await refsOf(`clientRef=${clientRef}&service=TSF`)).toEqual([
           mine,
         ]);
+      });
+    });
+
+    // The Invoicing Customer tab, the Partner log and the Planning list used
+    // to narrow an already-fetched list on these three (applyCustomerTripFilters,
+    // applyPartnerFilters, and planning-page's own listTrips.filter) — they are
+    // the server's now, like the board's own bar above.
+    describe('the Invoicing and Planning filters', () => {
+      const refsOf = async (qs: string) => {
+        const res = await request(server())
+          .get(`/api/trips?period=all&${qs}`)
+          .set('Cookie', cookie)
+          .expect(200);
+        return (res.body as TripBody[]).map((t) => t.ref);
+      };
+
+      it('scopes by partner, and never by the in-house driver', async () => {
+        const driver = await createDriver('+33633000011');
+        const partner = await request(server())
+          .post('/api/drivers')
+          .set('Cookie', cookie)
+          .send({
+            firstName: 'Paul',
+            lastName: 'Partner',
+            phone: '+33633000012',
+            company: 'Riviera Cars',
+            email: 'paul.partnerref@riviera.test',
+          })
+          .expect(201);
+        const partnerRef = (partner.body as DriverBody).ref;
+
+        const inHouse = await request(server())
+          .post('/api/trips')
+          .set('Cookie', cookie)
+          .send({
+            ...BASE_TRIP,
+            clientRef: (await createClient('+33611000011')).ref,
+            driverRef: driver.ref,
+          })
+          .expect(201);
+        const farmedOut = await request(server())
+          .post('/api/trips')
+          .set('Cookie', cookie)
+          .send({
+            ...BASE_TRIP,
+            clientRef: (await createClient('+33611000012')).ref,
+            subContractor: true,
+            partnerRef,
+          })
+          .expect(201);
+
+        const refs = await refsOf(`partnerRef=${partnerRef}`);
+        expect(refs).toEqual([(farmedOut.body as TripBody).ref]);
+        expect(refs).not.toContain((inHouse.body as TripBody).ref);
+        // The mirror of driverRef, which matches the in-house driver only.
+        expect(await refsOf(`driverRef=${partnerRef}`)).toEqual([]);
+      });
+
+      it('matches Ref/PO on the linked account, case-insensitively and on a substring', async () => {
+        const withRefPo = await request(server())
+          .post('/api/clients')
+          .set('Cookie', cookie)
+          .send({
+            clientType: 'INDIVIDUAL',
+            contactFirstName: 'Rita',
+            contactLastName: 'Refpo',
+            pocPhone: '+33611000021',
+            refPoOther: 'PO-2026-1234',
+          })
+          .expect(201);
+        const other = await createClient('+33611000022');
+
+        const mk = async (clientRef: string) => {
+          const res = await request(server())
+            .post('/api/trips')
+            .set('Cookie', cookie)
+            .send({ ...BASE_TRIP, clientRef })
+            .expect(201);
+          return (res.body as TripBody).ref;
+        };
+        const mine = await mk((withRefPo.body as ClientBody).ref);
+        const theirs = await mk(other.ref);
+
+        expect(await refsOf('refPo=po-2026')).toEqual([mine]);
+        expect(await refsOf('refPo=po-2026')).not.toContain(theirs);
+        expect(await refsOf('refPo=nope')).toEqual([]);
+      });
+
+      // Ref/PO, the account and the category all narrow the SAME `where.client`
+      // — one must not silently replace the others. Two accounts share the
+      // Ref/PO here, so replacing rather than merging widens the result.
+      it('combines Ref/PO with the account and category filters rather than replacing them', async () => {
+        const mkClient = async (
+          first: string,
+          phone: string,
+        ): Promise<string> => {
+          const res = await request(server())
+            .post('/api/clients')
+            .set('Cookie', cookie)
+            .send({
+              clientType: 'INDIVIDUAL',
+              contactFirstName: first,
+              contactLastName: 'Refpo',
+              pocPhone: phone,
+              refPoOther: 'PO-777',
+            })
+            .expect(201);
+          return (res.body as ClientBody).ref;
+        };
+        const mkTrip = async (clientRef: string): Promise<string> => {
+          const res = await request(server())
+            .post('/api/trips')
+            .set('Cookie', cookie)
+            .send({ ...BASE_TRIP, clientRef })
+            .expect(201);
+          return (res.body as TripBody).ref;
+        };
+
+        const mineRef = await mkClient('Rita', '+33611000031');
+        const theirsRef = await mkClient('Rudy', '+33611000032');
+        const mine = await mkTrip(mineRef);
+        const theirs = await mkTrip(theirsRef);
+
+        const both = await refsOf('refPo=PO-777');
+        expect(both).toContain(mine);
+        expect(both).toContain(theirs);
+
+        expect(await refsOf(`clientRef=${mineRef}&refPo=PO-777`)).toEqual([
+          mine,
+        ]);
+        expect(await refsOf(`clientRef=${mineRef}&refPo=PO-888`)).toEqual([]);
+      });
+
+      // Same seam again, from the other side: `category` is a `where.client`
+      // key too, so a Ref/PO search must not smuggle Events bookings into a
+      // caller that asked for the default 'daily'.
+      it('keeps the category filter while searching Ref/PO', async () => {
+        const event = await request(server())
+          .post('/api/clients')
+          .set('Cookie', cookie)
+          .send({
+            clientType: 'EVENT',
+            company: 'Refpo Grand Prix',
+            eventCountry: 'MC',
+            eventArea: 'Monaco',
+            eventStartDate: isoOffsetDays(1),
+            eventEndDate: isoOffsetDays(3),
+            pocPhone: '+33611000033',
+            refPoOther: 'PO-EVT',
+          })
+          .expect(201);
+        const trip = await request(server())
+          .post('/api/trips')
+          .set('Cookie', cookie)
+          .send({ ...BASE_TRIP, clientRef: (event.body as ClientBody).ref })
+          .expect(201);
+        const ref = (trip.body as TripBody).ref;
+
+        expect(await refsOf('refPo=PO-EVT')).toEqual([]);
+        expect(await refsOf('refPo=PO-EVT&category=all')).toEqual([ref]);
+      });
+
+      it('scopes by the fleet vehicle actually assigned, by reg nbr', async () => {
+        const vehicle = await request(server())
+          .post('/api/fleet-vehicles')
+          .set('Cookie', cookie)
+          .send({
+            category: 'Business',
+            regNbr: 'FR-PLAN-01',
+            make: 'Mercedes-Benz',
+            model: 'E-Class',
+            yearOfBuild: new Date().getFullYear() - 1,
+            fourWD: false,
+            nbPax: 3,
+          })
+          .expect(201);
+        const regNbr = (vehicle.body as { regNbr: string }).regNbr;
+
+        const assigned = await request(server())
+          .post('/api/trips')
+          .set('Cookie', cookie)
+          .send({
+            ...BASE_TRIP,
+            clientRef: (await createClient('+33611000041')).ref,
+            fleetRegNbr: regNbr,
+          })
+          .expect(201);
+        const unassigned = await request(server())
+          .post('/api/trips')
+          .set('Cookie', cookie)
+          .send({
+            ...BASE_TRIP,
+            clientRef: (await createClient('+33611000042')).ref,
+          })
+          .expect(201);
+
+        const refs = await refsOf(`fleetRegNbr=${regNbr}`);
+        expect(refs).toEqual([(assigned.body as TripBody).ref]);
+        expect(refs).not.toContain((unassigned.body as TripBody).ref);
       });
     });
 

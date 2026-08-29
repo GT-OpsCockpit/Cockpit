@@ -27,7 +27,7 @@ import { PlanningFiltersBar } from './planning-filters-bar'
 import { PlanningList } from './planning-list'
 import { coversDate, defaultPlanningFilters, vehicleTypeColor, type PlanningResource } from './planning-status'
 import { PlanningTimeline, type TimelineRow } from './planning-timeline'
-import { timelineWindow } from '../bookings/trip-query'
+import { planningListView, planningTimelineView } from '../bookings/trip-views'
 import { FilterCard } from '@/components/filter-card'
 import { PageTitle } from '@/components/layout/page-title'
 import { filtersChanged } from '@/lib/utils'
@@ -51,16 +51,11 @@ export function PlanningPage() {
   const canEditPast = usePermission('trip:edit-past')
   const isEditable = (trip: TripEntity) => new Date(trip.pickupAt) >= new Date() || canEditPast
 
-  // The Timeline navigates to an arbitrary date + 1-3 day span, which the
-  // named `period` enum cannot express — it used to ask for 'all', which puts
-  // no bound on the query at all. It sends its own window now (see
-  // timelineWindow, which also reaches back far enough to catch a booking
-  // still running into the first visible day). The List view keeps using the
-  // selected period.
+  // Two views, not one with a flag: the List narrows to the selected driver
+  // or vehicle server-side, while the Gantt must NOT — it draws one row per
+  // resource, so narrowing would empty every other row (see trip-views.ts).
   const trips = useTripsControllerList(
-    filters.view === 'timeline'
-      ? { ...timelineWindow(filters.timelineDate, filters.timelineDays), category: filters.category }
-      : { period: filters.period, category: filters.category },
+    filters.view === 'timeline' ? planningTimelineView(filters) : planningListView(filters),
   )
 
   const drivers = useDriversControllerList(
@@ -95,13 +90,6 @@ export function PlanningPage() {
     filters.resource === 'drivers'
       ? (drivers.data?.data ?? []).map((d) => ({ value: d.ref, label: driverLabel(d) }))
       : (vehicles.data?.data ?? []).map((v) => ({ value: v.regNbr, label: v.regNbr }))
-
-  const listTrips = (trips.data ?? []).filter((t) => {
-    if (!filters.resourceRef) return true
-    return filters.resource === 'drivers'
-      ? t.driver?.ref === filters.resourceRef
-      : t.fleetVehicle?.regNbr === filters.resourceRef
-  })
 
   const driverRows: TimelineRow[] = (drivers.data?.data ?? [])
     .slice()
@@ -168,7 +156,7 @@ export function PlanningPage() {
 
       {filters.view === 'list' ? (
         <PlanningList
-          trips={listTrips}
+          trips={trips.data ?? []}
           onEdit={setEditTarget}
           onAdvance={setAdvanceTarget}
           hasActiveFilters={hasActiveFilters}

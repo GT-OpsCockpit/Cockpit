@@ -241,6 +241,15 @@ export class TripsService {
     if (category === 'daily') client.clientType = { not: ClientType.EVENT };
     else if (category === 'event') client.clientType = ClientType.EVENT;
     if (query.clientRef) client.ref = query.clientRef;
+    // Ref/PO is a field of the account, not of the booking — so it joins the
+    // same `client` filter rather than becoming a second one (which would
+    // overwrite the clientType/ref keys built just above).
+    if (query.refPo?.trim()) {
+      client.refPoOther = {
+        contains: query.refPo.trim(),
+        mode: 'insensitive',
+      };
+    }
     if (Object.keys(client).length > 0) where.client = client;
 
     // The board's own filter bar, resolved here rather than over an unbounded
@@ -248,7 +257,9 @@ export class TripsService {
     const search = tripSearchFilter(query.search);
     if (search) where.AND = search;
     if (query.driverRef) where.driver = { ref: query.driverRef };
+    if (query.partnerRef) where.partner = { ref: query.partnerRef };
     if (query.vehicleType) where.vehicleType = { name: query.vehicleType };
+    if (query.fleetRegNbr) where.fleetVehicle = { regNbr: query.fleetRegNbr };
     if (query.service) where.service = query.service;
     if (query.passenger?.trim()) {
       where.passengerName = {

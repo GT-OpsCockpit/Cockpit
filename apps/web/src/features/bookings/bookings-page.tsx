@@ -12,7 +12,8 @@ import { DispatchConfirmDialog } from './dispatch-confirm-dialog'
 import { NameboardUploadDialog } from './nameboard-upload-dialog'
 import { useTripEvents } from './use-trip-events'
 import { isLocalTrip } from '@cockpit/shared'
-import { bookingListQuery, defaultBookingFilters } from './booking-filters'
+import { defaultBookingFilters } from './booking-filters'
+import { boardView } from './trip-views'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
 import { Button } from '@/components/ui/button'
 import { FilterCard } from '@/components/filter-card'
@@ -39,7 +40,7 @@ export function BookingsPage() {
   // request-on-demand pickers use.
   const search = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS)
   const passenger = useDebouncedValue(filters.passenger, SEARCH_DEBOUNCE_MS)
-  const trips = useTripsControllerList(bookingListQuery({ ...filters, search, passenger }))
+  const trips = useTripsControllerList(boardView({ ...filters, search, passenger }))
   const [dispatchTarget, setDispatchTarget] = useState<TripEntity | null>(null)
   const [editTarget, setEditTarget] = useState<TripEntity | null>(null)
   const [cancelTarget, setCancelTarget] = useState<TripEntity | null>(null)

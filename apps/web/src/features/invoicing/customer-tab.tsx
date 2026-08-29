@@ -13,13 +13,8 @@ import { BookingEditDialog } from '../bookings/booking-edit-dialog'
 import { DispatchConfirmDialog } from '../bookings/dispatch-confirm-dialog'
 import { clientDisplayName } from '@cockpit/shared'
 import { CustomerFiltersBar } from './customer-filters-bar'
-import {
-  applyInvoiceFilters,
-  applyPendingFilters,
-  customerFilterTarget,
-  customerListQuery,
-  defaultCustomerFilters,
-} from './customer-filters'
+import { applyInvoiceFilters, customerFilterTarget, defaultCustomerFilters } from './customer-filters'
+import { billingView } from '../bookings/trip-views'
 import { downloadCustomerPendingExcel, downloadInvoicesExcel } from './invoice-excel'
 import { InvoiceCreateDialog } from './invoice-create-dialog'
 import { InvoicedTable } from './invoiced-table'
@@ -39,7 +34,7 @@ export function CustomerTab() {
   const defaultPeriod = useInvoicesControllerDefaultPeriod()
   const invoices = useInvoicesControllerList()
 
-  const trips = useTripsControllerList(customerListQuery(filters), {
+  const trips = useTripsControllerList(billingView(filters), {
     query: { enabled: datesInitialized },
   })
 
@@ -63,7 +58,9 @@ export function CustomerTab() {
   const [advanceTarget, setAdvanceTarget] = useState<TripEntity | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const pendingTrips = applyPendingFilters(trips.data ?? [], filters)
+  // Every filter this tab carries is a parameter of the query above — the
+  // rows that come back are already the rows to bill.
+  const pendingTrips = trips.data ?? []
   const filteredInvoices = applyInvoiceFilters(invoices.data ?? [], filters)
 
   const target = customerFilterTarget(filters)

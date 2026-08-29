@@ -11,7 +11,8 @@ import { DispatchConfirmDialog } from '../bookings/dispatch-confirm-dialog'
 import { NameboardUploadDialog } from '../bookings/nameboard-upload-dialog'
 import { downloadPartnerExcel } from './invoice-excel'
 import { PartnerFiltersBar } from './partner-filters-bar'
-import { applyPartnerFilters, defaultPartnerFilters, partnerListQuery } from './partner-filters'
+import { defaultPartnerFilters } from './partner-filters'
+import { partnerLogView } from '../bookings/trip-views'
 import { FilterCard } from '@/components/filter-card'
 import { filtersChanged } from '@/lib/utils'
 
@@ -25,10 +26,9 @@ export function PartnerLogTab() {
   const [filters, setFilters] = useState(defaultPartnerFilters())
   const hasActiveFilters = filtersChanged(filters, defaultPartnerFilters())
   const resetFilters = () => setFilters(defaultPartnerFilters())
-  // The date range and "has a partner" are the server's now — this tab used
-  // to fetch every trip ever recorded and throw away all but one month of
-  // farmed-out ones.
-  const trips = useTripsControllerList(partnerListQuery(filters))
+  // Every filter this tab carries is a parameter of the query — it used to
+  // fetch a whole month of farmed-out bookings and throw most of them away.
+  const trips = useTripsControllerList(partnerLogView(filters))
 
   const [editTarget, setEditTarget] = useState<TripEntity | null>(null)
   const [cancelTarget, setCancelTarget] = useState<TripEntity | null>(null)
@@ -36,7 +36,7 @@ export function PartnerLogTab() {
   const [advanceTarget, setAdvanceTarget] = useState<TripEntity | null>(null)
   const [nameboardTarget, setNameboardTarget] = useState<TripEntity | null>(null)
 
-  const filteredTrips = applyPartnerFilters(trips.data ?? [], filters)
+  const filteredTrips = trips.data ?? []
   const targetLabel = filteredTrips[0]?.partner ? (filteredTrips[0].partner.firstName ?? filteredTrips[0].partner.company ?? 'AllPartners') : 'AllPartners'
 
   return (

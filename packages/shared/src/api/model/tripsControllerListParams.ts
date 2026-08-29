@@ -57,6 +57,26 @@ passenger?: string;
  * Exact vehicle type, by name.
  */
 vehicleType?: string;
+/**
+ * Exact partner, by ref — the Invoicing Partner log's Partner select. The
+ * mirror of `driverRef`: this one matches the sub-contractor a booking was
+ * farmed out to, never the in-house driver.
+ */
+partnerRef?: string;
+/**
+ * Substring of the linked account's Ref/PO/Other, case-insensitive — the
+ * Ref/PO box the Customer tab and the Partner log both carry.
+ *
+ * It is a field of the *account*, not of the booking: the legacy matched it
+ * that way too (invoicing.html:280-299), same convention as Events' Search
+ * block.
+ */
+refPo?: string;
+/**
+ * Exact fleet vehicle, by registration number — the Planning list's resource
+ * select when it is showing Vehicles rather than Drivers.
+ */
+fleetRegNbr?: string;
 service?: TripsControllerListService;
 /**
  * Only bookings still to be billed — the Invoicing Customer tab's Pending

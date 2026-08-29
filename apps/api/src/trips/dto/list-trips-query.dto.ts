@@ -90,6 +90,35 @@ export class ListTripsQueryDto {
   @IsString()
   vehicleType?: string;
 
+  /**
+   * Exact partner, by ref — the Invoicing Partner log's Partner select. The
+   * mirror of `driverRef`: this one matches the sub-contractor a booking was
+   * farmed out to, never the in-house driver.
+   */
+  @IsOptional()
+  @IsString()
+  partnerRef?: string;
+
+  /**
+   * Substring of the linked account's Ref/PO/Other, case-insensitive — the
+   * Ref/PO box the Customer tab and the Partner log both carry.
+   *
+   * It is a field of the *account*, not of the booking: the legacy matched it
+   * that way too (invoicing.html:280-299), same convention as Events' Search
+   * block.
+   */
+  @IsOptional()
+  @IsString()
+  refPo?: string;
+
+  /**
+   * Exact fleet vehicle, by registration number — the Planning list's resource
+   * select when it is showing Vehicles rather than Drivers.
+   */
+  @IsOptional()
+  @IsString()
+  fleetRegNbr?: string;
+
   @IsOptional()
   @IsIn(Object.values(Service))
   service?: Service;
