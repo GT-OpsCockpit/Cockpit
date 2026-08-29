@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
-import type { TripEntity } from '@cockpit/shared/api'
+import type { TripEntity, TripsControllerListParams } from '@cockpit/shared/api'
+import { parisDateRangeWindow } from '../bookings/trip-query'
 import { PARIS_ZONE } from '../bookings/trip-display'
 
 export interface PartnerFilters {
@@ -19,6 +20,21 @@ export function firstAndLastOfMonth(): { start: string; end: string } {
 export function defaultPartnerFilters(): PartnerFilters {
   const { start, end } = firstAndLastOfMonth()
   return { partnerRef: '', eventRef: '', dateStart: start, dateEnd: end, refPo: '' }
+}
+
+/**
+ * The farmed-out bookings this tab logs, as the API's own query. `category:
+ * 'all'` for the same reason as the Customer tab: the API's `daily` default
+ * would drop every Events-account booking, and the legacy logged those too
+ * (invoicing.html:740 filtered the full list).
+ */
+export function partnerListQuery(filters: PartnerFilters): TripsControllerListParams {
+  return {
+    ...parisDateRangeWindow(filters.dateStart, filters.dateEnd),
+    ...(!filters.dateStart && !filters.dateEnd && { period: 'all' as const }),
+    category: 'all',
+    hasPartner: true,
+  }
 }
 
 /**

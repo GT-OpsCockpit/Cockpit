@@ -34,11 +34,19 @@ function row(page: Page, text: string) {
  * which checks the digit *pattern* and not just the length — a raw timestamp
  * lands in unallocated ranges ("07 17 87 94 83" is not a French mobile) and is
  * rejected outright. Keeping the 06 prefix and varying only the tail stays
- * inside an allocated range whatever the clock says. `slot` keeps them unique:
- * DriversService.create() dedups by phone, which is a unique column.
+ * inside an allocated range whatever the clock says. `slot` keeps them unique
+ * within a run: DriversService.create() dedups by phone, which is a unique
+ * column.
+ *
+ * The tail is random rather than the caller's timestamp. Six digits of
+ * `Date.now()` repeat every 10^6 ms — about every 17 minutes — and cockpit_test
+ * is never truncated, so two runs that close together collided on the phone and
+ * the create came back 409.
  */
-function mobile(stamp: number, slot: number) {
-  return `+336${String(stamp).slice(-6)}${String(slot).padStart(2, '0')}`
+const PHONE_RUN_TAIL = String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0')
+
+function mobile(_stamp: number, slot: number) {
+  return `+336${PHONE_RUN_TAIL}${String(slot).padStart(2, '0')}`
 }
 
 /**

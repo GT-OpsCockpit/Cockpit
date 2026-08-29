@@ -1,4 +1,5 @@
-import type { InvoiceEntity, TripEntity } from '@cockpit/shared/api'
+import type { InvoiceEntity, TripEntity, TripsControllerListParams } from '@cockpit/shared/api'
+import { parisDateRangeWindow } from '../bookings/trip-query'
 
 export interface CustomerFilters {
   /** Client and Event selects are mutually exclusive slots over the same trip.client.ref — same convention as Events' Search block. */
@@ -20,6 +21,25 @@ export function defaultCustomerFilters(period: { start: string; end: string }): 
     dateEnd: period.end,
     refPo: '',
     passenger: '',
+  }
+}
+
+/**
+ * The bookings this tab bills, as the API's own query.
+ *
+ * `category: 'all'` is not incidental: the API defaults to `daily`, which
+ * excludes Events-account bookings, and this tab is the only place an Events
+ * booking can be invoiced from — the Events page has no invoicing action and
+ * the Bookings creation dialog will not even offer an Events account. The
+ * legacy read every trip here (server.js:2277 returned them all), so its
+ * Events mode worked; v2 inherited the `daily` default and killed it.
+ */
+export function customerListQuery(filters: CustomerFilters): TripsControllerListParams {
+  return {
+    ...parisDateRangeWindow(filters.dateStart, filters.dateEnd),
+    ...(!filters.dateStart && !filters.dateEnd && { period: 'all' as const }),
+    category: 'all',
+    unbilled: true,
   }
 }
 

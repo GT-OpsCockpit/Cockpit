@@ -5,8 +5,35 @@ import {
   applyCustomerTripFilters,
   applyInvoiceFilters,
   customerFilterTarget,
+  customerListQuery,
   defaultCustomerFilters,
 } from './customer-filters'
+
+describe('customerListQuery', () => {
+  // This tab is the only route to invoicing an Events booking — the Events page
+  // has no invoicing action, and the Bookings creation dialog will not offer an
+  // Events account. The API's `daily` default would drop every one of them.
+  it("asks for every account type, or the tab's Events mode can never list a row", () => {
+    expect(customerListQuery(defaultCustomerFilters({ start: '2026-06-01', end: '2026-06-30' })).category).toBe('all')
+  })
+
+  it('asks for the period on screen, and only what is still to be billed', () => {
+    expect(customerListQuery(defaultCustomerFilters({ start: '2026-06-01', end: '2026-06-30' }))).toEqual({
+      from: '2026-06-01T00:00:00.000+02:00',
+      to: '2026-07-01T00:00:00.000+02:00',
+      category: 'all',
+      unbilled: true,
+    })
+  })
+
+  it('falls back to the whole history only once both dates are cleared', () => {
+    expect(customerListQuery(defaultCustomerFilters({ start: '', end: '' }))).toEqual({
+      period: 'all',
+      category: 'all',
+      unbilled: true,
+    })
+  })
+})
 
 describe('customerFilterTarget', () => {
   it('reads clientRef when not in Events mode, eventRef otherwise', () => {

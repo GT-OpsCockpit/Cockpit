@@ -11,8 +11,7 @@ import { DispatchConfirmDialog } from '../bookings/dispatch-confirm-dialog'
 import { NameboardUploadDialog } from '../bookings/nameboard-upload-dialog'
 import { downloadPartnerExcel } from './invoice-excel'
 import { PartnerFiltersBar } from './partner-filters-bar'
-import { applyPartnerFilters, defaultPartnerFilters } from './partner-filters'
-import { parisDateRangeWindow } from '../bookings/trip-query'
+import { applyPartnerFilters, defaultPartnerFilters, partnerListQuery } from './partner-filters'
 import { filtersChanged } from '@/lib/utils'
 
 /**
@@ -28,11 +27,7 @@ export function PartnerLogTab() {
   // The date range and "has a partner" are the server's now — this tab used
   // to fetch every trip ever recorded and throw away all but one month of
   // farmed-out ones.
-  const trips = useTripsControllerList({
-    ...parisDateRangeWindow(filters.dateStart, filters.dateEnd),
-    ...(!filters.dateStart && !filters.dateEnd && { period: 'all' as const }),
-    hasPartner: true,
-  })
+  const trips = useTripsControllerList(partnerListQuery(filters))
 
   const [editTarget, setEditTarget] = useState<TripEntity | null>(null)
   const [cancelTarget, setCancelTarget] = useState<TripEntity | null>(null)

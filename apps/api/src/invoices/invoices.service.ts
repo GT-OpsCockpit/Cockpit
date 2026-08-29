@@ -8,7 +8,6 @@ import { InvoiceEntity } from './dto/invoice.entity';
 import { InvoicingPeriodEntity } from './dto/invoicing-period.entity';
 import { invoicingDefaultPeriod } from './invoicing-period';
 import { DateTime } from 'luxon';
-import { ClientType } from '../../generated/prisma/enums';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -31,15 +30,11 @@ export class InvoicesService {
    * only ever needed the oldest unbilled one.
    */
   async defaultPeriod(): Promise<InvoicingPeriodEntity> {
-    // Events-client bookings are excluded, because the tab's own Pending table
-    // never lists them (its query is the default `category=daily`). Reaching
-    // the period back for a booking it cannot show would just open on an empty
-    // month.
+    // Every account type, Events included — the tab bills those too
+    // (customerListQuery asks for `category=all`), and the legacy counted them
+    // here as well (invoicing.html:226 read the full trip list).
     const oldest = await this.prisma.trip.findFirst({
-      where: {
-        invoiced: false,
-        client: { clientType: { not: ClientType.EVENT } },
-      },
+      where: { invoiced: false },
       orderBy: { pickupAt: 'asc' },
       select: { pickupAt: true },
     });

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fillArea } from './helpers'
 
 /**
@@ -20,6 +20,17 @@ function toast(page: Page, textOrPattern: string | RegExp) {
 
 async function selectSearchCombobox(page: Page, label: string, query: string, optionText: string) {
   await page.getByLabel(label, { exact: true }).click()
+  await page.getByPlaceholder(`Search ${label.toLowerCase()}…`).fill(query)
+  await page.getByRole('option', { name: optionText }).click()
+}
+
+/**
+ * Same, scoped to a dialog. The Events page carries filters of its own with the
+ * same labels (Country), so a page-wide lookup would match those too — the
+ * popover the trigger opens is portalled to the body, hence page-scoped.
+ */
+async function selectInDialog(page: Page, scope: Locator, label: string, query: string, optionText: string) {
+  await scope.getByLabel(label, { exact: true }).click()
   await page.getByPlaceholder(`Search ${label.toLowerCase()}…`).fill(query)
   await page.getByRole('option', { name: optionText }).click()
 }
@@ -144,5 +155,80 @@ test.describe('Invoicing — Customer tab lifecycle', () => {
 
     await page.getByRole('tab', { name: 'History' }).click()
     await expect(page.getByText('Coming soon.')).toBeVisible()
+  })
+})
+
+/**
+ * An Events booking can only be invoiced from this tab — the Events page has
+ * no invoicing action, and the Bookings creation dialog excludes Events
+ * accounts from its Customer picker. So this walks the one route there is.
+ */
+test.describe('Invoicing — Events mode', () => {
+  test('invoices an Events booking through the Customer tab', async ({ page }) => {
+    const stamp = Date.now()
+    const eventName = `E2E Inv Gala ${stamp}`
+
+    // --- An Events account and one priced booking against it ---
+    await page.goto('/events')
+    await page.getByRole('button', { name: 'New', exact: true }).click()
+    const newDialog = page.getByRole('dialog', { name: 'New Events account' })
+    await newDialog.getByLabel('Event name', { exact: true }).fill(eventName)
+    await newDialog.getByLabel('Event country', { exact: true }).click()
+    await page.getByPlaceholder('Search country…').fill('Fra')
+    await page.getByRole('option', { name: 'France (FR)' }).click()
+    await fillArea(page, newDialog, 'Monte-Carlo', 'Event area')
+    await newDialog.getByLabel('Start date', { exact: true }).fill('2027-06-01')
+    await newDialog.getByLabel('End date', { exact: true }).fill('2027-06-03')
+    await newDialog.getByRole('button', { name: 'Create' }).click()
+    await expect(toast(page, /^Event account \w+ created\.$/)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Confirm' }).click()
+    await page.getByRole('button', { name: 'New booking' }).click()
+    const bookingDialog = page.getByRole('dialog', { name: `New booking — ${eventName}` })
+    await selectInDialog(page, bookingDialog, 'Country', 'Fra', 'France (FR)')
+    await fillArea(page, bookingDialog, 'Nice')
+    await bookingDialog.locator('input[type="date"]').fill('2027-06-01')
+    await bookingDialog.locator('input[type="time"]').fill('10:00')
+    await selectFromDropdown(page, 'Vehicle', 'Business')
+    await bookingDialog.getByLabel('Pax Name').fill(`E2E Inv Event Pax ${stamp}`)
+    await bookingDialog.getByLabel('PU', { exact: true }).fill('Nice Airport')
+    await bookingDialog.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
+    await bookingDialog.getByLabel('POC Mobile').fill('+33612345678')
+    await bookingDialog.getByLabel('Retail net').fill('250')
+    await bookingDialog.getByRole('button', { name: 'Create', exact: true }).click()
+
+    const createdToast = toast(page, /^Trip (R-[\w-]+) created \(account \w+\)\.$/)
+    await expect(createdToast).toBeVisible()
+    const tripRef = (await createdToast.textContent())?.match(/Trip (R-[\w-]+) created/)?.[1]
+    if (!tripRef) throw new Error('Could not read the created trip ref off the toast.')
+
+    // --- Invoicing, Events mode: the booking has to be listed as pending ---
+    await page.goto('/invoicing')
+    await page.getByLabel('Events', { exact: true }).check()
+    // By role, not by label: the Invoiced table's Event column renders a check
+    // icon that also carries aria-label="Event", so a label lookup is ambiguous
+    // as soon as one event invoice is already on screen.
+    await page.getByRole('combobox', { name: 'Event' }).click()
+    await page.getByPlaceholder('Search event…').fill(eventName)
+    await page.getByRole('option', { name: eventName }).click()
+    await page.getByLabel('Date in', { exact: true }).fill('2000-01-01')
+    await page.getByLabel('Date out', { exact: true }).fill('2099-12-31')
+
+    const pendingRow = page.getByRole('row').filter({ hasText: tripRef })
+    await expect(pendingRow).toBeVisible()
+    await expect(pendingRow.getByText('250.00 €')).toBeVisible()
+
+    // --- and invoiced from there ---
+    const invoiceButton = page.getByRole('button', { name: 'Invoice', exact: true })
+    await expect(invoiceButton).toBeEnabled()
+    await invoiceButton.click()
+    await page.getByRole('button', { name: 'Yes' }).click()
+
+    const invoiceToast = toast(page, /^Invoice (INV\d+) created\.$/)
+    await expect(invoiceToast).toBeVisible()
+
+    const invoiceRow = page.getByRole('row').filter({ hasText: eventName })
+    await expect(invoiceRow.getByText('275.00 € TTC')).toBeVisible() // 250 net + 10% VAT
+    await expect(invoiceRow.getByText('250.00 € HT')).toBeVisible()
   })
 })

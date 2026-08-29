@@ -17,9 +17,9 @@ import {
   applyInvoiceFilters,
   applyPendingFilters,
   customerFilterTarget,
+  customerListQuery,
   defaultCustomerFilters,
 } from './customer-filters'
-import { parisDateRangeWindow } from '../bookings/trip-query'
 import { downloadCustomerPendingExcel, downloadInvoicesExcel } from './invoice-excel'
 import { InvoiceCreateDialog } from './invoice-create-dialog'
 import { InvoicedTable } from './invoiced-table'
@@ -38,14 +38,9 @@ export function CustomerTab() {
   const defaultPeriod = useInvoicesControllerDefaultPeriod()
   const invoices = useInvoicesControllerList()
 
-  const trips = useTripsControllerList(
-    {
-      ...parisDateRangeWindow(filters.dateStart, filters.dateEnd),
-      ...(!filters.dateStart && !filters.dateEnd && { period: 'all' as const }),
-      unbilled: true,
-    },
-    { query: { enabled: datesInitialized } },
-  )
+  const trips = useTripsControllerList(customerListQuery(filters), {
+    query: { enabled: datesInitialized },
+  })
 
   // "Reset" returns to the current default period, not to blank dates.
   const defaultFilters = defaultCustomerFilters(defaultPeriod.data ?? { start: '', end: '' })

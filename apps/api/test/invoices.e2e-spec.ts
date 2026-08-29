@@ -211,9 +211,10 @@ describe('Invoices (e2e)', () => {
       });
     });
 
-    // The tab's own Pending table lists `category=daily` only, so reaching the
-    // period back for an Events booking would open it on an empty month.
-    it('ignores an Events-client booking, which that tab never lists anyway', async () => {
+    // This tab is the only place an Events booking can be invoiced from, so
+    // its opening period has to account for one — same as the legacy, which
+    // read the full trip list here (invoicing.html:226).
+    it('counts an Events-account booking, which this tab bills too', async () => {
       const eventClient = await request(server())
         .post('/api/clients')
         .set('Cookie', cookie)
@@ -229,7 +230,10 @@ describe('Invoices (e2e)', () => {
         .expect(201);
       await tripAt(eventClient.body as ClientBody, '2024-11-20T10:00:00.000Z');
 
-      expect(await period()).toEqual(previousMonth());
+      expect(await period()).toEqual({
+        start: '2024-11-01',
+        end: previousMonth().end,
+      });
     });
 
     it('ignores a booking once it has been invoiced — that backlog is cleared', async () => {

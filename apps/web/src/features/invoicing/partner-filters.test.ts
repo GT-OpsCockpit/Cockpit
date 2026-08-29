@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { baseClient, baseDriver, baseTrip } from '../bookings/test-fixtures'
-import { applyPartnerFilters, defaultPartnerFilters } from './partner-filters'
+import { applyPartnerFilters, defaultPartnerFilters, partnerListQuery } from './partner-filters'
 
 // "Has a partner" and the date range are the API's now (hasPartner + from/to,
 // see partner-log-tab.tsx and trips.e2e-spec.ts) — what is left here is the
@@ -17,5 +17,19 @@ describe('applyPartnerFilters', () => {
     expect(applyPartnerFilters([t1, t2], { ...filters, partnerRef: 'D1' }).map((t) => t.ref)).toEqual(['R1'])
     expect(applyPartnerFilters([t1, t2], { ...filters, eventRef: 'CE2' }).map((t) => t.ref)).toEqual(['R2'])
     expect(applyPartnerFilters([t1, t2], { ...filters, refPo: 'po-1' }).map((t) => t.ref)).toEqual(['R1'])
+  })
+})
+
+describe('partnerListQuery', () => {
+  // Same reason as the Customer tab: the API's `daily` default would drop every
+  // farmed-out Events booking, which the legacy logged here too.
+  it('asks for every account type, its own month, and farmed-out bookings only', () => {
+    const q = partnerListQuery({ ...defaultPartnerFilters(), dateStart: '2026-06-01', dateEnd: '2026-06-30' })
+    expect(q).toEqual({
+      from: '2026-06-01T00:00:00.000+02:00',
+      to: '2026-07-01T00:00:00.000+02:00',
+      category: 'all',
+      hasPartner: true,
+    })
   })
 })
