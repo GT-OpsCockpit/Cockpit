@@ -40,3 +40,24 @@ export function asdTotal({ rate, hours, service }) {
   if (!Number.isFinite(rate) || !Number.isFinite(hours)) return null;
   return rate * hours;
 }
+
+/**
+ * The currency a Retail net figure is quoted in.
+ *
+ * What we charge the customer is priced in one of four currencies, whatever
+ * the country's own: the euro zone in EUR, Switzerland in CHF, the UK in GBP,
+ * everywhere else in USD (bookingCurrency, common.js:1193-1201). Distinct from
+ * the Partner rate, which is quoted in the currency of the country the job
+ * runs in — so a booking in Japan is charged in USD while its partner is paid
+ * in JPY, and showing "≈ … JPY" under Retail net says the wrong thing.
+ *
+ * Independent of where the amounts are *stored*: v2 stores both in EUR (see
+ * LEGACY_PARITY_AUDIT §7.1). This is the unit the figure is read in.
+ */
+const RETAIL_CURRENCIES = ['EUR', 'CHF', 'GBP'];
+
+export function retailCurrency(countryCurrency) {
+  if (!countryCurrency) return null;
+  const code = String(countryCurrency).trim().toUpperCase();
+  return RETAIL_CURRENCIES.includes(code) ? code : 'USD';
+}

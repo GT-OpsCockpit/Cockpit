@@ -28,6 +28,8 @@ export interface TripFormRulesInput {
   dropoffIata?: string | null
   pickupIsAirport?: boolean
   dropoffIsAirport?: boolean
+  flightNumber?: string | null
+  tailNbr?: string | null
   pickupDate?: string | null
   pickupTime?: string | null
   pickupTimezone?: string | null
@@ -47,6 +49,13 @@ export interface TripFormRules {
   dropoffApplies: boolean
   /** The flight block shows as soon as either end is known to be an airport. */
   showAirportInfo: boolean
+  /**
+   * A flight number was entered, so this is a commercial arrival — FBO and
+   * Tail nbr belong to private aviation and are locked out.
+   */
+  commercialFlight: boolean
+  /** A tail number is being typed and isn't a whole one yet (they are five characters). */
+  tailNbrIncomplete: boolean
   /** Grand total under an ASD hourly rate — undefined when not computable. */
   retailAsdTotal?: string
   partnerAsdTotal?: string
@@ -103,6 +112,14 @@ export function tripFormRules(values: TripFormRulesInput, trip?: TripEntity | nu
     // popup on "is an airport" (common.js:1406).
     showAirportInfo:
       !!values.pickupIata || !!values.dropoffIata || !!values.pickupIsAirport || !!values.dropoffIsAirport,
+    // A flight number is only ever a commercial one — private aviation has
+    // none to look up — and the handling agent and tail number only describe
+    // the private case. The legacy locked them out rather than leaving them
+    // editable but meaningless (applyCommercialFlightLock, common.js:1658).
+    commercialFlight: !!values.flightNumber?.trim(),
+    // Flagged, not refused: the legacy highlighted a part-typed tail number
+    // (refreshTailHighlight, common.js:1649) without blocking anything.
+    tailNbrIncomplete: (values.tailNbr?.trim().length ?? 0) > 0 && values.tailNbr!.trim().length < 5,
     retailAsdTotal: formatTotal(asdTotal({ rate: priceEur, hours, service })),
     partnerAsdTotal: formatTotal(asdTotal({ rate: partnerRateEur, hours, service })),
     marginHint: margin === null ? undefined : `% Margin: ${margin.toFixed(1)} %`,

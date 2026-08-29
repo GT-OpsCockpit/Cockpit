@@ -98,6 +98,26 @@ describe('dropoffApplies / showAirportInfo', () => {
   })
 })
 
+// A flight number is only ever a commercial one; the handling agent (FBO) and
+// tail number describe a private aircraft. The legacy locked the two out as
+// soon as a flight number was typed rather than leaving them editable but
+// meaningless (applyCommercialFlightLock, common.js:1658).
+describe('commercialFlight / tailNbrIncomplete', () => {
+  it('locks FBO and Tail out once a flight number is entered', () => {
+    expect(tripFormRules(values()).commercialFlight).toBe(false)
+    expect(tripFormRules(values({ flightNumber: '  ' })).commercialFlight).toBe(false)
+    expect(tripFormRules(values({ flightNumber: 'AF1234' })).commercialFlight).toBe(true)
+  })
+
+  // Flagged, not refused — the legacy highlighted the field and left the
+  // booking submittable (refreshTailHighlight, common.js:1649).
+  it('flags a tail number that is not a whole one yet', () => {
+    expect(tripFormRules(values({ tailNbr: '' })).tailNbrIncomplete).toBe(false)
+    expect(tripFormRules(values({ tailNbr: 'FGH' })).tailNbrIncomplete).toBe(true)
+    expect(tripFormRules(values({ tailNbr: 'FGHIJ' })).tailNbrIncomplete).toBe(false)
+  })
+})
+
 describe('price hints', () => {
   it('totals an ASD hourly rate over the booked hours, for both rates', () => {
     const rules = tripFormRules(

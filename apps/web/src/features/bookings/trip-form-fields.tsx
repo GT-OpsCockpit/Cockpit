@@ -12,9 +12,11 @@ import {
   useDriversControllerList,
   useFleetVehiclesControllerList,
   useGeoControllerGeocodeSearch,
+  useGeoControllerPocSearch,
   useMetaControllerGetMeta,
 } from '@cockpit/shared/api'
 import type { TripEntity } from '@cockpit/shared/api'
+import { formatPhoneDisplay, retailCurrency } from '@cockpit/shared'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
@@ -124,6 +126,14 @@ export function TripFormFields({
   const { debounced: debouncedPartnerSearch, pending: partnerSearchPending } = useDebouncedSearch(partnerSearch, PICKER_DEBOUNCE_MS)
   const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT })
 
+  // Who to call on site is almost never a new name: the legacy suggested the
+  // POCs already on file across accounts and past bookings, and filled in the
+  // number with the one picked (makePocCombobox, common.js:1881-1889). The
+  // endpoint shipped with v2 and nothing called it.
+  const [pocSearch, setPocSearch] = useState('')
+  const { debounced: debouncedPocSearch, pending: pocSearchPending } = useDebouncedSearch(pocSearch, PICKER_DEBOUNCE_MS)
+  const pocs = useGeoControllerPocSearch({ q: debouncedPocSearch || undefined, limit: '8' })
+
   const [regNbrSearch, setRegNbrSearch] = useState('')
   const { debounced: debouncedRegNbrSearch, pending: regNbrSearchPending } = useDebouncedSearch(regNbrSearch, PICKER_DEBOUNCE_MS)
 
@@ -139,6 +149,8 @@ export function TripFormFields({
   const dropoffIata = form.watch('dropoffIata')
   const pickupIsAirport = form.watch('pickupIsAirport')
   const dropoffIsAirport = form.watch('dropoffIsAirport')
+  const flightNumber = form.watch('flightNumber')
+  const tailNbr = form.watch('tailNbr')
   const pickupDate = form.watch('pickupDate')
   const pickupTime = form.watch('pickupTime')
   const pickupTimezone = form.watch('pickupTimezone')
@@ -231,7 +243,7 @@ export function TripFormFields({
   // changes it always did.
   const rules = tripFormRules(
     { service, countryCode, area, pickupLocation, dropoffLocation, pickupIata, dropoffIata,
-      pickupIsAirport, dropoffIsAirport,
+      pickupIsAirport, dropoffIsAirport, flightNumber, tailNbr,
       pickupDate, pickupTime, pickupTimezone, priceEur, partnerRateEur, hours },
     trip,
   )
@@ -400,7 +412,14 @@ export function TripFormFields({
               </FormItem>
             )}
           />
-          {rules.showAirportInfo && <FlightInfoFields form={form} className="col-span-6 lg:col-span-12" />}
+          {rules.showAirportInfo && (
+            <FlightInfoFields
+              form={form}
+              commercialFlight={rules.commercialFlight}
+              tailNbrIncomplete={rules.tailNbrIncomplete}
+              className="col-span-6 lg:col-span-12"
+            />
+          )}
         </FormSection>
 
         {/* Who the booking is for, and who is actually travelling. */}
@@ -494,7 +513,34 @@ export function TripFormFields({
               <FormItem className="col-span-3 lg:col-span-4">
                 <FormLabel>POC Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="Contact name" disabled={rules.pocLocked} {...field} />
+                  <SearchCombobox
+                    icon={User}
+                    value={field.value ?? ''}
+                    onChange={(value) => {
+                      field.onChange(value)
+                      // Picking a known contact brings their number with them,
+                      // as the legacy's combobox did — a name typed freehand
+                      // leaves whatever number is already there alone.
+                      const hit = (pocs.data?.results ?? []).find((p) => p.name === value)
+                      if (hit?.phone) form.setValue('pocPhone', hit.phone, { shouldDirty: true })
+                    }}
+                    options={(pocs.data?.results ?? []).map((p) => ({
+                      value: p.name,
+                      label: p.name,
+                      description: p.phone ? formatPhoneDisplay(p.phone) : undefined,
+                    }))}
+                    placeholder="Contact name"
+                    searchPlaceholder="Search a contact…"
+                    searchValue={pocSearch}
+                    onSearchChange={setPocSearch}
+                    loading={pocSearchPending || pocs.isFetching}
+                    // A POC is whoever the customer says it is: the list
+                    // suggests the ones already on file, it never closes it.
+                    allowCustomValue
+                    customValueLabel={(typed) => `Use “${typed}”`}
+                    selectedLabel={field.value || undefined}
+                    disabled={rules.pocLocked}
+                  />
                 </FormControl>
                 {rules.pocLocked && <FormDescription>{POC_LOCKED_REASON}</FormDescription>}
               </FormItem>
@@ -663,7 +709,12 @@ export function TripFormFields({
             form={form}
             name="priceEur"
             label="Retail net"
-            currency={selectedCountry?.currency}
+            // What we charge is quoted in one of four currencies whatever the
+            // country's own (bookingCurrency, common.js:1193-1201) — unlike the
+            // Partner rate below, quoted in the currency of the country the job
+            // runs in. A booking in Japan is charged in USD and its partner
+            // paid in JPY.
+            currency={retailCurrency(selectedCountry?.currency) ?? undefined}
             disabled={priceDisabled}
             disabledReason={priceDisabledReason}
             totalHint={rules.retailAsdTotal}
@@ -841,9 +892,14 @@ function LocationField({
 
 function FlightInfoFields({
   form,
+  commercialFlight,
+  tailNbrIncomplete,
   className,
 }: {
   form: UseFormReturn<TripFormValues>
+  /** A flight number is entered, so FBO/Tail (private aviation) don't apply — see tripFormRules. */
+  commercialFlight: boolean
+  tailNbrIncomplete: boolean
   /** Column span inside the enclosing FormSection grid. */
   className?: string
 }) {
@@ -915,6 +971,10 @@ function FlightInfoFields({
           </FormItem>
         )}
       />
+      {/* A flight number is only ever a commercial one — private aviation has
+          none to look up — and these two describe the private case. Locked out
+          rather than left editable but meaningless, as the legacy locked them
+          (applyCommercialFlightLock, common.js:1658). */}
       <FormField
         control={form.control}
         name="fboAddress"
@@ -922,8 +982,9 @@ function FlightInfoFields({
           <FormItem>
             <FormLabel>FBO address</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input {...field} disabled={commercialFlight} />
             </FormControl>
+            {commercialFlight && <FormDescription>Not applicable to a commercial flight.</FormDescription>}
           </FormItem>
         )}
       />
@@ -934,8 +995,13 @@ function FlightInfoFields({
           <FormItem>
             <FormLabel>Tail nbr</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input {...field} disabled={commercialFlight} aria-invalid={tailNbrIncomplete || undefined} />
             </FormControl>
+            {/* Flagged, not refused: the legacy highlighted a part-typed tail
+                number and left the booking submittable (common.js:1649). */}
+            {!commercialFlight && tailNbrIncomplete && (
+              <FormDescription>A tail number is five characters.</FormDescription>
+            )}
           </FormItem>
         )}
       />

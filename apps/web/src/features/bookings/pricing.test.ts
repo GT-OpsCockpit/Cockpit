@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { asdTotal, marginPercent } from '@cockpit/shared'
+import { asdTotal, marginPercent, retailCurrency } from '@cockpit/shared'
 
 describe('marginPercent', () => {
   // France: no VAT adjustment — (retail − partner) / retail.
@@ -37,5 +37,27 @@ describe('asdTotal', () => {
   it('is null while the rate or the hours are still missing', () => {
     expect(asdTotal({ rate: undefined, hours: 6, service: 'ASD' })).toBeNull()
     expect(asdTotal({ rate: 80, hours: undefined, service: 'ASD' })).toBeNull()
+  })
+})
+
+// What we charge is priced in one of four currencies whatever the country's
+// own (bookingCurrency, common.js:1193-1201) — distinct from the Partner rate,
+// quoted in the currency of the country the job runs in.
+describe('retailCurrency', () => {
+  it.each([
+    ['EUR', 'EUR'],
+    ['CHF', 'CHF'],
+    ['GBP', 'GBP'],
+  ])('quotes a %s country in its own currency', (currency, expected) => {
+    expect(retailCurrency(currency)).toBe(expected)
+  })
+
+  it.each(['JPY', 'MAD', 'VND', 'usd'])('quotes everywhere else in USD (%s)', (currency) => {
+    expect(retailCurrency(currency)).toBe('USD')
+  })
+
+  it('says nothing when no country is picked yet', () => {
+    expect(retailCurrency(null)).toBeNull()
+    expect(retailCurrency('')).toBeNull()
   })
 })
