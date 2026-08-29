@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from 'react'
-import { DateTime } from 'luxon'
 import { CalendarDays, CircleCheck, Clock, Info, LocateFixed, MapPin, Plane, TriangleAlert, User } from 'lucide-react'
 import type { UseFormReturn } from 'react-hook-form'
 import {
@@ -44,8 +43,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import type { TripFormValues } from './trip-form-schema'
-import { asdTotal, isLocalTrip, marginPercent } from '@cockpit/shared'
-import { clientDisplayName, driverLabel, isBeforeArrival, partnerLabel, PARIS_ZONE } from './trip-status'
+import { tripFormRules } from './trip-form-rules'
+import { clientDisplayName, driverLabel, partnerLabel } from './trip-status'
 
 /**
  * Marks a field the schema rejects when empty — including the ones that only
@@ -162,23 +161,6 @@ export function TripFormFields({
   // Reg Nbr only makes sense for a local booking served by our own fleet — a
   // farmed-out job has no vehicle of ours attached (legacy
   // refreshFleetRegAvailability, common.js:1078).
-  const regNbrApplies = isLocalTrip({ area, countryCode, pickupLocation, dropoffLocation })
-
-  // The on-site contact can only be changed while nobody is on site yet — the
-  // server refuses it past "In position" (trip-progress.ts / isBeforeArrival,
-  // common.js:2391), this just says so before the user types.
-  const pocLocked = !!trip && !isBeforeArrival(trip)
-
-  // Lets a Paris-based dispatcher read the pickup time without doing the
-  // timezone math themselves — always shown in Paris regardless of the
-  // trip's own timezone, the conversion can shift the day either way.
-  const parisHint = (() => {
-    if (!pickupTimezone || !pickupDate || !pickupTime) return 'Eq. 🕐 Paris'
-    const local = DateTime.fromISO(`${pickupDate}T${pickupTime}`, { zone: pickupTimezone })
-    if (!local.isValid) return 'Eq. 🕐 Paris'
-    const paris = local.setZone(PARIS_ZONE)
-    return `Eq. 🕐 Paris : ${paris.toFormat('HH:mm')} (${paris.toFormat('dd/MM')})`
-  })()
 
   const countryOptions = useCountryOptions()
   const selectedCountry = meta.data?.countries.find((c) => c.code === countryCode)
@@ -224,21 +206,15 @@ export function TripFormFields({
   const partnerRateEur = form.watch('partnerRateEur')
   const hours = form.watch('hours')
 
-  // Restored from the legacy (updateMarginHint / updateAsdTotalHints); the
-  // formulas live in @cockpit/shared rather than behind an endpoint because
-  // both are live hints recomputed as the dispatcher types — a round trip
-  // per keystroke would be the wrong trade.
-  const margin = marginPercent({ priceEur, partnerRateEur, countryCode })
-  const formatTotal = (total: number | null) =>
-    total === null ? undefined : `Total net: ${total.toFixed(2)} €`
-  const retailAsdTotal = formatTotal(asdTotal({ rate: priceEur, hours, service }))
-  const partnerAsdTotal = formatTotal(asdTotal({ rate: partnerRateEur, hours, service }))
-
-  const showAirportInfo = !!pickupIata || !!dropoffIata
-
-  // An at-disposal booking has no drop-off — the car stays with the passenger,
-  // and the schema mirrors that (trip-form-schema.ts's superRefine).
-  const dropoffApplies = service !== TripEntityService.ASD
+  // What the form derives from what has been typed so far — see
+  // trip-form-rules.ts. Fed the watched fields explicitly rather than
+  // form.watch(), so this component re-renders on exactly the same set of
+  // changes it always did.
+  const rules = tripFormRules(
+    { service, countryCode, area, pickupLocation, dropoffLocation, pickupIata, dropoffIata,
+      pickupDate, pickupTime, pickupTimezone, priceEur, partnerRateEur, hours },
+    trip,
+  )
 
   return (
     <fieldset disabled={disabled} className="contents">
@@ -340,7 +316,7 @@ export function TripFormFields({
                   <FormControl>
                     <Input type="time" className="w-32 shrink-0" {...field} />
                   </FormControl>
-                  <span className="text-muted-foreground truncate text-xs">{parisHint}</span>
+                  <span className="text-muted-foreground truncate text-xs">{rules.parisHint}</span>
                 </div>
                 <FormMessage />
               </FormItem>
@@ -382,9 +358,9 @@ export function TripFormFields({
             label="PU"
             iataField="pickupIata"
             required
-            className={dropoffApplies ? 'col-span-6 lg:col-span-6' : 'col-span-6 lg:col-span-12'}
+            className={rules.dropoffApplies ? 'col-span-6 lg:col-span-6' : 'col-span-6 lg:col-span-12'}
           />
-          {dropoffApplies && (
+          {rules.dropoffApplies && (
             <LocationField
               form={form}
               name="dropoffLocation"
@@ -410,7 +386,7 @@ export function TripFormFields({
               </FormItem>
             )}
           />
-          {showAirportInfo && <FlightInfoFields form={form} className="col-span-6 lg:col-span-12" />}
+          {rules.showAirportInfo && <FlightInfoFields form={form} className="col-span-6 lg:col-span-12" />}
         </FormSection>
 
         {/* Who the booking is for, and who is actually travelling. */}
@@ -504,9 +480,9 @@ export function TripFormFields({
               <FormItem className="col-span-3 lg:col-span-4">
                 <FormLabel>POC Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="Contact name" disabled={pocLocked} {...field} />
+                  <Input placeholder="Contact name" disabled={rules.pocLocked} {...field} />
                 </FormControl>
-                {pocLocked && <FormDescription>{POC_LOCKED_REASON}</FormDescription>}
+                {rules.pocLocked && <FormDescription>{POC_LOCKED_REASON}</FormDescription>}
               </FormItem>
             )}
           />
@@ -521,7 +497,7 @@ export function TripFormFields({
                     value={field.value ?? ''}
                     onChange={field.onChange}
                     countryCode={countryCode}
-                    disabled={pocLocked}
+                    disabled={rules.pocLocked}
                   />
                 </FormControl>
                 <FormMessage />
@@ -661,8 +637,8 @@ export function TripFormFields({
                         value={field.value ?? ''}
                         onChange={field.onChange}
                         options={regNbrOptions}
-                        disabled={!regNbrApplies}
-                        placeholder={regNbrApplies ? '—' : 'Local bookings only'}
+                        disabled={!rules.regNbrApplies}
+                        placeholder={rules.regNbrApplies ? '—' : 'Local bookings only'}
                         searchPlaceholder="Search reg nbr…"
                         searchValue={regNbrSearch}
                         onSearchChange={setRegNbrSearch}
@@ -686,7 +662,7 @@ export function TripFormFields({
             currency={selectedCountry?.currency}
             disabled={priceDisabled}
             disabledReason={priceDisabledReason}
-            totalHint={retailAsdTotal}
+            totalHint={rules.retailAsdTotal}
             className="col-span-3 lg:col-span-4"
           />
           {subContractor && (
@@ -697,8 +673,8 @@ export function TripFormFields({
               currency={selectedCountry?.currency}
               disabled={priceDisabled}
               disabledReason={priceDisabledReason}
-              totalHint={partnerAsdTotal}
-              marginHint={margin === null ? undefined : `% Margin: ${margin.toFixed(1)} %`}
+              totalHint={rules.partnerAsdTotal}
+              marginHint={rules.marginHint}
               className="col-span-3 lg:col-span-4"
             />
           )}
