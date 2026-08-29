@@ -8,8 +8,7 @@ import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { Form } from '@/components/ui/form'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { RecordFormDialog } from '@/components/record-form-dialog'
 import { TripFormFields } from '../bookings/trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from '../bookings/trip-form-schema'
 import { toPickupAt } from '../bookings/trip-form-mapping'
@@ -142,52 +141,33 @@ export function EventCreateDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-4xl">
-          <DialogHeader className="shrink-0">
-            <DialogTitle>New booking{confirmedEvent ? ` — ${confirmedEvent.name}` : ''}</DialogTitle>
-          </DialogHeader>
-          <Form {...form}>
-            <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={onCreate}>
-              {/* Only the fields scroll: the title and the action buttons stay
-                  put, so "Create" is reachable without scrolling to the bottom
-                  of a long booking (ASD + sub-contracted + flight block).
-                  Its `px-2` is not decoration: it absorbs both the focus ring an
-                  edge field would otherwise have clipped, and the ~7px an
-                  InputGroup's trailing button overhangs by (`has-[>button]:mr-[-0.45rem]`
-                  in ui/input-group.tsx) — which lands in the padding instead of
-                  turning into a horizontal scrollbar. `-mx-2` gives it back, so the
-                  fields stay flush with the title and the buttons. */}
-              <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
-                <TripFormFields
-                  form={form}
-                  clientFieldDisabled={!!confirmedEvent}
-                  clientSeedOption={confirmedEvent ? { value: confirmedEvent.ref, label: confirmedEvent.name } : null}
-                />
-              </div>
-              <DialogFooter className="shrink-0">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createTrip.isPending}>
-                  {createTrip.isPending && <Spinner />}
-                  Create
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={createTrip.isPending || !confirmedEvent}
-                  title={confirmedEvent ? undefined : 'Select an event above first'}
-                  onClick={onCreateBulk}
-                >
-                  {createTrip.isPending && <Spinner />}
-                  Create bulk
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      <RecordFormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={`New booking${confirmedEvent ? ` — ${confirmedEvent.name}` : ''}`}
+        record={{ form, onSubmit: onCreate, isSubmitting: createTrip.isPending }}
+        submitLabel="Create"
+        contentClassName="sm:max-w-4xl"
+        layout="scroll-body"
+        actions={
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={createTrip.isPending || !confirmedEvent}
+            title={confirmedEvent ? undefined : 'Select an event above first'}
+            onClick={onCreateBulk}
+          >
+            {createTrip.isPending && <Spinner />}
+            Create bulk
+          </Button>
+        }
+      >
+        <TripFormFields
+          form={form}
+          clientFieldDisabled={!!confirmedEvent}
+          clientSeedOption={confirmedEvent ? { value: confirmedEvent.ref, label: confirmedEvent.name } : null}
+        />
+      </RecordFormDialog>
       {confirmedEvent && (
         <BulkDatesDialog
           open={bulkOpen}

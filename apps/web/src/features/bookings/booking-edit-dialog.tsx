@@ -1,20 +1,21 @@
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { toast } from 'sonner'
-import type { TripEntity } from '@cockpit/shared/api'
+import type { TripEntity, UpdateTripResponseEntity } from '@cockpit/shared/api'
 import { getTripsControllerListQueryKey, useTripsControllerUpdate } from '@cockpit/shared/api'
-import { queryClient } from '@/lib/query-client'
-import { getApiErrorMessage } from '@/lib/api-error'
-import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
-import { Form } from '@/components/ui/form'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { toast } from 'sonner'
+import { useRecordForm } from '@/lib/use-record-form'
+import { RecordFormDialog } from '@/components/record-form-dialog'
 import { usePermission } from '@/features/auth/use-permission'
 import { PermissionWarning } from '@/components/permission-warning'
 import { TripFormFields } from './trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
 import { toUpdateTripDto, tripToFormValues } from './trip-form-mapping'
 import { openSubcontractEmailDraft } from './subcontract-email'
+
+/** What the save needs to know about the booking as it was *before* it — see submit(). */
+interface SavedEdit {
+  response: UpdateTripResponseEntity
+  outgoingPartnerRef?: string
+  wasFarmedOut: boolean
+}
 
 export function BookingEditDialog({
   trip,
@@ -23,11 +24,6 @@ export function BookingEditDialog({
   trip: TripEntity | null
   onOpenChange: (open: boolean) => void
 }) {
-  const form = useForm<TripFormValues>({
-    resolver: zodResolver(tripFormSchema),
-    values: trip ? tripToFormValues(trip) : tripFormDefaults(),
-  })
-
   const updateTrip = useTripsControllerUpdate()
   // Mirrors the legacy's openEditTripModal: whether to notify the driver via WhatsApp
   // after saving is never a user choice here — it's "yes" iff the trip already had a
@@ -44,83 +40,67 @@ export function BookingEditDialog({
   const pastLockout = isPast && !canEditPast
   const priceLockout = !canEditPrice
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    if (!trip || pastLockout) return
-    // Captured BEFORE the save, because the cancellation notice goes to the
-    // partner the booking is being taken away from — by the time the PUT
-    // returns, partnerRef no longer names them (common.js:2686).
-    const outgoingPartnerRef = trip.partner?.ref
-    const wasFarmedOut = trip.subContractor
-    try {
-      const result = await updateTrip.mutateAsync({
-        ref: trip.ref,
+  const record = useRecordForm<TripFormValues, SavedEdit>({
+    schema: tripFormSchema,
+    values: trip ? tripToFormValues(trip) : tripFormDefaults(),
+    submit: async (values) => {
+      // Captured BEFORE the save, because the cancellation notice goes to the
+      // partner the booking is being taken away from — by the time the PUT
+      // returns, partnerRef no longer names them (common.js:2686).
+      const outgoingPartnerRef = trip!.partner?.ref
+      const wasFarmedOut = trip!.subContractor
+      const response = await updateTrip.mutateAsync({
+        ref: trip!.ref,
         data: toUpdateTripDto(values, { notifyDriver: hadDriver }),
       })
-      toast.success(`Trip ${trip.ref} updated.`)
-      if (result.notifyWarning) toast.warning(result.notifyWarning)
-
+      return { response, outgoingPartnerRef, wasFarmedOut }
+    },
+    success: () => `Trip ${trip?.ref} updated.`,
+    error: 'Error updating booking.',
+    invalidate: [getTripsControllerListQueryKey()],
+    close: () => onOpenChange(false),
+    onSuccess: async ({ response, outgoingPartnerRef, wasFarmedOut }, values) => {
+      if (response.notifyWarning) toast.warning(response.notifyWarning)
       // Farmed out here: recap the mission to the partner. Taken back off
       // them: tell them it's cancelled. Both are drafts, never sends.
       if (!wasFarmedOut && values.subContractor) {
-        await openSubcontractEmailDraft(trip.ref, 'assigned')
+        await openSubcontractEmailDraft(trip!.ref, 'assigned')
       } else if (wasFarmedOut && !values.subContractor && outgoingPartnerRef) {
-        await openSubcontractEmailDraft(trip.ref, 'cancelled', outgoingPartnerRef)
+        await openSubcontractEmailDraft(trip!.ref, 'cancelled', outgoingPartnerRef)
       }
-
-      onOpenChange(false)
-      void queryClient.invalidateQueries({ queryKey: getTripsControllerListQueryKey() })
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Error updating booking.'))
-    }
+    },
+    disabled: !trip || pastLockout,
   })
 
   return (
-    <Dialog open={!!trip} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-4xl">
-        <DialogHeader className="shrink-0">
-          <DialogTitle>Edit booking{trip ? ` — ${trip.ref}` : ''}</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={onSubmit}>
-            {/* Only the fields scroll: the title and the action buttons stay
-                put, so "Create" is reachable without scrolling to the bottom
-                of a long booking (ASD + sub-contracted + flight block).
-                Its `px-2` is not decoration: it absorbs both the focus ring an
-                edge field would otherwise have clipped, and the ~7px an
-                InputGroup's trailing button overhangs by (`has-[>button]:mr-[-0.45rem]`
-                in ui/input-group.tsx) — which lands in the padding instead of
-                turning into a horizontal scrollbar. `-mx-2` gives it back, so the
-                fields stay flush with the title and the buttons. */}
-            <div className="-mx-2 grid min-h-0 flex-1 gap-4 overflow-y-auto px-2">
-            {pastLockout && (
-              <PermissionWarning>
-                This booking's pickup is already in the past — only an Admin can edit it.
-              </PermissionWarning>
-            )}
-            <TripFormFields
-              form={form}
-              trip={trip}
-              disabled={pastLockout}
-              priceDisabled={priceLockout}
-              priceDisabledReason={
-                priceLockout && !pastLockout
-                  ? 'Changing the Retail net / Partner rate net requires the Admin role.'
-                  : undefined
-              }
-            />
-            </div>
-            <DialogFooter className="shrink-0">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={updateTrip.isPending || pastLockout}>
-                {updateTrip.isPending && <Spinner />}
-                {hadDriver ? 'Confirm and send' : 'Confirm'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+    <RecordFormDialog
+      open={!!trip}
+      onOpenChange={onOpenChange}
+      title={`Edit booking${trip ? ` — ${trip.ref}` : ''}`}
+      record={record}
+      submitLabel={hadDriver ? 'Confirm and send' : 'Confirm'}
+      submitDisabled={pastLockout}
+      contentClassName="sm:max-w-4xl"
+      layout="scroll-body"
+    >
+      <div className="grid gap-4">
+        {pastLockout && (
+          <PermissionWarning>
+            This booking's pickup is already in the past — only an Admin can edit it.
+          </PermissionWarning>
+        )}
+        <TripFormFields
+          form={record.form}
+          trip={trip}
+          disabled={pastLockout}
+          priceDisabled={priceLockout}
+          priceDisabledReason={
+            priceLockout && !pastLockout
+              ? 'Changing the Retail net / Partner rate net requires the Admin role.'
+              : undefined
+          }
+        />
+      </div>
+    </RecordFormDialog>
   )
 }

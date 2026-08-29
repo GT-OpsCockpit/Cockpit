@@ -1,14 +1,7 @@
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { toast } from 'sonner'
 import type { DriverEntity } from '@cockpit/shared/api'
 import { getDriversControllerListQueryKey, useDriversControllerUpdate } from '@cockpit/shared/api'
-import { queryClient } from '@/lib/query-client'
-import { getApiErrorMessage } from '@/lib/api-error'
-import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
-import { Form } from '@/components/ui/form'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useRecordForm } from '@/lib/use-record-form'
+import { RecordFormDialog } from '@/components/record-form-dialog'
 import { DriverFormFields } from './driver-form-fields'
 import { driverFormDefaults, driverFormSchema, type DriverFormValues } from './driver-form-schema'
 import { driverToFormValues, toUpdateDriverDto } from './driver-form-mapping'
@@ -20,46 +13,28 @@ export function DriverEditDialog({
   driver: DriverEntity | null
   onOpenChange: (open: boolean) => void
 }) {
-  const form = useForm<DriverFormValues>({
-    resolver: zodResolver(driverFormSchema),
-    values: driver ? driverToFormValues(driver) : driverFormDefaults(),
-  })
-
   const updateDriver = useDriversControllerUpdate()
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    if (!driver) return
-    try {
-      await updateDriver.mutateAsync({ ref: driver.ref, data: toUpdateDriverDto(values) })
-      toast.success(`Driver ${driver.ref} updated.`)
-      onOpenChange(false)
-      void queryClient.invalidateQueries({ queryKey: getDriversControllerListQueryKey() })
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Error updating driver.'))
-    }
+  const record = useRecordForm<DriverFormValues, unknown>({
+    schema: driverFormSchema,
+    values: driver ? driverToFormValues(driver) : driverFormDefaults(),
+    submit: (values) => updateDriver.mutateAsync({ ref: driver!.ref, data: toUpdateDriverDto(values) }),
+    success: () => `Driver ${driver?.ref} updated.`,
+    error: 'Error updating driver.',
+    invalidate: [getDriversControllerListQueryKey()],
+    close: () => onOpenChange(false),
+    disabled: !driver,
   })
 
   return (
-    <Dialog open={!!driver} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Edit driver{driver ? ` — ${driver.ref}` : ''}</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form className="grid gap-4" onSubmit={onSubmit}>
-            <DriverFormFields form={form} driver={driver} />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={updateDriver.isPending}>
-                {updateDriver.isPending && <Spinner />}
-                Confirm
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+    <RecordFormDialog
+      open={!!driver}
+      onOpenChange={onOpenChange}
+      title={`Edit driver${driver ? ` — ${driver.ref}` : ''}`}
+      record={record}
+      contentClassName="sm:max-w-2xl"
+    >
+      <DriverFormFields form={record.form} driver={driver} />
+    </RecordFormDialog>
   )
 }

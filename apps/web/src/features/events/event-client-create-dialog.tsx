@@ -1,16 +1,10 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 import { ClientEntityClientType, getClientsControllerListQueryKey, useClientsControllerCreate } from '@cockpit/shared/api'
 import type { ClientEntity } from '@cockpit/shared/api'
-import { queryClient } from '@/lib/query-client'
-import { getApiErrorMessage } from '@/lib/api-error'
+import { useRecordForm } from '@/lib/use-record-form'
+import { RecordFormDialog } from '@/components/record-form-dialog'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
-import { Form } from '@/components/ui/form'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { ClientFormFields } from '../clients/client-form-fields'
 import { EventReactivationDialog } from './event-reactivation-dialog'
 import { clientFormDefaults, clientFormSchema, type ClientFormValues } from '../clients/client-form-schema'
@@ -31,63 +25,47 @@ function eventClientDefaults(): ClientFormValues {
 export function EventClientCreateDialog({ onCreated }: { onCreated: (client: ClientEntity) => void }) {
   const [open, setOpen] = useState(false)
   const [reactivationTarget, setReactivationTarget] = useState<ClientEntity | null>(null)
-  const form = useForm<ClientFormValues>({
-    resolver: zodResolver(clientFormSchema),
-    defaultValues: eventClientDefaults(),
-  })
-
   const createClient = useClientsControllerCreate()
 
-  const onOpenChange = (next: boolean) => {
-    setOpen(next)
-    if (!next) form.reset(eventClientDefaults())
-  }
-
-  const onSubmit = form.handleSubmit(async (values) => {
-    try {
-      const client = await createClient.mutateAsync({ data: toCreateClientDto(values) })
-      toast.success(`Event account ${client.ref} created.`)
-      onOpenChange(false)
-      void queryClient.invalidateQueries({ queryKey: getClientsControllerListQueryKey() })
+  const record = useRecordForm<ClientFormValues, ClientEntity>({
+    schema: clientFormSchema,
+    defaultValues: eventClientDefaults(),
+    submit: (values) => createClient.mutateAsync({ data: toCreateClientDto(values) }),
+    success: (client) => `Event account ${client.ref} created.`,
+    error: 'Error creating event account.',
+    invalidate: [getClientsControllerListQueryKey()],
+    close: () => setOpen(false),
+    onSuccess: (client) => {
       onCreated(client)
       // A returning event often has a crew already on file from its previous
       // edition — offer to relink it (offerEventReactivation, common.js:3912).
       setReactivationTarget(client)
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Error creating event account.'))
-    }
+    },
   })
+
+  const onOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) record.reset()
+  }
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button type="button" variant="secondary">
-          <Plus className="size-4" />
-          New
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>New Events account</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form className="grid gap-4" onSubmit={onSubmit}>
-            <ClientFormFields form={form} typeLocked />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={createClient.isPending}>
-                {createClient.isPending && <Spinner />}
-                Create
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-    <EventReactivationDialog event={reactivationTarget} onClose={() => setReactivationTarget(null)} />
+      <RecordFormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="New Events account"
+        trigger={
+          <Button type="button" variant="secondary">
+            <Plus className="size-4" />
+            New
+          </Button>
+        }
+        record={record}
+        submitLabel="Create"
+      >
+        <ClientFormFields form={record.form} typeLocked />
+      </RecordFormDialog>
+      <EventReactivationDialog event={reactivationTarget} onClose={() => setReactivationTarget(null)} />
     </>
   )
 }
