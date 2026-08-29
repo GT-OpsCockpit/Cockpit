@@ -11,7 +11,6 @@ import { basename, extname } from 'node:path';
 import { DateTime } from 'luxon';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
-import { can } from '../common/permissions/permissions';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { TripRefService } from './trip-ref.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -38,11 +37,16 @@ import {
   fleetVehicleEffectivelyActiveFilter,
   todayUtcMidnight,
 } from '../common/business/assignability';
+import {
+  decideAssignment,
+  refuseEditPermission,
+  type EditRefusal,
+  type TripBeforeEdit,
+} from '../common/business/trip-assignment';
 import { MESSAGES } from '../common/constants/messages';
 import {
   driverDisplayName,
   type DriverStep,
-  isBeforeArrival,
   TRIP_STEP_ORDER,
 } from '@cockpit/shared';
 import { buildTripMessageContext } from './trip-message.util';
@@ -123,6 +127,38 @@ const STEP_MESSAGE_KEY: Record<
   ONBOARD: 'onboard',
   DROPPED: 'dropped',
 };
+
+/** The stored booking, in the shape the assignment rules read it. */
+function toBeforeEdit(trip: {
+  pickupAt: Date;
+  driverId: string | null;
+  partnerId: string | null;
+  priceEur: Prisma.Decimal | null;
+  partnerRateEur: Prisma.Decimal | null;
+  pocName: string | null;
+  pocPhone: string | null;
+  steps: { step: TripStepKind }[];
+  assignmentCancelled: boolean;
+}): TripBeforeEdit {
+  return {
+    pickupAt: trip.pickupAt,
+    driverId: trip.driverId,
+    partnerId: trip.partnerId,
+    priceEur: trip.priceEur ? trip.priceEur.toNumber() : null,
+    partnerRateEur: trip.partnerRateEur ? trip.partnerRateEur.toNumber() : null,
+    pocName: trip.pocName,
+    pocPhone: trip.pocPhone,
+    steps: trip.steps,
+    assignmentCancelled: trip.assignmentCancelled,
+  };
+}
+
+/** The HTTP status a refusal owes — the rules themselves stay transport-agnostic. */
+function toException(refusal: EditRefusal) {
+  return refusal.kind === 'forbidden'
+    ? new ForbiddenException(refusal.message)
+    : new BadRequestException(refusal.message);
+}
 
 @Injectable()
 export class TripsService {
@@ -257,29 +293,23 @@ export class TripsService {
     user: AuthenticatedUser,
   ): Promise<UpdateTripResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
+    const now = new Date();
+    const options = { now, pastEditAction: 'Editing' as const };
 
-    // Ported from the legacy's openEditTripModal gate (common.js): editing a
-    // booking whose pickup has already passed, or changing the Retail net /
-    // Partner rate net, both need trip:edit-past / trip:edit-price — unlike
-    // trip:cancel these are conditional, so they're checked here rather than
-    // via @RequirePermission() on the route. See docs/agents/permissions.md.
-    const isPast = trip.pickupAt < new Date();
-    if (isPast && !can(user, 'trip:edit-past')) {
-      throw new ForbiddenException(
-        'Editing a booking whose pickup is already in the past requires the Admin role.',
-      );
-    }
-    const priceChanged =
-      (dto.priceEur ?? null) !==
-      (trip.priceEur ? trip.priceEur.toNumber() : null);
-    const partnerRateChanged =
-      (dto.partnerRateEur ?? null) !==
-      (trip.partnerRateEur ? trip.partnerRateEur.toNumber() : null);
-    if ((priceChanged || partnerRateChanged) && !can(user, 'trip:edit-price')) {
-      throw new ForbiddenException(
-        'Changing the Retail net / Partner rate net requires the Admin role.',
-      );
-    }
+    // Asked before anything is resolved, so a dispatcher editing a past
+    // booking is told they need the Admin role rather than which unrelated
+    // field of their payload is also wrong. decideAssignment() asks again on
+    // the full intent below.
+    const denied = refuseEditPermission(
+      toBeforeEdit(trip),
+      {
+        priceEur: dto.priceEur ?? null,
+        partnerRateEur: dto.partnerRateEur ?? null,
+      },
+      user,
+      options,
+    );
+    if (denied) throw toException(denied);
 
     const previousDriverId = trip.driverId;
     const previousPartnerId = trip.partnerId;
@@ -287,28 +317,6 @@ export class TripsService {
     const { data, client, driverId } = await this.resolveTripInputs(dto, {
       previousDriverId,
     });
-
-    // Changing who meets the passenger only makes sense while nobody is there
-    // yet: once the driver is "In position" the name and number being edited
-    // are the ones already in use on the ground. Legacy isBeforeArrival
-    // (common.js:2391), which gated the POC fields of the quick-edit popup.
-    // Not a permission — no role lifts it, it is the trip's own progress.
-    // Compared against what would actually be stored, since an omitted POC
-    // falls back to the client account's (see resolveTripInputs).
-    if (
-      (data.pocName !== trip.pocName || data.pocPhone !== trip.pocPhone) &&
-      !isBeforeArrival(trip)
-    ) {
-      throw new BadRequestException(
-        'The POC can no longer be changed: the driver is already in position.',
-      );
-    }
-
-    let newRef = trip.ref;
-    if (client.id !== trip.clientId) {
-      newRef = await this.tripRef.generate(client.ref);
-      await this.tripRef.release(trip.ref);
-    }
 
     let partnerId: string | null | undefined;
     if (dto.partnerRef !== undefined) {
@@ -326,18 +334,35 @@ export class TripsService {
     }
     const finalPartnerId =
       partnerId !== undefined ? partnerId : previousPartnerId;
-    const reassigned =
-      driverId !== previousDriverId || finalPartnerId !== previousPartnerId;
-    const finalSubContractor =
-      dto.subContractor !== undefined ? dto.subContractor : trip.subContractor;
-    const locked = finalSubContractor && !finalPartnerId;
-    // Any saved edit — trip details as much as a driver/vehicle/partner
-    // reassignment — invalidates a previous dispatch and re-arms the Send
-    // button, so the dispatcher is prompted to re-send with the new
-    // information (server.js:2470: `trip.dispatched = false` unconditionally
-    // on every PUT). The locked company-only sub-contract is the one
-    // exception: it has no driver to re-send to and stays pinned at "Sent".
-    const dispatchedValue = locked;
+
+    const decision = decideAssignment(
+      toBeforeEdit(trip),
+      {
+        driverId,
+        partnerId: finalPartnerId,
+        subContractor:
+          dto.subContractor !== undefined
+            ? dto.subContractor
+            : trip.subContractor,
+        tracking: data.tracking,
+        priceEur: dto.priceEur ?? null,
+        partnerRateEur: dto.partnerRateEur ?? null,
+        // Compared against what would actually be stored, since an omitted POC
+        // falls back to the client account's (see resolveTripInputs).
+        pocName: data.pocName,
+        pocPhone: data.pocPhone,
+        notifyPoc: !!dto.notifyDriver,
+      },
+      user,
+      options,
+    );
+    if (decision.refusal) throw toException(decision.refusal);
+
+    let newRef = trip.ref;
+    if (client.id !== trip.clientId) {
+      newRef = await this.tripRef.generate(client.ref);
+      await this.tripRef.release(trip.ref);
+    }
 
     await this.prisma.trip.update({
       where: { id: trip.id },
@@ -349,8 +374,8 @@ export class TripsService {
           subContractor: dto.subContractor,
         }),
         ...(partnerId !== undefined && { partnerId }),
-        dispatched: dispatchedValue,
-        ...(reassigned && {
+        dispatched: decision.dispatched,
+        ...(decision.reassigned && {
           assignmentCancelled: false,
           assignmentCancelledAt: null,
           cancellationFee: null,
@@ -358,17 +383,20 @@ export class TripsService {
       },
     });
 
-    if (reassigned) {
+    if (decision.reassigned) {
       await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
     }
-    if (locked && !(await this.hasStep(trip.id, TripStepKind.TRANSMITTED))) {
+    if (
+      decision.locked &&
+      !(await this.hasStep(trip.id, TripStepKind.TRANSMITTED))
+    ) {
       await this.prisma.tripStep.create({
         data: { tripId: trip.id, step: TripStepKind.TRANSMITTED },
       });
     }
 
     let notifyWarning: string | null = null;
-    if (dto.notifyDriver && driverId && dto.tracking !== false) {
+    if (decision.notifyPoc) {
       const full = await this.findByRefOrThrow(newRef);
       try {
         await this.notifications.send(
@@ -399,16 +427,19 @@ export class TripsService {
   ): Promise<UpdateTripResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
     const hadDriver = !!trip.driverId;
+    const before = toBeforeEdit(trip);
+    const options = { now: new Date(), pastEditAction: 'Reassigning' as const };
 
-    const isPast = trip.pickupAt < new Date();
-    if (isPast && !can(user, 'trip:edit-past')) {
-      throw new ForbiddenException(
-        'Reassigning a booking whose pickup is already in the past requires the Admin role.',
-      );
-    }
+    const denied = refuseEditPermission(
+      before,
+      { priceEur: before.priceEur, partnerRateEur: before.partnerRateEur },
+      user,
+      options,
+    );
+    if (denied) throw toException(denied);
 
     const data: Prisma.TripUpdateInput = {};
-    let reassigned = false;
+    let driverId = trip.driverId;
 
     if (dto.driverRef !== undefined) {
       const driver = dto.driverRef
@@ -419,26 +450,20 @@ export class TripsService {
           `driverRef "${dto.driverRef}" does not match an existing driver`,
         );
       }
-      const newDriverId = driver?.id ?? null;
-      if (newDriverId !== trip.driverId) {
-        data.driver = newDriverId
-          ? { connect: { id: newDriverId } }
+      driverId = driver?.id ?? null;
+      if (driverId !== trip.driverId) {
+        data.driver = driverId
+          ? { connect: { id: driverId } }
           : { disconnect: true };
         // Honour this driver's reserved vehicle, unless the caller is also
         // naming one in the same call (see findReservedVehicle).
-        if (newDriverId && dto.fleetRegNbr === undefined) {
+        if (driverId && dto.fleetRegNbr === undefined) {
           const reserved = await this.findReservedVehicle(
-            newDriverId,
+            driverId,
             trip.vehicleType?.name,
           );
           if (reserved) data.fleetVehicle = { connect: { id: reserved.id } };
         }
-        // Only a change of assignee wipes the progress — a vehicle swap
-        // below re-arms the Send button without restarting the pipeline.
-        reassigned = true;
-        data.assignmentCancelled = false;
-        data.assignmentCancelledAt = null;
-        data.cancellationFee = null;
       }
     }
 
@@ -458,29 +483,52 @@ export class TripsService {
       return { ok: true, trip, notifyWarning: null };
     }
 
-    // Same rule as update(): any saved change invalidates a previous
-    // dispatch, because the driver was told a car and a schedule that no
-    // longer hold. In the legacy every one of these edits (Driver cell,
-    // Reg Nbr cell, Gantt drag & drop) went through the full PUT, which set
-    // dispatched = false unconditionally. Same single exception too: a
-    // company-only sub-contract has no driver to re-send to and stays pinned
-    // at "Sent" rather than having its Send button re-armed.
-    data.dispatched = trip.subContractor && !trip.partnerId;
+    // The same rules the full PUT runs (see update()) — this route just cannot
+    // reach the price, the POC or the sub-contract, so it hands those back
+    // unchanged and the rules see no change in them.
+    //
+    // `notifyPoc: hadDriver` is the legacy's own funnelling of every quick edit
+    // through the full PUT with `notifyDriver: hadDriver` (quickUpdateTrip,
+    // common.js:3310): a booking that already had a driver had already been
+    // announced, so the POC is told it changed. One that had none has nothing
+    // to correct yet.
+    const decision = decideAssignment(
+      before,
+      {
+        driverId,
+        partnerId: trip.partnerId,
+        subContractor: trip.subContractor,
+        tracking: trip.tracking,
+        priceEur: before.priceEur,
+        partnerRateEur: before.partnerRateEur,
+        pocName: trip.pocName,
+        pocPhone: trip.pocPhone,
+        notifyPoc: hadDriver,
+      },
+      user,
+      options,
+    );
+    if (decision.refusal) throw toException(decision.refusal);
+
+    data.dispatched = decision.dispatched;
+    // Only a change of assignee wipes the progress — a vehicle swap re-arms
+    // the Send button without restarting the pipeline.
+    if (decision.reassigned) {
+      data.assignmentCancelled = false;
+      data.assignmentCancelledAt = null;
+      data.cancellationFee = null;
+    }
 
     await this.prisma.trip.update({ where: { id: trip.id }, data });
-    if (reassigned) {
+    if (decision.reassigned) {
       await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
     }
 
-    // The legacy funnelled every quick edit through the full PUT with
-    // `notifyDriver: hadDriver` (quickUpdateTrip, common.js:3310): a booking
-    // that already had a driver had already been announced, so the POC is
-    // told it changed. One that had none has nothing to correct yet.
     // Non-blocking, exactly as in update(): the reassignment is saved either
     // way, the caller just learns the message didn't go out.
     let notifyWarning: string | null = null;
     const updated = await this.findByRefOrThrow(ref);
-    if (hadDriver && updated.driverId && updated.tracking) {
+    if (decision.notifyPoc) {
       try {
         await this.notifications.send(
           updated.pocPhone!,
