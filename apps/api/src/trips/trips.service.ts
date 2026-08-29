@@ -117,6 +117,53 @@ function periodDateRange(
   }
 }
 
+/**
+ * The Bookings board's search box, token by token: every word typed has to turn
+ * up somewhere, in any of the searched fields.
+ *
+ * Same rule as searchTokensFilter (Clients/Drivers/Vehicles), spelled out here
+ * because the fields it has to reach are on four different records. The account
+ * and driver `name`s a dispatcher types are derived, never stored, so what gets
+ * searched is what they are derived from — including the partner's, since the
+ * board's Driver column falls back to it.
+ */
+function tripSearchFilter(
+  search: string | undefined,
+): Prisma.TripWhereInput[] | undefined {
+  const tokens = (search ?? '').trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return undefined;
+
+  const has = (token: string) =>
+    ({ contains: token, mode: 'insensitive' }) as const;
+  const assignee = (token: string) => ({
+    OR: [
+      { firstName: has(token) },
+      { lastName: has(token) },
+      { company: has(token) },
+      { ref: has(token) },
+    ],
+  });
+
+  return tokens.map((token) => ({
+    OR: [
+      { ref: has(token) },
+      { passengerName: has(token) },
+      {
+        client: {
+          OR: [
+            { company: has(token) },
+            { contactFirstName: has(token) },
+            { contactLastName: has(token) },
+            { ref: has(token) },
+          ],
+        },
+      },
+      { driver: assignee(token) },
+      { partner: assignee(token) },
+    ],
+  }));
+}
+
 const STEP_MESSAGE_KEY: Record<
   DriverStep,
   'accepted' | 'enroute' | 'arrived' | 'onboard' | 'dropped'
@@ -190,10 +237,24 @@ export class TripsService {
           ],
         }
       : {};
-    if (category === 'daily') {
-      where.client = { clientType: { not: ClientType.EVENT } };
-    } else if (category === 'event') {
-      where.client = { clientType: ClientType.EVENT };
+    const client: Prisma.ClientWhereInput = {};
+    if (category === 'daily') client.clientType = { not: ClientType.EVENT };
+    else if (category === 'event') client.clientType = ClientType.EVENT;
+    if (query.clientRef) client.ref = query.clientRef;
+    if (Object.keys(client).length > 0) where.client = client;
+
+    // The board's own filter bar, resolved here rather than over an unbounded
+    // fetch in the browser (was applyBookingFilters, trip-status.ts).
+    const search = tripSearchFilter(query.search);
+    if (search) where.AND = search;
+    if (query.driverRef) where.driver = { ref: query.driverRef };
+    if (query.vehicleType) where.vehicleType = { name: query.vehicleType };
+    if (query.service) where.service = query.service;
+    if (query.passenger?.trim()) {
+      where.passengerName = {
+        contains: query.passenger.trim(),
+        mode: 'insensitive',
+      };
     }
     // An explicit window replaces the named period entirely — see
     // ListTripsQueryDto.from.

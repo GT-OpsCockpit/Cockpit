@@ -7,6 +7,7 @@
  */
 import type { TripsControllerListCategory } from './tripsControllerListCategory';
 import type { TripsControllerListPeriod } from './tripsControllerListPeriod';
+import type { TripsControllerListService } from './tripsControllerListService';
 
 export type TripsControllerListParams = {
 /**
@@ -28,6 +29,35 @@ to?: string;
  * "no partner", there is no caller for that.
  */
 hasPartner?: boolean;
+/**
+ * The Bookings board's search box: ref, account, passenger or driver.
+ *
+ * Token by token (every word must appear somewhere, in any field), the same
+ * rule the Clients/Drivers/Vehicles searches use — see searchTokensFilter for
+ * why. `name` is derived, never stored, so the fields it is derived from are
+ * what gets searched: the account's company and contact names, the driver's
+ * and the partner's.
+ */
+search?: string;
+/**
+ * Exact account, by ref.
+ */
+clientRef?: string;
+/**
+ * Exact driver, by ref. Deliberately the driver only: a booking farmed out
+ * to a partner does not match, which is what the board has always done even
+ * though its Driver column falls back to showing the partner.
+ */
+driverRef?: string;
+/**
+ * Substring of the passenger's name, case-insensitive.
+ */
+passenger?: string;
+/**
+ * Exact vehicle type, by name.
+ */
+vehicleType?: string;
+service?: TripsControllerListService;
 /**
  * Defaults to 'upcoming' in TripsService.list() — see periodDateRange().
  */

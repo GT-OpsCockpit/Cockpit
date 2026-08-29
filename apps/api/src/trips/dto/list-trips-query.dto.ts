@@ -1,5 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsIn, IsISO8601, IsOptional } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsISO8601,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+import { Service } from '../../../generated/prisma/enums';
 
 export const TRIP_PERIODS = [
   'upcoming',
@@ -45,6 +52,47 @@ export class ListTripsQueryDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   hasPartner?: boolean;
+
+  /**
+   * The Bookings board's search box: ref, account, passenger or driver.
+   *
+   * Token by token (every word must appear somewhere, in any field), the same
+   * rule the Clients/Drivers/Vehicles searches use — see searchTokensFilter for
+   * why. `name` is derived, never stored, so the fields it is derived from are
+   * what gets searched: the account's company and contact names, the driver's
+   * and the partner's.
+   */
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  /** Exact account, by ref. */
+  @IsOptional()
+  @IsString()
+  clientRef?: string;
+
+  /**
+   * Exact driver, by ref. Deliberately the driver only: a booking farmed out
+   * to a partner does not match, which is what the board has always done even
+   * though its Driver column falls back to showing the partner.
+   */
+  @IsOptional()
+  @IsString()
+  driverRef?: string;
+
+  /** Substring of the passenger's name, case-insensitive. */
+  @IsOptional()
+  @IsString()
+  passenger?: string;
+
+  /** Exact vehicle type, by name. */
+  @IsOptional()
+  @IsString()
+  vehicleType?: string;
+
+  @IsOptional()
+  @IsIn(Object.values(Service))
+  service?: Service;
 
   /** Defaults to 'upcoming' in TripsService.list() — see periodDateRange(). */
   @IsOptional()

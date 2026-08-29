@@ -109,6 +109,7 @@ export * from './tripsControllerGetPublicParams';
 export * from './tripsControllerListCategory';
 export * from './tripsControllerListParams';
 export * from './tripsControllerListPeriod';
+export * from './tripsControllerListService';
 export * from './tripsControllerSubcontractEmailKind';
 export * from './tripsControllerSubcontractEmailParams';
 export * from './tripStepEntity';

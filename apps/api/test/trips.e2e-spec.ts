@@ -903,6 +903,146 @@ describe('Trips (e2e)', () => {
       expect(refs).not.toContain((plain.body as TripBody).ref);
     });
 
+    // The Bookings board's filter bar, which used to narrow an unbounded
+    // fetch in the browser (applyBookingFilters).
+    describe('the board filters', () => {
+      async function seedBoard() {
+        const client = await request(server())
+          .post('/api/clients')
+          .set('Cookie', cookie)
+          .send({
+            clientType: 'INDIVIDUAL',
+            contactFirstName: 'Marc',
+            contactLastName: 'Dubois',
+            pocPhone: '+33612345678',
+          })
+          .expect(201);
+        const other = await createClient();
+        const driver = await request(server())
+          .post('/api/drivers')
+          .set('Cookie', cookie)
+          .send({
+            firstName: 'Julien',
+            lastName: 'Petit',
+            phone: '+33698765432',
+          })
+          .expect(201);
+
+        const mk = async (body: Record<string, unknown>) => {
+          const res = await request(server())
+            .post('/api/trips')
+            .set('Cookie', cookie)
+            .send({ ...BASE_TRIP, ...body })
+            .expect(201);
+          return (res.body as TripBody).ref;
+        };
+        return {
+          clientRef: (client.body as ClientBody).ref,
+          otherClientRef: (other as ClientBody).ref,
+          driverRef: (driver.body as { ref: string }).ref,
+          mine: await mk({
+            clientRef: (client.body as ClientBody).ref,
+            driverRef: (driver.body as { ref: string }).ref,
+            passengerName: 'Alice Traveller',
+            vehicleType: 'Business',
+            service: 'TSF',
+          }),
+          theirs: await mk({
+            clientRef: (other as ClientBody).ref,
+            passengerName: 'Bob Other',
+            service: 'SPEC',
+            instructions: 'Bring a booster seat',
+          }),
+        };
+      }
+
+      const refsOf = async (qs: string) => {
+        const res = await request(server())
+          .get(`/api/trips?period=all&${qs}`)
+          .set('Cookie', cookie)
+          .expect(200);
+        return (res.body as TripBody[]).map((t) => t.ref);
+      };
+
+      it('searches the account name a dispatcher actually types, which is derived and not a column', async () => {
+        const { mine, theirs } = await seedBoard();
+        const refs = await refsOf('search=Marc%20Dubois');
+        expect(refs).toContain(mine);
+        expect(refs).not.toContain(theirs);
+      });
+
+      it('searches the trip ref, the passenger and the driver name too', async () => {
+        const { mine, theirs } = await seedBoard();
+        expect(await refsOf(`search=${mine}`)).toEqual([mine]);
+        expect(await refsOf('search=Alice')).toContain(mine);
+        expect(await refsOf('search=Julien%20Petit')).toContain(mine);
+        expect(await refsOf('search=Alice')).not.toContain(theirs);
+      });
+
+      it('finds nothing for a token that appears nowhere', async () => {
+        await seedBoard();
+        expect(await refsOf('search=Nonexistent')).toEqual([]);
+      });
+
+      it('scopes by account, passenger, vehicle type and service', async () => {
+        const { clientRef, mine, theirs } = await seedBoard();
+        expect(await refsOf(`clientRef=${clientRef}`)).toContain(mine);
+        expect(await refsOf(`clientRef=${clientRef}`)).not.toContain(theirs);
+        expect(await refsOf('passenger=bob')).toEqual([theirs]);
+        expect(await refsOf('vehicleType=Business')).toContain(mine);
+        expect(await refsOf('vehicleType=Business')).not.toContain(theirs);
+        expect(await refsOf('service=SPEC')).toEqual([theirs]);
+      });
+
+      // The board's Driver column falls back to showing the partner, but its
+      // Driver *filter* has always matched the driver only. Ported as-is.
+      it('matches the driver only — a booking farmed out to a partner never matches', async () => {
+        const { driverRef, mine } = await seedBoard();
+        const partner = await request(server())
+          .post('/api/drivers')
+          .set('Cookie', cookie)
+          .send({
+            firstName: 'Paul',
+            lastName: 'Partner',
+            phone: '+33699000077',
+            company: 'Riviera Cars',
+            email: 'paul.board@riviera.test',
+          })
+          .expect(201);
+        const farmedOut = await request(server())
+          .post('/api/trips')
+          .set('Cookie', cookie)
+          .send({
+            ...BASE_TRIP,
+            clientRef: (await createClient()).ref,
+            subContractor: true,
+            partnerRef: (partner.body as { ref: string }).ref,
+          })
+          .expect(201);
+
+        const refs = await refsOf(`driverRef=${driverRef}`);
+        expect(refs).toEqual([mine]);
+        expect(refs).not.toContain((farmedOut.body as TripBody).ref);
+
+        // The search box is the other way round: the Driver column shows the
+        // partner, so typing their name has to find the booking.
+        expect(await refsOf('search=Paul%20Partner')).toEqual([
+          (farmedOut.body as TripBody).ref,
+        ]);
+        expect(await refsOf('search=Riviera')).toEqual([
+          (farmedOut.body as TripBody).ref,
+        ]);
+      });
+
+      it('narrows further with each filter added, rather than widening', async () => {
+        const { clientRef, mine } = await seedBoard();
+        expect(await refsOf(`clientRef=${clientRef}&service=SPEC`)).toEqual([]);
+        expect(await refsOf(`clientRef=${clientRef}&service=TSF`)).toEqual([
+          mine,
+        ]);
+      });
+    });
+
     it('the default category (daily) excludes Events-client trips, regardless of period', async () => {
       const eventClient = await request(server())
         .post('/api/clients')
