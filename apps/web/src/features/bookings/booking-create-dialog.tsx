@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { RecordFormDialog } from '@/components/record-form-dialog'
 import { TripFormFields } from './trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
+import { dispatchReadiness } from './booking-draft'
 import { openSubcontractEmailDraft } from './subcontract-email'
 import { toCreateTripDto } from './trip-form-mapping'
 
@@ -119,26 +120,11 @@ export function BookingCreateDialog({
   const createTrip = useTripsControllerCreate()
   const dispatchDriver = useTripsControllerDispatchDriver()
 
-  const driverRef = form.watch('driverRef')
-  const fleetRegNbr = form.watch('fleetRegNbr')
-  const subContractor = form.watch('subContractor')
-  const partnerRef = form.watch('partnerRef')
-
-  // Two independent ways to be ready to dispatch: a Partner (farmed out), or a
-  // Driver with a Fleet vehicle actually assigned. Both at once is a conflicting
-  // state, blocked outright until the dispatcher clears one of the two.
-  const driverBranchOk = !!driverRef && !!fleetRegNbr
-  const partnerBranchOk = !!subContractor && !!partnerRef
-  const conflict = driverBranchOk && partnerBranchOk
-  const canDispatch = !conflict && (driverBranchOk || partnerBranchOk)
-
-  // The button being greyed out was the form's one silent dead end — the two
-  // reasons are distinct and neither is guessable from the fields alone.
-  const dispatchBlockedReason = conflict
-    ? 'A driver and a partner are both assigned — clear one of the two.'
-    : subContractor
-      ? 'Pick the partner company this booking is farmed out to.'
-      : 'Assign a driver and a fleet vehicle, or tick Sub-contracted and pick a partner.'
+  // Whether this draft can go straight out to a driver — and, when it cannot,
+  // why: the button being greyed out was the form's one silent dead end. The
+  // rule lives beside the `subContractor` cascade that maintains the same
+  // exclusivity (booking-draft.ts), not in this dialog.
+  const { canDispatch, blockedReason } = dispatchReadiness(form.watch())
 
   const afterCreate = () => {
     clearDraft(draftKey)
@@ -208,7 +194,7 @@ export function BookingCreateDialog({
               </Button>
             </span>
           </TooltipTrigger>
-          {!canDispatch && <TooltipContent>{dispatchBlockedReason}</TooltipContent>}
+          {!canDispatch && <TooltipContent>{blockedReason}</TooltipContent>}
         </Tooltip>
       }
     >

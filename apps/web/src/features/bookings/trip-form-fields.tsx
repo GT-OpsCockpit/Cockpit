@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/form'
 import type { TripFormValues } from './trip-form-schema'
 import { tripFormRules } from './trip-form-rules'
+import { applyBookingEdit, type BookingChange, type BookingMeta } from './booking-draft'
 import { clientDisplayName, driverLabel, partnerLabel } from '@cockpit/shared'
 
 /**
@@ -165,6 +166,17 @@ export function TripFormFields({
   const countryOptions = useCountryOptions()
   const selectedCountry = meta.data?.countries.find((c) => c.code === countryCode)
 
+  // The one piece of plumbing the cascades need. What each edit does to the
+  // rest of the draft is booking-draft.ts's answer; this only writes it down.
+  const metaInput: BookingMeta = { countries: meta.data?.countries ?? [], vehicleTypes: meta.data?.vehicleTypes ?? [] }
+  const applyEdit = (change: BookingChange): Partial<TripFormValues> => {
+    const patch = applyBookingEdit(form.getValues(), change, metaInput)
+    for (const [key, value] of Object.entries(patch)) {
+      form.setValue(key as keyof TripFormValues, value as never)
+    }
+    return patch
+  }
+
   const clientResults = (clients.data?.data ?? [])
     .filter((c) => c.active && c.clientType !== 'EVENT')
     .map((c) => ({ value: c.ref, label: `${c.name} (${c.ref})` }))
@@ -254,13 +266,7 @@ export function TripFormFields({
                     value={field.value}
                     onChange={(value) => {
                       field.onChange(value)
-                      const country = meta.data?.countries.find((c) => c.code === value)
-                      if (country) form.setValue('pickupTimezone', country.tz)
-                      // "Local" is France-only and a city belongs to one country,
-                      // so an Area already on file is now invalid — force a fresh
-                      // pick rather than let it silently rot (legacy
-                      // resetAreaField, common.js:871).
-                      form.setValue('area', '')
+                      applyEdit({ kind: 'countryCode', value })
                     }}
                     options={countryOptions}
                     placeholder="Country…"
@@ -356,7 +362,7 @@ export function TripFormFields({
             form={form}
             name="pickupLocation"
             label="PU"
-            iataField="pickupIata"
+            applyEdit={applyEdit}
             required
             className={rules.dropoffApplies ? 'col-span-6 lg:col-span-6' : 'col-span-6 lg:col-span-12'}
           />
@@ -365,7 +371,7 @@ export function TripFormFields({
               form={form}
               name="dropoffLocation"
               label="DO"
-              iataField="dropoffIata"
+              applyEdit={applyEdit}
               required
               className="col-span-6 lg:col-span-6"
             />
@@ -531,8 +537,7 @@ export function TripFormFields({
                   value={field.value}
                   onValueChange={(value) => {
                     field.onChange(value)
-                    const vt = meta.data?.vehicleTypes.find((v) => v.name === value)
-                    if (vt && form.getValues('paxCount') > vt.maxPax) form.setValue('paxCount', vt.maxPax)
+                    applyEdit({ kind: 'vehicleType', value })
                   }}
                 >
                   <FormControl>
@@ -562,16 +567,7 @@ export function TripFormFields({
                     checked={field.value}
                     onCheckedChange={(checked) => {
                       field.onChange(checked)
-                      // The two branches are mutually exclusive (see canDispatch in
-                      // booking-create-dialog.tsx) and only one is on screen at a
-                      // time, so the one being left is cleared — an off-screen
-                      // driver would otherwise silently block Create & Dispatch.
-                      if (checked) {
-                        form.setValue('driverRef', '')
-                        form.setValue('fleetRegNbr', '')
-                      } else {
-                        form.setValue('partnerRef', '')
-                      }
+                      applyEdit({ kind: 'subContractor', value: checked === true })
                     }}
                   />
                 </FormControl>
@@ -706,14 +702,15 @@ function LocationField({
   form,
   name,
   label,
-  iataField,
+  applyEdit,
   required = false,
   className,
 }: {
   form: UseFormReturn<TripFormValues>
   name: 'pickupLocation' | 'dropoffLocation'
   label: string
-  iataField: 'pickupIata' | 'dropoffIata'
+  /** Writes down what booking-draft.ts says this lookup does to the draft. */
+  applyEdit: (change: BookingChange) => Partial<TripFormValues>
   required?: boolean
   /** Column span inside the enclosing FormSection grid. */
   className?: string
@@ -721,6 +718,9 @@ function LocationField({
   const [resolving, setResolving] = useState(false)
   const [hint, setHint] = useState<string | null>(null)
 
+  // The two calls and the spinner belong here; which fields the answer fills
+  // in — and that an FBO address already typed is never overwritten — is
+  // applyBookingEdit's, so it can be asserted without rendering a form.
   const resolve = async () => {
     const value = form.getValues(name)
     if (!value?.trim()) return
@@ -728,23 +728,13 @@ function LocationField({
     setHint(null)
     try {
       const result = await geoControllerGeocodeTz({ q: value })
-      form.setValue(iataField, result.iata ?? '')
-      if (name === 'pickupLocation') form.setValue('pickupTimezone', result.tz)
-
-      // Airport pickup: pre-fill the handling agent's (FBO) address from the
+      // Airport pickup: the handling agent's (FBO) address comes from the
       // directory, as the legacy's Flight info popup did (common.js:1544).
-      // The endpoint existed but nothing called it. `found: false` just means
-      // this airport isn't in the directory yet — the field stays editable,
-      // and an address already typed is never overwritten.
-      let fboName: string | null = null
-      if (name === 'pickupLocation' && result.isAirport) {
-        const fbo = await geoControllerFboLookup({ q: value })
-        if (fbo.found && fbo.fbo && !form.getValues('fboAddress')?.trim()) {
-          form.setValue('fboAddress', fbo.fbo)
-          fboName = fbo.name
-        }
-      }
+      // `found: false` just means this airport isn't in the directory yet.
+      const fbo = name === 'pickupLocation' && result.isAirport ? await geoControllerFboLookup({ q: value }) : undefined
+      const patch = applyEdit({ kind: 'geocode', field: name, result, fbo })
 
+      const fboName = patch.fboAddress === undefined ? null : (fbo?.name ?? null)
       setHint(
         result.isAirport
           ? `Airport detected${result.iata ? ` (${result.iata})` : ''} — ${result.tz}${fboName ? ` · FBO pre-filled (${fboName})` : ''}`
