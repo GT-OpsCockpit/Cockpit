@@ -29,7 +29,7 @@ Ils expliquent tous les manques et méritent d'être vérifiés à chaque refont
 
 ## Ce qui a été livré
 
-Six commits sur `main`, chacun autonome et testé :
+Sept commits de code sur `main`, chacun autonome et testé, plus celui-ci pour la doc :
 
 | Commit | Contenu |
 |--------|---------|
