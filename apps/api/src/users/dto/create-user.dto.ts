@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEnum, IsString, MinLength } from 'class-validator';
 import { Role } from '../../../generated/prisma/enums';
 import {
   IsEmailFormat,
@@ -24,7 +24,11 @@ export class CreateUserDto {
   @MinLength(1)
   lastName: string;
 
-  @IsOptional()
+  /**
+   * Required, as the legacy required it of every access account on create and
+   * on edit alike (server.js:262-264, 275-277) — it is how a dispatcher is
+   * reached off-hours, not decoration.
+   */
   @IsPhone()
-  phone?: string;
+  phone: string;
 }

@@ -94,6 +94,7 @@ describe('Company (e2e)', () => {
         role: 'DISPATCHER',
         firstName: 'Dana',
         lastName: 'Dispatch',
+        phone: '+33600000011',
       })
       .expect(201);
     const dispatcherCookie = await loginAs(

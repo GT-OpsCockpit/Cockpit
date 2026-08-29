@@ -9,10 +9,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 import { UserCreateDialog } from './user-create-dialog'
 import { UserEditDialog } from './user-edit-dialog'
+import { UserPasswordDialog } from './user-password-dialog'
 import { UsersTable } from './users-table'
 
 export function UsersTab() {
   const [editTarget, setEditTarget] = useState<PublicUserEntity | null>(null)
+  const [passwordTarget, setPasswordTarget] = useState<PublicUserEntity | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<PublicUserEntity | null>(null)
 
   const canManage = usePermission('user:manage')
@@ -52,11 +54,14 @@ export function UsersTab() {
       <UsersTable
         users={users.data ?? []}
         onEdit={setEditTarget}
+        onSetPassword={setPasswordTarget}
         onDeactivate={setDeactivateTarget}
         canManage={canManage}
       />
 
       <UserEditDialog user={editTarget} onOpenChange={(open) => !open && setEditTarget(null)} />
+
+      <UserPasswordDialog user={passwordTarget} onOpenChange={(open) => !open && setPasswordTarget(null)} />
 
       <ConfirmActionDialog
         open={!!deactivateTarget}

@@ -3,6 +3,7 @@ import { UsersService } from './users.service';
 import { PublicUserEntity } from './dto/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 
 @Controller('users')
@@ -26,6 +27,14 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
   ): Promise<PublicUserEntity> {
     return this.usersService.update(id, dto);
+  }
+
+  @Patch(':id/password')
+  setPassword(
+    @Param('id') id: string,
+    @Body() dto: SetPasswordDto,
+  ): Promise<PublicUserEntity> {
+    return this.usersService.setPassword(id, dto.password);
   }
 
   @Patch(':id/deactivate')

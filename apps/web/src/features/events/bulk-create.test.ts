@@ -156,4 +156,15 @@ describe('buildBulkTripDto', () => {
     }, { isLastLeg: false })
     expect(withoutOverride.instructions).toBe('From the bar')
   })
+
+  // An event runs on a chain of bookings a whole team follows day by day, so
+  // the legacy pinned tracking on for every one it generated, whatever the bar
+  // was set to (events.html:655).
+  it('tracks every booking it generates, even with the bar’s tracking switched off', () => {
+    const dto = buildBulkTripDto(baseFormValues({ tracking: false }), '2026-09-02', {
+      pickupLocation: 'A',
+      dropoffLocation: 'B',
+    }, { isLastLeg: false })
+    expect(dto.tracking).toBe(true)
+  })
 })

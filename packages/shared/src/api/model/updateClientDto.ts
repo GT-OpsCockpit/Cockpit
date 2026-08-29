@@ -13,6 +13,13 @@ export interface UpdateClientDto {
   contactFirstName?: string;
   contactLastName?: string;
   company?: string;
+  /**
+     * The account's short form, shown in the "Cust / Pax" column of Bookings,
+     * Planning and Events. Capped at four the way the legacy capped it — beyond
+     * that it stops fitting the column it exists for (clients.html:500-510,
+     * which highlighted the field and disabled Create).
+     * @maxLength 4
+     */
   acronym?: string;
   refPoOther?: string;
   address?: string;

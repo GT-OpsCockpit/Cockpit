@@ -35,6 +35,18 @@ function has(value) {
 }
 
 /**
+ * A date column as a comparable YYYY-MM-DD day. Both forms turn up: the form
+ * hands over what an <input type="date"> holds, while ClientsService.update()
+ * merges the DTO over the stored row, where these are Date objects.
+ */
+function day(value) {
+  if (!has(value)) return null;
+  return typeof value === 'string'
+    ? value.slice(0, 10)
+    : new Date(value).toISOString().slice(0, 10);
+}
+
+/**
  * A gap carries every field it concerns, not just the first: "an Individual
  * account needs a first and last name" is one rule about two fields, and the
  * form has to mark both.
@@ -71,6 +83,22 @@ function clientGaps(values) {
     }
     if (!has(values.eventEndDate)) {
       gaps.push(gap(['eventEndDate'], 'End date is required for an Events-type account.'));
+    }
+    // An inverted range is accepted nowhere downstream: the "not ended"
+    // filter, the availability window, the reactivation candidates and the
+    // Events bulk (which then creates zero bookings, silently) all read it as
+    // an event that never happens. The legacy refused it twice over — Confirm
+    // disabled, and dateEnd.min pinned to dateStart (clients.html:436-448).
+    // Only asked once both dates are there; a missing one is already reported.
+    const start = day(values.eventStartDate);
+    const end = day(values.eventEndDate);
+    if (start && end && end < start) {
+      gaps.push(
+        gap(
+          ['eventStartDate', 'eventEndDate'],
+          'End date must be on or after the start date.',
+        ),
+      );
     }
   }
   if (!isCompany && !isEvent && !(has(values.contactFirstName) && has(values.contactLastName))) {

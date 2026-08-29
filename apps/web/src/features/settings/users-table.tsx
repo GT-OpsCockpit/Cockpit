@@ -1,4 +1,4 @@
-import { Pencil, UserCog, X } from 'lucide-react'
+import { KeyRound, Pencil, UserCog, X } from 'lucide-react'
 import type { PublicUserEntity } from '@cockpit/shared/api'
 import { formatPhoneDisplay } from '@cockpit/shared'
 import { cn } from '@/lib/utils'
@@ -14,12 +14,13 @@ function formatDate(iso: string): string {
 interface UsersTableProps {
   users: PublicUserEntity[]
   onEdit: (user: PublicUserEntity) => void
+  onSetPassword: (user: PublicUserEntity) => void
   onDeactivate: (user: PublicUserEntity) => void
   /** UX-layer mirror of user:manage (see docs/agents/permissions.md) — the whole table is read-only without it. */
   canManage: boolean
 }
 
-export function UsersTable({ users, onEdit, onDeactivate, canManage }: UsersTableProps) {
+export function UsersTable({ users, onEdit, onSetPassword, onDeactivate, canManage }: UsersTableProps) {
   return (
     <TableCard>
       <Table>
@@ -67,6 +68,15 @@ export function UsersTable({ users, onEdit, onDeactivate, canManage }: UsersTabl
                       onClick={() => onEdit(user)}
                     >
                       <Pencil className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Set a new password"
+                      disabled={!user.active || !canManage}
+                      onClick={() => onSetPassword(user)}
+                    >
+                      <KeyRound className="size-3.5" />
                     </Button>
                     <Button
                       variant="ghost"

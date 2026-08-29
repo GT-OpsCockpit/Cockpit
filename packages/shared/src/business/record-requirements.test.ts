@@ -84,6 +84,46 @@ describe('missingFields — accounts', () => {
     ).toEqual([])
   })
 
+  // The legacy refused to enable Confirm on an inverted range and set
+  // dateEnd.min from dateStart (clients.html:436-448, events.html:401-413).
+  // Nothing downstream survives an event that ends before it starts: the
+  // "not ended" filter, the availability window, the reactivation candidates
+  // and the Events bulk — which silently creates zero bookings.
+  it('refuses an event that ends before it starts', () => {
+    expect(
+      missingFields('client', { ...complete.EVENT, eventStartDate: '2026-05-03', eventEndDate: '2026-05-01' }),
+    ).toEqual([
+      {
+        fields: ['eventStartDate', 'eventEndDate'],
+        message: 'End date must be on or after the start date.',
+      },
+    ])
+  })
+
+  it('accepts a single-day event', () => {
+    expect(
+      missingFields('client', { ...complete.EVENT, eventStartDate: '2026-05-01', eventEndDate: '2026-05-01' }),
+    ).toEqual([])
+  })
+
+  it('compares stored Dates as well as typed strings', () => {
+    expect(
+      messagesFor('client', {
+        ...complete.EVENT,
+        eventStartDate: new Date('2026-05-03'),
+        eventEndDate: new Date('2026-05-01'),
+      }),
+    ).toEqual(['End date must be on or after the start date.'])
+  })
+
+  // Only ever one complaint per field pair: an absent end date is already
+  // reported as missing, and "must be on or after" would be noise on top.
+  it('says nothing about ordering while a date is still missing', () => {
+    expect(messagesFor('client', { ...complete.EVENT, eventEndDate: '' })).toEqual([
+      'End date is required for an Events-type account.',
+    ])
+  })
+
   it('does not accept whitespace as a filled-in field', () => {
     expect(messagesFor('client', { clientType: 'COMPANY', company: '   ' })).toEqual([
       'Company name is required for a Company-type account.',

@@ -14,5 +14,10 @@ export interface UpdateUserDto {
   firstName: string;
   /** @minLength 1 */
   lastName: string;
-  phone?: string;
+  /**
+     * Required, as the legacy required it of every access account on create and
+     * on edit alike (server.js:262-264, 275-277) — it is how a dispatcher is
+     * reached off-hours, not decoration.
+     */
+  phone: string;
 }

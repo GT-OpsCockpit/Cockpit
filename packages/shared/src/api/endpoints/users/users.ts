@@ -27,6 +27,7 @@ import type {
 import type {
   CreateUserDto,
   PublicUserEntity,
+  SetPasswordDto,
   UpdateUserDto
 } from '../../model';
 
@@ -288,6 +289,78 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getUsersControllerUpdateMutationOptions(options), queryClient);
+    }
+    export const getUsersControllerSetPasswordUrl = (id: string,) => {
+
+
+
+
+  return `/api/users/${id}/password`
+}
+
+export const usersControllerSetPassword = async (id: string,
+    setPasswordDto: SetPasswordDto, options?: Parameters<typeof fetcher>[1]): Promise<PublicUserEntity> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+return fetcher<PublicUserEntity>(getUsersControllerSetPasswordUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(setPasswordDto)
+  }
+);}
+
+
+
+
+
+export const getUsersControllerSetPasswordMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerSetPassword>>, TError,UsersControllerSetPasswordMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof usersControllerSetPassword>>, TError,UsersControllerSetPasswordMutationVariables, TContext> => {
+
+const mutationKey = ['usersControllerSetPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof usersControllerSetPassword>>, UsersControllerSetPasswordMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  usersControllerSetPassword(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UsersControllerSetPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof usersControllerSetPassword>>>
+    export type UsersControllerSetPasswordMutationBody = SetPasswordDto
+    export type UsersControllerSetPasswordMutationError = unknown
+    export type UsersControllerSetPasswordMutationVariables = {id: string;data: SetPasswordDto}
+
+    export const useUsersControllerSetPassword = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerSetPassword>>, TError,UsersControllerSetPasswordMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof usersControllerSetPassword>>,
+        TError,
+        UsersControllerSetPasswordMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUsersControllerSetPasswordMutationOptions(options), queryClient);
     }
     export const getUsersControllerDeactivateUrl = (id: string,) => {
 

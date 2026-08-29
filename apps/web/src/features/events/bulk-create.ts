@@ -81,6 +81,8 @@ export function buildBulkTripDto(
     countryCode: legValues.countryCode,
     area: legValues.area,
     pickupAt: toPickupAt(legValues),
+    // Alongside the instant it was used to build — see toTripDto.
+    pickupTimezone: legValues.pickupTimezone || undefined,
     pickupLocation: legValues.pickupLocation,
     dropoffLocation: legValues.dropoffLocation || undefined,
     service,
@@ -90,7 +92,10 @@ export function buildBulkTripDto(
     passengerName: legValues.passengerName,
     pocName: legValues.pocName || undefined,
     pocPhone: legValues.pocPhone || undefined,
-    tracking: legValues.tracking,
+    // Forced on, whatever the bar was set to (events.html:655). An event runs
+    // on a chain of bookings a whole team follows day by day — the one case
+    // where the legacy would not let tracking be left off by accident.
+    tracking: true,
     paxCount: legValues.paxCount,
     vehicleType: legValues.vehicleType,
     priceEur: legValues.priceEur,

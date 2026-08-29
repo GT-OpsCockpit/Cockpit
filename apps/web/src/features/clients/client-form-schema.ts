@@ -15,7 +15,7 @@ export const clientFormSchema = z
     contactFirstName: z.string().optional(),
     contactLastName: z.string().optional(),
     company: z.string().optional(),
-    acronym: z.string().optional(),
+    acronym: z.string().max(4, 'Acronym must be 4 characters or fewer.').optional(),
     refPoOther: z.string().optional(),
     address: z.string().optional(),
     postalCode: z.string().optional(),

@@ -80,6 +80,20 @@ export class UsersService {
     });
   }
 
+  /**
+   * Replaces an account's password. Every session it already has stays valid:
+   * this exists to get a locked-out account back in, not to evict one — and
+   * deactivate() is the endpoint for the latter.
+   */
+  async setPassword(id: string, password: string): Promise<PublicUserEntity> {
+    await this.findOrThrow(id);
+    return this.prisma.user.update({
+      where: { id },
+      data: { passwordHash: await argon2.hash(password) },
+      select: PUBLIC_SELECT,
+    });
+  }
+
   // Deactivation is one-way, matching the legacy access accounts: no
   // reactivation endpoint exists (asymmetric compared to clients/drivers/fleet).
   async deactivate(id: string): Promise<PublicUserEntity> {

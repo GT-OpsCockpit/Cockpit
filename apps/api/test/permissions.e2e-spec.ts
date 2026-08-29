@@ -66,6 +66,7 @@ describe('Permissions (e2e)', () => {
         role: 'DISPATCHER',
         firstName: 'Dana',
         lastName: 'Dispatcher',
+        phone: '+33600000010',
       })
       .expect(201);
     dispatcherCookie = await loginAs(

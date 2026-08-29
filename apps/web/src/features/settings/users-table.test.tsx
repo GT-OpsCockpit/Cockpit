@@ -7,13 +7,13 @@ afterEach(cleanup)
 
 describe('UsersTable', () => {
   it('shows a placeholder row when there are no users', () => {
-    render(<UsersTable users={[]} onEdit={vi.fn()} onDeactivate={vi.fn()} canManage />)
+    render(<UsersTable users={[]} onEdit={vi.fn()} onSetPassword={vi.fn()} onDeactivate={vi.fn()} canManage />)
     expect(screen.getByText('No records to display')).toBeInTheDocument()
   })
 
   it('renders a user row with its fields', () => {
     const user = baseUser({ email: 'jane.doe@cockpit.test', firstName: 'Jane', lastName: 'Doe', role: 'ADMIN' })
-    render(<UsersTable users={[user]} onEdit={vi.fn()} onDeactivate={vi.fn()} canManage />)
+    render(<UsersTable users={[user]} onEdit={vi.fn()} onSetPassword={vi.fn()} onDeactivate={vi.fn()} canManage />)
     expect(screen.getByText('jane.doe@cockpit.test')).toBeInTheDocument()
     expect(screen.getByText('Jane')).toBeInTheDocument()
     expect(screen.getByText('Doe')).toBeInTheDocument()
@@ -22,21 +22,21 @@ describe('UsersTable', () => {
 
   it('dims an inactive user and shows its deactivated date', () => {
     const inactive = baseUser({ active: false, deactivatedAt: '2026-02-01T00:00:00.000Z' })
-    render(<UsersTable users={[inactive]} onEdit={vi.fn()} onDeactivate={vi.fn()} canManage />)
+    render(<UsersTable users={[inactive]} onEdit={vi.fn()} onSetPassword={vi.fn()} onDeactivate={vi.fn()} canManage />)
     expect(screen.getByRole('row', { name: /Doe/ })).toHaveClass('opacity-50')
     expect(screen.getByText(/Deactivated/)).toBeInTheDocument()
   })
 
   it('disables Edit and Deactivate once a user is inactive', () => {
     const inactive = baseUser({ active: false })
-    render(<UsersTable users={[inactive]} onEdit={vi.fn()} onDeactivate={vi.fn()} canManage />)
+    render(<UsersTable users={[inactive]} onEdit={vi.fn()} onSetPassword={vi.fn()} onDeactivate={vi.fn()} canManage />)
     expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Deactivate' })).toBeDisabled()
   })
 
   it('disables Edit and Deactivate when the viewer lacks user:manage', () => {
     const active = baseUser({ active: true })
-    render(<UsersTable users={[active]} onEdit={vi.fn()} onDeactivate={vi.fn()} canManage={false} />)
+    render(<UsersTable users={[active]} onEdit={vi.fn()} onSetPassword={vi.fn()} onDeactivate={vi.fn()} canManage={false} />)
     expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Deactivate' })).toBeDisabled()
   })
@@ -45,7 +45,9 @@ describe('UsersTable', () => {
     const onEdit = vi.fn()
     const onDeactivate = vi.fn()
     const user = baseUser({ active: true })
-    render(<UsersTable users={[user]} onEdit={onEdit} onDeactivate={onDeactivate} canManage />)
+    render(
+      <UsersTable users={[user]} onEdit={onEdit} onSetPassword={vi.fn()} onDeactivate={onDeactivate} canManage />,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
     expect(onEdit).toHaveBeenCalledWith(user)
@@ -53,9 +55,23 @@ describe('UsersTable', () => {
     expect(onDeactivate).toHaveBeenCalledWith(user)
   })
 
+  // v2 gives each account a password the legacy had no notion of, and
+  // deactivation is one-way — without a way to set a new one, an account whose
+  // password is lost is unreachable and unretirable.
+  it('offers a password reset for the clicked user', () => {
+    const onSetPassword = vi.fn()
+    const user = baseUser({ active: true })
+    render(
+      <UsersTable users={[user]} onEdit={vi.fn()} onSetPassword={onSetPassword} onDeactivate={vi.fn()} canManage />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set a new password' }))
+    expect(onSetPassword).toHaveBeenCalledWith(user)
+  })
+
   it('falls back to an em dash for a missing phone', () => {
     const user = baseUser({ phone: null })
-    render(<UsersTable users={[user]} onEdit={vi.fn()} onDeactivate={vi.fn()} canManage />)
+    render(<UsersTable users={[user]} onEdit={vi.fn()} onSetPassword={vi.fn()} onDeactivate={vi.fn()} canManage />)
     expect(screen.getByText('—')).toBeInTheDocument()
   })
 })

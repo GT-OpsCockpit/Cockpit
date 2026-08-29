@@ -1,4 +1,10 @@
-import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { ClientType, Billing } from '../../../generated/prisma/enums';
 import {
   IsCountryCode,
@@ -22,8 +28,15 @@ export class CreateClientDto {
   @IsString()
   company?: string;
 
+  /**
+   * The account's short form, shown in the "Cust / Pax" column of Bookings,
+   * Planning and Events. Capped at four the way the legacy capped it — beyond
+   * that it stops fitting the column it exists for (clients.html:500-510,
+   * which highlighted the field and disabled Create).
+   */
   @IsOptional()
   @IsString()
+  @MaxLength(4)
   acronym?: string;
 
   @IsOptional()

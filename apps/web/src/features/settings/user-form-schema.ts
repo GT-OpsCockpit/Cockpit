@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { CreateUserDtoRole } from '@cockpit/shared/api'
-import { optionalPhone, requiredEmail } from '@/lib/contact-fields'
+import { requiredEmail, requiredPhone } from '@/lib/contact-fields'
 
 const ROLE = z.enum([CreateUserDtoRole.ADMIN, CreateUserDtoRole.DISPATCHER])
 
@@ -9,10 +9,10 @@ const baseShape = {
   role: ROLE,
   firstName: z.string().min(1, 'Surname is required.'),
   lastName: z.string().min(1, 'Name is required.'),
-  phone: optionalPhone(),
+  phone: requiredPhone('Mobile is required.'),
 }
 
-/** Mirrors CreateUserDto exactly (apps/api/src/users/dto/create-user.dto.ts) — email/role/firstName/lastName required, phone optional, password min 8. */
+/** Mirrors CreateUserDto exactly (apps/api/src/users/dto/create-user.dto.ts) — email/role/firstName/lastName/phone required, password min 8. */
 export const userCreateFormSchema = z.object({
   ...baseShape,
   password: z.string().min(8, 'Password must be at least 8 characters.'),

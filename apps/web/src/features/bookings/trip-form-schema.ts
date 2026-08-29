@@ -61,6 +61,18 @@ export const tripFormSchema = z
         message: 'Instructions are required for a SPEC service.',
       })
     }
+    // Farming a job out is agreeing a price for it: the legacy would not let
+    // the sub-contract popup be confirmed without one ("Enter the Partner rate
+    // net to validate the subcontracting", common.js:2812). That popup is not
+    // ported — this form is where a booking gets farmed out now, at creation
+    // as much as later, so the rule applies at both.
+    if (data.subContractor && (data.partnerRateEur === undefined || data.partnerRateEur <= 0)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['partnerRateEur'],
+        message: 'Partner rate net is required to sub-contract a booking.',
+      })
+    }
   })
 
 export type TripFormValues = z.infer<typeof tripFormSchema>

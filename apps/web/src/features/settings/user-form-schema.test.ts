@@ -41,8 +41,11 @@ describe('userCreateFormSchema — mirrors CreateUserDto', () => {
     expect(result.success).toBe(false)
   })
 
-  it('does not require phone', () => {
-    expect(userCreateFormSchema.safeParse({ ...validCreate(), phone: '' }).success).toBe(true)
+  // The legacy refused an access account with no mobile, on create and on edit
+  // alike (server.js:262-264, 275-277) — it is how a dispatcher is reached
+  // off-hours.
+  it('requires a phone', () => {
+    expect(userCreateFormSchema.safeParse({ ...validCreate(), phone: '' }).success).toBe(false)
   })
 })
 
@@ -55,5 +58,10 @@ describe('userEditFormSchema — mirrors UpdateUserDto (same as create, minus pa
   it('rejects an invalid email format', () => {
     const { password: _password, ...edit } = validCreate()
     expect(userEditFormSchema.safeParse({ ...edit, email: 'not-an-email' }).success).toBe(false)
+  })
+
+  it('requires a phone on edit too', () => {
+    const { password: _password, ...edit } = validCreate()
+    expect(userEditFormSchema.safeParse({ ...edit, phone: '' }).success).toBe(false)
   })
 })

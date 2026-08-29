@@ -111,4 +111,24 @@ describe('tripFormSchema — conditional validation', () => {
       expect(asd.success).toBe(true)
     })
   })
+
+  // Farming a job out is agreeing a price for it — the legacy refused to
+  // confirm the sub-contract popup without one (common.js:2812).
+  describe('partnerRateEur — required to sub-contract', () => {
+    it('rejects a sub-contracted booking with no partner rate', () => {
+      expect(issuePaths(validBase({ subContractor: true, partnerRateEur: undefined }))).toContain('partnerRateEur')
+    })
+
+    it('rejects a zero partner rate, which is not a price', () => {
+      expect(issuePaths(validBase({ subContractor: true, partnerRateEur: 0 }))).toContain('partnerRateEur')
+    })
+
+    it('accepts a sub-contracted booking once a rate is given', () => {
+      expect(tripFormSchema.safeParse(validBase({ subContractor: true, partnerRateEur: 90 })).success).toBe(true)
+    })
+
+    it('asks nothing of a booking that is not sub-contracted', () => {
+      expect(tripFormSchema.safeParse(validBase({ subContractor: false, partnerRateEur: undefined })).success).toBe(true)
+    })
+  })
 })

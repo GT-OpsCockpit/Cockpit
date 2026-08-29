@@ -100,6 +100,7 @@ export * from './setDriverUnavailabilityDtoType';
 export * from './setFleetDriverDto';
 export * from './setFleetUnavailabilityDto';
 export * from './setFleetUnavailabilityDtoType';
+export * from './setPasswordDto';
 export * from './subcontractEmailEntity';
 export * from './tripActionResponseEntity';
 export * from './tripEntity';

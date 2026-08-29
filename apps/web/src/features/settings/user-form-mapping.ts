@@ -18,7 +18,7 @@ export function toCreateUserDto(values: UserCreateFormValues): CreateUserDto {
     role: values.role,
     firstName: values.firstName,
     lastName: values.lastName,
-    phone: values.phone || undefined,
+    phone: values.phone,
   }
 }
 
@@ -28,6 +28,6 @@ export function toUpdateUserDto(values: UserEditFormValues): UpdateUserDto {
     role: values.role,
     firstName: values.firstName,
     lastName: values.lastName,
-    phone: values.phone || undefined,
+    phone: values.phone,
   }
 }

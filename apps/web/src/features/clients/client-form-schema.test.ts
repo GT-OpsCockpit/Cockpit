@@ -107,4 +107,17 @@ describe('clientFormSchema — formats, which do not depend on the account type'
     )
     expect(result.success).toBe(true)
   })
+
+  // The acronym is the account's short form in the "Cust / Pax" column of
+  // Bookings, Planning and Events — past four characters it stops fitting the
+  // column it exists for, which is why the legacy disabled Create beyond it
+  // (clients.html:500-510).
+  it('rejects an acronym longer than four characters', () => {
+    expect(issues(validBase({ acronym: 'ABCDE' })).map((i) => i.path)).toContain('acronym')
+  })
+
+  it('accepts an acronym of exactly four, and an empty one', () => {
+    expect(clientFormSchema.safeParse(validBase({ acronym: 'ABCD' })).success).toBe(true)
+    expect(clientFormSchema.safeParse(validBase({ acronym: '' })).success).toBe(true)
+  })
 })
