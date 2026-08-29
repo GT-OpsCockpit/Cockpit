@@ -43,6 +43,12 @@ COPY patches patches
 RUN pnpm install --frozen-lockfile --prod --filter @cockpit/api...
 
 COPY apps/api/prisma apps/api/prisma
+# @cockpit/shared publishes raw TypeScript (its package.json `exports` point at
+# src/*.ts, which is what Vite and ts-jest consume in dev). The compiled API
+# still `require`s it at runtime, so the sources have to ship in the runtime
+# image too — Node 22 strips the types on load. Without this the image builds
+# fine and then dies on boot with MODULE_NOT_FOUND @cockpit/shared.
+COPY packages/shared/src packages/shared/src
 COPY --from=build /app/apps/api/generated apps/api/generated
 COPY --from=build /app/apps/api/dist apps/api/dist
 
