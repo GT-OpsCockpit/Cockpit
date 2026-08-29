@@ -21,7 +21,6 @@ import {
   type UploadedNameboard,
 } from './nameboard-upload.config';
 import { StorageService } from '../common/storage/storage.service';
-import { normalizePhone } from '../common/utils/normalize-phone';
 import { CompanyService } from '../company/company.service';
 import {
   buildCanceledSubcontractEmail,
@@ -43,6 +42,11 @@ import {
   type EditRefusal,
   type TripBeforeEdit,
 } from '../common/business/trip-assignment';
+import {
+  refuseIncompatibleFleetVehicle,
+  resolveBookingFields,
+  shouldHonourReservedVehicle,
+} from '../common/business/booking-fields';
 import { MESSAGES } from '../common/constants/messages';
 import {
   driverDisplayName,
@@ -59,7 +63,6 @@ import { ListTripsQueryDto, type TripPeriod } from './dto/list-trips-query.dto';
 import {
   CancellationFee,
   ClientType,
-  Service,
   TripStepKind,
 } from '../../generated/prisma/enums';
 import {
@@ -534,9 +537,18 @@ export class TripsService {
         data.driver = driverId
           ? { connect: { id: driverId } }
           : { disconnect: true };
-        // Honour this driver's reserved vehicle, unless the caller is also
-        // naming one in the same call (see findReservedVehicle).
-        if (driverId && dto.fleetRegNbr === undefined) {
+        // The same rule the full PUT runs (shouldHonourReservedVehicle): only
+        // a driver actually being (re)assigned, and never over a Reg Nbr named
+        // in the same call — one named here is written by the block below
+        // either way.
+        if (
+          driverId &&
+          shouldHonourReservedVehicle({
+            driverId,
+            previousDriverId: trip.driverId,
+            fleetRegNbr: dto.fleetRegNbr,
+          })
+        ) {
           const reserved = await this.findReservedVehicle(
             driverId,
             trip.vehicleType?.name,
@@ -551,7 +563,11 @@ export class TripsService {
         ? await this.resolveFleetVehicle(dto.fleetRegNbr)
         : null;
       if (fleetVehicle && trip.vehicleType) {
-        this.assertFleetCompatible(trip.vehicleType.name, fleetVehicle);
+        const incompatible = refuseIncompatibleFleetVehicle(
+          trip.vehicleType.name,
+          fleetVehicle,
+        );
+        if (incompatible) throw toException(incompatible);
       }
       data.fleetVehicle = fleetVehicle
         ? { connect: { id: fleetVehicle.id } }
@@ -824,42 +840,27 @@ export class TripsService {
   }
 
   /**
-   * Validation + FK resolution + the column payload shared by create() and
-   * update(). Both accept the same field set (UpdateTripDto is CreateTripDto
-   * minus pocEmail/ref), so the rules live here once rather than being mirrored
-   * — a new vehicle-compatibility or POC rule is written in one place, and the
-   * ~26 columns the two write identically can't drift apart.
+   * The lookups the booking rules need, then the rules themselves.
+   *
+   * The decisions live in resolveBookingFields() (common/business), where they
+   * can be asserted without a database; this is the adapter that reads what
+   * they need and turns a refusal into the exception the route owes. Both
+   * create() and update() go through it — they accept the same field set
+   * (UpdateTripDto is CreateTripDto minus pocEmail/ref), so the ~26 columns
+   * they write identically can't drift apart.
    *
    * Callers keep what genuinely differs between them: ref allocation, pocEmail,
    * partner/sub-contractor handling, and the dispatch/reassignment bookkeeping.
    *
    * The independent lookups are batched — this is on the hot dispatch-desk path
-   * and used to cost 5-6 sequential round trips. The checks below still run in
-   * their original order, so a doubly-invalid dto reports the same error it did
-   * when each lookup was awaited in turn.
+   * and used to cost 5-6 sequential round trips. A payload the rules will
+   * refuse now pays for them first, which is what asking the rules once, with
+   * everything already resolved, costs.
    */
   private async resolveTripInputs(
     dto: CreateTripDto | UpdateTripDto,
     { previousDriverId }: { previousDriverId?: string | null } = {},
   ) {
-    if (dto.service !== Service.ASD && !dto.dropoffLocation) {
-      throw new BadRequestException(
-        'dropoffLocation is required (except for an ASD service)',
-      );
-    }
-    if (dto.service === Service.ASD) {
-      if (dto.hours === undefined || dto.hours < 2 || dto.hours > 48) {
-        throw new BadRequestException(
-          'hours (Nb H) is required for an ASD service, between 2 and 48',
-        );
-      }
-    }
-    if (dto.service === Service.SPEC && !dto.instructions?.trim()) {
-      throw new BadRequestException(
-        'instructions is required for a SPEC service',
-      );
-    }
-
     const [vehicleType, fleetVehicle, client, driver, countryInfo] =
       await Promise.all([
         dto.vehicleType
@@ -875,128 +876,29 @@ export class TripsService {
         this.prisma.country.findUnique({ where: { code: dto.countryCode } }),
       ]);
 
-    // Unlike the legacy (which stored any free-text vehicleType string with
-    // no existence check), vehicleTypeId is a real FK here: an unresolvable
-    // name must be rejected rather than silently dropped.
-    if (dto.vehicleType && !vehicleType) {
-      throw new BadRequestException(
-        `vehicleType "${dto.vehicleType}" does not match an existing vehicle type`,
-      );
-    }
-    if (vehicleType && dto.paxCount && dto.paxCount > vehicleType.maxPax) {
-      throw new BadRequestException(
-        `${dto.vehicleType} accepts a maximum of ${vehicleType.maxPax} passengers.`,
-      );
-    }
-
-    let autoInstructionsNote: string | null = null;
-    if (dto.fleetRegNbr?.trim()) {
-      if (!fleetVehicle) {
-        throw new BadRequestException(
-          `No Fleet vehicle with registration "${dto.fleetRegNbr}"`,
-        );
-      }
-      if (dto.vehicleType) {
-        this.assertFleetCompatible(dto.vehicleType, fleetVehicle);
-        if (
-          dto.vehicleType === 'Lugg.' &&
-          fleetVehicle.category.name === 'Van'
-        ) {
-          autoInstructionsNote = 'Need to remove seats';
-        }
-      }
-    }
-
-    if (!client) {
-      throw new BadRequestException(
-        'clientRef is required and must match an existing client account',
-      );
-    }
-
-    const resolvedPocPhone = normalizePhone(dto.pocPhone) || client.pocPhone;
-    if (!resolvedPocPhone) {
-      throw new BadRequestException(
-        'No POC phone: set it on the client account or for this trip.',
-      );
-    }
-
-    if (dto.driverRef && !driver) {
-      throw new BadRequestException(
-        `driverRef "${dto.driverRef}" does not match an existing driver`,
-      );
-    }
-
-    // A partner chauffeur can have one fleet vehicle reserved for them (the
-    // padlock on Drivers & Partners). Assigning that chauffeur to a booking
-    // without naming a vehicle honours the reservation instead of leaving it
-    // informational — the legacy did this client-side in two places
-    // (autoAssignLinkedVehicleInBookingBar for the New booking bar,
-    // quickUpdateTrip for every later reassignment); doing it here covers
-    // create, update and the Planning drag & drop from one place.
-    // Only when the driver is actually being (re)assigned, never on an
-    // unrelated edit — otherwise deliberately clearing the Reg Nbr on a
-    // booking would silently re-add the reserved vehicle on every save.
+    // The one lookup that is conditional on a rule rather than on the dto: the
+    // reservation is only honoured for a driver actually being (re)assigned
+    // (see shouldHonourReservedVehicle).
     const reservedVehicle =
-      driver && driver.id !== previousDriverId && !dto.fleetRegNbr?.trim()
+      driver &&
+      shouldHonourReservedVehicle({
+        driverId: driver.id,
+        previousDriverId,
+        fleetRegNbr: dto.fleetRegNbr,
+      })
         ? await this.findReservedVehicle(driver.id, dto.vehicleType)
         : null;
 
-    let resolvedInstructions = dto.instructions || null;
-    if (autoInstructionsNote) {
-      const base = (dto.instructions ?? '').trim();
-      if (!base.includes(autoInstructionsNote)) {
-        resolvedInstructions = base
-          ? `${base} — ${autoInstructionsNote}`
-          : autoInstructionsNote;
-      }
-    }
-
-    return {
+    const resolved = resolveBookingFields(dto, {
       client,
-      driverId: driver?.id ?? null,
-      data: {
-        countryCode: dto.countryCode,
-        area: dto.area?.trim() || 'Local',
-        timezone: countryInfo?.defaultTimezone ?? null,
-        pickupAt: new Date(dto.pickupAt),
-        pickupLocation: dto.pickupLocation,
-        dropoffLocation: dto.dropoffLocation || null,
-        service: dto.service,
-        hours: dto.service === Service.ASD ? (dto.hours ?? null) : null,
-        instructions: resolvedInstructions,
-        clientId: client.id,
-        passengerName: dto.passengerName,
-        pocName: dto.pocName?.trim() || client.pocName || dto.passengerName,
-        pocPhone: resolvedPocPhone,
-        tracking: dto.tracking !== false,
-        paxCount: dto.paxCount ?? null,
-        vehicleTypeId: vehicleType?.id ?? null,
-        fleetVehicleId: fleetVehicle?.id ?? reservedVehicle?.id ?? null,
-        priceEur: dto.priceEur ?? null,
-        partnerRateEur: dto.partnerRateEur ?? null,
-        billing: dto.billing ?? client.billing ?? null,
-        flightNumber: dto.flightNumber || null,
-        bufferTime: dto.bufferTime ?? null,
-        fboAddress: dto.fboAddress || null,
-        tailNbr: dto.tailNbr || null,
-        nameboard: dto.nameboard || null,
-        pickupIata: dto.pickupIata || null,
-        dropoffIata: dto.dropoffIata || null,
-      },
-    };
-  }
-
-  /** Fleet category ↔ vehicle type rule — same check on create, update and assign. */
-  private assertFleetCompatible(
-    vehicleTypeName: string,
-    fleetVehicle: FleetVehicleWithCategory,
-  ): void {
-    const allowed = compatibleFleetCategories(vehicleTypeName);
-    if (!allowed.includes(fleetVehicle.category.name)) {
-      throw new BadRequestException(
-        `Vehicle ${fleetVehicle.regNbr} (${fleetVehicle.category.name}) cannot service a ${vehicleTypeName} trip — compatible categories: ${allowed.join(', ')}`,
-      );
-    }
+      driver,
+      vehicleType,
+      fleetVehicle,
+      countryInfo,
+      reservedVehicle,
+    });
+    if (resolved.refusal) throw toException(resolved.refusal);
+    return resolved;
   }
 
   /**
