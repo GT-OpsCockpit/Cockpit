@@ -39,6 +39,46 @@ describe('DriversTable', () => {
     expect(within(partnersGroup).queryByText('D-FR-INT-001')).not.toBeInTheDocument()
   })
 
+  // The row is greyed and badged for all three reasons the legacy greyed it
+  // for, not just the manual flag (isEffectivelyActive, common.js:3010): a
+  // driver on holiday and one resting outside their event's dates both read
+  // exactly like an available driver otherwise.
+  describe('why a row is unavailable today', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
+
+    it('names a manual deactivation', () => {
+      render(<DriversTable drivers={[baseDriver({ active: false })]} canReactivate {...noop} />)
+      expect(screen.getByText('Deactivated')).toBeInTheDocument()
+    })
+
+    it('names an unavailability that covers today', () => {
+      const driver = baseDriver({
+        unavailability: { id: 'u1', driverId: 'driver-1', type: DriverUnavailabilityEntityType.OFF, date: today, startDate: null, endDate: null },
+      })
+      render(<DriversTable drivers={[driver]} canReactivate {...noop} />)
+      expect(screen.getAllByText(/^Off /)).not.toHaveLength(0)
+    })
+
+    it('says nothing when the unavailability on file does not cover today', () => {
+      const driver = baseDriver({
+        unavailability: { id: 'u1', driverId: 'driver-1', type: DriverUnavailabilityEntityType.OFF, date: inDays(30), startDate: null, endDate: null },
+      })
+      render(<DriversTable drivers={[driver]} canReactivate {...noop} />)
+      expect(screen.queryByText('Deactivated')).not.toBeInTheDocument()
+      expect(screen.queryByText('Outside event dates')).not.toBeInTheDocument()
+    })
+
+    it('names an Events driver resting outside its event dates', () => {
+      const driver = baseDriver({
+        eventsOnly: true,
+        eventClient: { ...baseDriver().eventClient, eventStartDate: inDays(10), eventEndDate: inDays(20) } as never,
+      })
+      render(<DriversTable drivers={[driver]} canReactivate {...noop} />)
+      expect(screen.getByText('Outside event dates')).toBeInTheDocument()
+    })
+  })
+
   it('renders the company next to the name only for a partner', () => {
     const partner = baseDriver({ ref: 'D-US-LO-UBE-001', company: 'Uber' })
     render(<DriversTable drivers={[partner]} canReactivate {...noop} />)

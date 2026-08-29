@@ -20,11 +20,17 @@ export function PartnerFiltersBar({
 }) {
   const [partnerSearch, setPartnerSearch] = useState('')
   const { debounced: debouncedPartnerSearch, pending: partnerSearchPending } = useDebouncedSearch(partnerSearch, PICKER_DEBOUNCE_MS)
-  // The "partner" pool is the same split used everywhere else in the app: a driver record with a non-empty Company.
-  const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT })
+  // The "partner" pool is the same split used everywhere else in the app: a driver record with a
+  // non-empty Company. Narrowed by the query, not by filtering the page it returns — with a page of
+  // PICKER_LIMIT rows, a client-side filter hides every partner sitting behind an in-house driver.
+  const partners = useDriversControllerList({
+    partnersOnly: true,
+    search: debouncedPartnerSearch || undefined,
+    limit: PICKER_LIMIT,
+  })
   const partnerOptions = [
     { value: '', label: 'All partners' },
-    ...(partners.data?.data ?? []).filter((d) => d.company).map((d) => ({ value: d.ref, label: partnerLabel(d) })),
+    ...(partners.data?.data ?? []).map((d) => ({ value: d.ref, label: partnerLabel(d) })),
   ]
 
   const [eventSearch, setEventSearch] = useState('')

@@ -6,7 +6,8 @@ import { TableCard } from '@/components/table-card'
 import { EmptyState } from '@/components/empty-state'
 import { DispatchButton } from '../bookings/bookings-table'
 import { StatusBadge } from '../bookings/status-badge'
-import { clientAccountLabel, displayPickup, itineraryLabel } from '../bookings/trip-display'
+import { clientAccountLabel, itineraryLabel } from '../bookings/trip-display'
+import { PickupTime } from '../bookings/pickup-time'
 
 /**
  * Billing-oriented columns, deliberately not the generic Bookings table —
@@ -65,7 +66,9 @@ export function PendingTripsTable({
               const isEvent = trip.client.clientType === 'EVENT'
               return (
                 <TableRow key={trip.ref}>
-                  <TableCell className="whitespace-nowrap text-xs">{displayPickup(trip).local}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs">
+                    <PickupTime trip={trip} />
+                  </TableCell>
                   <TableCell className="text-xs font-medium">{trip.ref}</TableCell>
                   <TableCell className="text-xs">
                     <div>

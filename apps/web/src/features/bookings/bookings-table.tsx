@@ -9,7 +9,8 @@ import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from './status-badge'
 import { dispatchButtonState } from './trip-status'
-import { clientAccountLabel, displayPickup, itineraryLabel, shortDriverName, tripDriverName, urgencyRowClass } from './trip-display'
+import { clientAccountLabel, itineraryLabel, shortDriverName, tripDriverName, urgencyRowClass } from './trip-display'
+import { PickupTime } from './pickup-time'
 
 export function DispatchButton({
   trip,
@@ -119,7 +120,9 @@ export function BookingsTable({
               const rowClass = trip.assignmentCancelled ? 'bg-destructive/10' : urgencyRowClass(trip)
               return (
                 <TableRow key={trip.ref} className={cn(rowClass)}>
-                  <TableCell className="whitespace-nowrap text-xs">{displayPickup(trip).local}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs">
+                    <PickupTime trip={trip} />
+                  </TableCell>
                   <TableCell className="text-xs font-medium">{trip.ref}</TableCell>
                   <TableCell className="text-xs">
                     <div>

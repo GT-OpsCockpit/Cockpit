@@ -465,6 +465,44 @@ describe('Clients (e2e)', () => {
   // forms: it must offer only what EventLinkService would actually accept,
   // and it filters in Prisma rather than over the current page because the
   // listing is paginated (audit §4.3).
+  // The Invoicing Customer tab's client selector is "every account that is not
+  // an Event" (Events have their own selector beside it). Dropping Events from
+  // an already-paginated page shortens the list instead of shrinking the query,
+  // hiding every ordinary account that happens to sit behind one.
+  it('excludes a client type server-side rather than by filtering a page', async () => {
+    await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({
+        clientType: 'EVENT',
+        company: 'Cannes Festival',
+        pocPhone: '+33600000101',
+        eventCountry: 'FR',
+        eventArea: 'Cannes',
+        eventStartDate: '2099-05-01',
+        eventEndDate: '2099-05-10',
+      })
+      .expect(201);
+    await request(server())
+      .post('/api/clients')
+      .set('Cookie', cookie)
+      .send({
+        clientType: 'COMPANY',
+        company: 'Atlas Capital',
+        pocPhone: '+33600000102',
+      })
+      .expect(201);
+
+    const res = await request(server())
+      .get('/api/clients?excludeType=EVENT&limit=1')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const body = res.body as { data: { clientType: string }[]; total: number };
+    expect(body.total).toBe(1);
+    expect(body.data[0].clientType).toBe('COMPANY');
+  });
+
   describe('Events picker filters', () => {
     async function createEvent(overrides: Record<string, unknown>) {
       const res = await request(server())

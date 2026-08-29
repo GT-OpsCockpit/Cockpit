@@ -22,6 +22,7 @@ export * from './clientEntity';
 export * from './clientEntityBilling';
 export * from './clientEntityClientType';
 export * from './clientListEntity';
+export * from './clientsControllerListExcludeType';
 export * from './clientsControllerListParams';
 export * from './clientsControllerListType';
 export * from './companyInfoEntity';

@@ -21,6 +21,17 @@ export class ListClientsQueryDto {
   type?: ClientType;
 
   /**
+   * The complement of `type` — the Invoicing Customer tab wants every account
+   * that is not an Event, since Events have their own selector next to it.
+   * Server-side for the same reason as the filters below: dropping the
+   * unwanted rows from an already-paginated page would silently shorten the
+   * list rather than shrink the query.
+   */
+  @IsOptional()
+  @IsEnum(ClientType)
+  excludeType?: ClientType;
+
+  /**
    * The three filters below narrow an Events listing down to the accounts a
    * driver or fleet vehicle based at that location may actually be linked to
    * — the legacy's "Link to an Event" popup (openEventLinkModal,

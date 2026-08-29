@@ -19,6 +19,14 @@ includeInactive?: boolean;
  */
 availableOnly?: boolean;
 /**
+ * Narrows to partner records — a driver carrying a Company, which is what
+ * "partner" means everywhere in the app (isPartner, driver-status.ts). A
+ * Prisma filter rather than a pass over the returned page, because this
+ * endpoint is paginated: filtering the page would hide every partner sitting
+ * behind an in-house driver instead of shrinking the result set.
+ */
+partnersOnly?: boolean;
+/**
  * The booking a driver is being picked FOR — enables the eligibility rule
  * (Events driver vs in-house vs partner, see driverEligibilityFilter).
  * Sent as the trip's own fields rather than a ref so the New booking bar

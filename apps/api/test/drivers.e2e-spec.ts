@@ -657,6 +657,39 @@ describe('Drivers (e2e)', () => {
       return res.body as DriverBody;
     }
 
+    // "Partner" means a driver record carrying a Company, and the Invoicing
+    // Partner log's selector is built from exactly that pool. Picking it out of
+    // an already-paginated page (`.filter(d => d.company)` over 20 rows) hides
+    // every partner sitting behind an in-house driver, so the narrowing has to
+    // happen in the query — the same reason the Events picker filters are
+    // Prisma filters (ListClientsQueryDto).
+    it('narrows to partner records server-side, not by filtering a page', async () => {
+      await createInternalDriver('+33655000001');
+      await createInternalDriver('+33655000002');
+      const partner = await createPartnerDriver('+33655000003');
+
+      const res = await request(server())
+        .get('/api/drivers?partnersOnly=true&limit=2')
+        .set('Cookie', cookie)
+        .expect(200);
+
+      const body = res.body as { data: { ref: string }[]; total: number };
+      expect(body.total).toBe(1);
+      expect(body.data.map((d) => d.ref)).toEqual([partner.ref]);
+    });
+
+    it('lists everyone when partnersOnly is not asked for', async () => {
+      await createInternalDriver('+33655000004');
+      await createPartnerDriver('+33655000005');
+
+      const res = await request(server())
+        .get('/api/drivers')
+        .set('Cookie', cookie)
+        .expect(200);
+
+      expect((res.body as { total: number }).total).toBe(2);
+    });
+
     async function createEventsDriver(
       phone: string,
       eventRef: string,

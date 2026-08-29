@@ -5,7 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { TableCard } from '@/components/table-card'
 import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from '../bookings/status-badge'
-import { clientAccountLabel, displayPickup, itineraryLabel, tripDriverName, urgencyRowClass } from '../bookings/trip-display'
+import { clientAccountLabel, itineraryLabel, tripDriverName, urgencyRowClass } from '../bookings/trip-display'
+import { PickupTime } from '../bookings/pickup-time'
 
 interface PlanningListProps {
   trips: TripEntity[]
@@ -59,7 +60,9 @@ export function PlanningList({ trips, onEdit, onAdvance, hasActiveFilters, onRes
                   className={cn(rowClass, 'cursor-pointer')}
                   onClick={() => onEdit(trip)}
                 >
-                  <TableCell className="whitespace-nowrap text-xs">{displayPickup(trip).local}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs">
+                    <PickupTime trip={trip} />
+                  </TableCell>
                   <TableCell className="text-xs font-medium">{trip.ref}</TableCell>
                   <TableCell className="text-xs">
                     <div>

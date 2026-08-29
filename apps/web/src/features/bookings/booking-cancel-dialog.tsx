@@ -15,7 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePermission } from '@/features/auth/use-permission'
 import { PermissionWarning } from '@/components/permission-warning'
-import { clientAccountLabel, displayPickup, itineraryLabel, tripDriverName } from './trip-display'
+import { clientAccountLabel, itineraryLabel, tripDriverName } from './trip-display'
+import { PickupTime } from './pickup-time'
 
 const FEE_OPTIONS: { value: CancelAssignmentDtoCancellationFee; label: string }[] = [
   { value: CancelAssignmentDtoCancellationFee.FREE, label: 'Free' },
@@ -101,7 +102,9 @@ export function BookingCancelDialog({
                 {account?.primary}
                 {account?.secondary && <span> ({account.secondary})</span>} — {trip.passengerName}
               </div>
-              <div>{displayPickup(trip).local}</div>
+              <div>
+                <PickupTime trip={trip} />
+              </div>
               <div>{itineraryLabel(trip)}</div>
               <div>Driver: {tripDriverName(trip) ?? '—'}</div>
             </div>

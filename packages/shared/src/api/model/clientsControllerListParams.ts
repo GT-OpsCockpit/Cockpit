@@ -5,6 +5,7 @@
  * Cockpit v2 dispatch/booking API
  * OpenAPI spec version: 1.0
  */
+import type { ClientsControllerListExcludeType } from './clientsControllerListExcludeType';
 import type { ClientsControllerListType } from './clientsControllerListType';
 
 export type ClientsControllerListParams = {
@@ -13,6 +14,14 @@ export type ClientsControllerListParams = {
  */
 search?: string;
 type?: ClientsControllerListType;
+/**
+ * The complement of `type` — the Invoicing Customer tab wants every account
+ * that is not an Event, since Events have their own selector next to it.
+ * Server-side for the same reason as the filters below: dropping the
+ * unwanted rows from an already-paginated page would silently shorten the
+ * list rather than shrink the query.
+ */
+excludeType?: ClientsControllerListExcludeType;
 /**
  * The three filters below narrow an Events listing down to the accounts a
  * driver or fleet vehicle based at that location may actually be linked to

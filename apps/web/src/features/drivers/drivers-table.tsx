@@ -1,12 +1,13 @@
 import { CalendarClock, CalendarPlus, Car, Lock, Pencil, RotateCcw, X } from 'lucide-react'
 import type { DriverEntity } from '@cockpit/shared/api'
-import { formatPhoneDisplay } from '@cockpit/shared'
+import { effectiveActivity, formatPhoneDisplay } from '@cockpit/shared'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { EmptyState } from '@/components/empty-state'
+import { InactivityBadge } from '@/components/inactivity-badge'
 import { isPartner, unavailabilityLabel } from './driver-status'
 
 interface DriversTableProps {
@@ -119,12 +120,22 @@ function DriverGroup({
             ) : (
               drivers.map((driver) => {
                 const canReactivateThis = driver.active || canReactivate
+                // Beyond the manual flag, a driver is also unavailable while a
+                // day off/holiday/sick marker covers today, and an
+                // Events-scoped one outside its event's dates — the legacy
+                // greyed the row for all three (isEffectivelyActive,
+                // common.js:3010) and named which.
+                const activity = effectiveActivity(driver, driver.eventClient)
                 return (
-                  <TableRow key={driver.ref} className={cn(!driver.active && 'opacity-50')}>
+                  <TableRow key={driver.ref} className={cn(!activity.active && 'opacity-50')}>
                     <TableCell className="text-xs font-medium">{driver.ref}</TableCell>
                     <TableCell className="text-xs">
                       {driver.name}
                       {driver.company && <span className="text-muted-foreground text-[10px]"> ({driver.company})</span>}
+                      <InactivityBadge
+                        reason={activity.reason}
+                        unavailabilityLabel={unavailabilityLabel(driver.unavailability)}
+                      />
                       {driver.fleetReserved && (
                         <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
                           {driver.fleetReserved.regNbr}

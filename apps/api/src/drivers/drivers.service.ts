@@ -86,6 +86,9 @@ export class DriversService {
     // service this booking" are business rules, and the list is paginated —
     // a client-side filter would only ever see the current page.
     const conditions: Prisma.DriverWhereInput[] = [];
+    // `company` is normalised to null when blank (create/update below), so
+    // "has a company" is exactly the legacy's `!!d.company`.
+    if (query.partnersOnly) conditions.push({ company: { not: null } });
     if (query.availableOnly) {
       conditions.push(driverEffectivelyActiveFilter(todayUtcMidnight()));
     }

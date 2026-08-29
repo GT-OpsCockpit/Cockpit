@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClientsControllerListType, useClientsControllerList } from '@cockpit/shared/api'
+import { ClientsControllerListExcludeType, ClientsControllerListType, useClientsControllerList } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { FilterField } from '@/components/filter-field'
@@ -21,10 +21,17 @@ export function CustomerFiltersBar({
 }) {
   const [clientSearch, setClientSearch] = useState('')
   const { debounced: debouncedClientSearch, pending: clientSearchPending } = useDebouncedSearch(clientSearch, PICKER_DEBOUNCE_MS)
-  const clients = useClientsControllerList({ search: debouncedClientSearch || undefined, limit: PICKER_LIMIT })
+  // Events have their own selector beside this one, so this is every *other*
+  // account — excluded by the query rather than dropped from the page it
+  // returns, which would just shorten a page of PICKER_LIMIT rows.
+  const clients = useClientsControllerList({
+    excludeType: ClientsControllerListExcludeType.EVENT,
+    search: debouncedClientSearch || undefined,
+    limit: PICKER_LIMIT,
+  })
   const clientOptions = [
     { value: '', label: 'All clients' },
-    ...(clients.data?.data ?? []).filter((c) => c.clientType !== 'EVENT').map((c) => ({ value: c.ref, label: c.name })),
+    ...(clients.data?.data ?? []).map((c) => ({ value: c.ref, label: c.name })),
   ]
 
   const [eventSearch, setEventSearch] = useState('')

@@ -69,6 +69,7 @@ export class ClientsService {
     const where: Prisma.ClientWhereInput = {};
     if (!query.includeInactive) where.active = true;
     if (query.type) where.clientType = query.type;
+    if (query.excludeType) where.clientType = { not: query.excludeType };
 
     // Same rules EventLinkService enforces on write (see
     // ListClientsQueryDto): an Event is linkable only if it hasn't ended and

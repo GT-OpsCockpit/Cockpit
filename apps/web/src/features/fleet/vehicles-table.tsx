@@ -1,13 +1,14 @@
 import { CalendarPlus, Pencil, RotateCcw, Truck, Wrench, X } from 'lucide-react'
 import type { FleetColorEntity, FleetVehicleEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
-import { driverLabel } from '@cockpit/shared'
+import { driverLabel, effectiveActivity } from '@cockpit/shared'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CountryLabel } from '@/components/country-label'
 import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { EmptyState } from '@/components/empty-state'
+import { InactivityBadge } from '@/components/inactivity-badge'
 import { unavailabilityLabel } from './vehicle-status'
 
 interface VehiclesTableProps {
@@ -133,14 +134,24 @@ export function VehiclesTable(props: VehiclesTableProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                internal.map((vehicle) => (
-                  <TableRow key={vehicle.ref} className={cn(!vehicle.active && 'opacity-50')}>
+                internal.map((vehicle) => {
+                  // Greyed for all three reasons the legacy greyed it for, not
+                  // just the manual flag: a repair/service/bodywork marker
+                  // covering today, or an Events-scoped vehicle outside its
+                  // event's dates (isEffectivelyActive, common.js:3010).
+                  const activity = effectiveActivity(vehicle, vehicle.eventClient)
+                  return (
+                  <TableRow key={vehicle.ref} className={cn(!activity.active && 'opacity-50')}>
                     <TableCell className="text-xs font-medium">{vehicle.ref}</TableCell>
                     <TableCell className="text-xs">
                       <CategoryCell vehicle={vehicle} />
                     </TableCell>
                     <TableCell className="text-xs">
                       {vehicle.regNbr}
+                      <InactivityBadge
+                        reason={activity.reason}
+                        unavailabilityLabel={unavailabilityLabel(vehicle.unavailability)}
+                      />
                       {vehicle.unavailability && (
                         <div className="text-muted-foreground text-[10px]">{unavailabilityLabel(vehicle.unavailability)}</div>
                       )}
@@ -156,7 +167,8 @@ export function VehiclesTable(props: VehiclesTableProps) {
                     </TableCell>
                     <ActionCell {...props} vehicle={vehicle} showUnavailability />
                   </TableRow>
-                ))
+                  )
+                })
               )}
             </TableBody>
           </Table>
@@ -201,9 +213,16 @@ export function VehiclesTable(props: VehiclesTableProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                external.map((vehicle) => (
-                  <TableRow key={vehicle.ref} className={cn(!vehicle.active && 'opacity-50')}>
-                    <TableCell className="text-xs font-medium">{vehicle.ref}</TableCell>
+                external.map((vehicle) => {
+                  // Unavailability markers are reserved to internal vehicles,
+                  // so only the manual flag and the event window apply here.
+                  const activity = effectiveActivity(vehicle, vehicle.eventClient)
+                  return (
+                  <TableRow key={vehicle.ref} className={cn(!activity.active && 'opacity-50')}>
+                    <TableCell className="text-xs font-medium">
+                      {vehicle.ref}
+                      <InactivityBadge reason={activity.reason} />
+                    </TableCell>
                     <TableCell className="text-xs">
                       <CountryLabel code={vehicle.countryCode} />
                     </TableCell>
@@ -229,7 +248,8 @@ export function VehiclesTable(props: VehiclesTableProps) {
                     </TableCell>
                     <ActionCell {...props} vehicle={vehicle} showUnavailability={false} />
                   </TableRow>
-                ))
+                  )
+                })
               )}
             </TableBody>
           </Table>
