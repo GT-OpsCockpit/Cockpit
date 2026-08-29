@@ -125,3 +125,23 @@ export function tripFormRules(values: TripFormRulesInput, trip?: TripEntity | nu
     marginHint: margin === null ? undefined : `% Margin: ${margin.toFixed(1)} %`,
   }
 }
+
+/**
+ * Why the "Check" button can't verify the flight yet, or null when it can.
+ *
+ * The verification compares the airline's schedule against the pickup time, so
+ * it needs the date and time as much as the flight number. Returning a reason
+ * rather than nothing is the point: a button that silently does nothing reads
+ * as broken. The legacy said which field was missing (common.js:1693).
+ */
+export function flightCheckBlocker(values: {
+  flightNumber?: string | null
+  pickupDate?: string | null
+  pickupTime?: string | null
+}): string | null {
+  if (!values.flightNumber?.trim()) return 'Enter a flight number to check it.'
+  if (!values.pickupDate || !values.pickupTime) {
+    return 'Enter the pickup date and time to verify the flight.'
+  }
+  return null
+}

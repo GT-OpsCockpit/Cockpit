@@ -45,7 +45,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import type { TripFormValues } from './trip-form-schema'
-import { tripFormRules } from './trip-form-rules'
+import { flightCheckBlocker, tripFormRules } from './trip-form-rules'
 import { applyBookingEdit, type BookingChange, type BookingMeta, type LocatedAddress } from './booking-draft'
 import { clientDisplayName, driverLabel, partnerLabel } from '@cockpit/shared'
 
@@ -907,10 +907,16 @@ function FlightInfoFields({
   const [result, setResult] = useState<{ tone: 'ok' | 'warn' | 'info'; message: string } | null>(null)
 
   const checkFlight = async () => {
-    const flightNumber = form.getValues('flightNumber')
-    const pickupDate = form.getValues('pickupDate')
-    const pickupTime = form.getValues('pickupTime')
-    if (!flightNumber?.trim() || !pickupDate || !pickupTime) return
+    const flightNumber = form.getValues('flightNumber') ?? ''
+    const pickupDate = form.getValues('pickupDate') ?? ''
+    const pickupTime = form.getValues('pickupTime') ?? ''
+    // Says what is missing rather than returning silently — a button that does
+    // nothing at all reads as broken (see flightCheckBlocker).
+    const blocker = flightCheckBlocker({ flightNumber, pickupDate, pickupTime })
+    if (blocker) {
+      setResult({ tone: 'warn', message: blocker })
+      return
+    }
     setChecking(true)
     setResult(null)
     try {

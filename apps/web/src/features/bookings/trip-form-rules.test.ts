@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { TripEntityService, TripStepEntityStep } from '@cockpit/shared/api'
-import { tripFormRules, type TripFormRulesInput } from './trip-form-rules'
+import { flightCheckBlocker, tripFormRules, type TripFormRulesInput } from './trip-form-rules'
 import { baseTrip, step } from './test-fixtures'
 
 const values = (overrides: Partial<TripFormRulesInput> = {}): TripFormRulesInput => ({
@@ -115,6 +115,31 @@ describe('commercialFlight / tailNbrIncomplete', () => {
     expect(tripFormRules(values({ tailNbr: '' })).tailNbrIncomplete).toBe(false)
     expect(tripFormRules(values({ tailNbr: 'FGH' })).tailNbrIncomplete).toBe(true)
     expect(tripFormRules(values({ tailNbr: 'FGHIJ' })).tailNbrIncomplete).toBe(false)
+  })
+})
+
+// Clicking "Check" and getting nothing back is the one outcome that reads as a
+// broken button. The legacy said what was missing instead ("Enter the PU
+// date/time to verify the flight", common.js:1693).
+describe('flightCheckBlocker', () => {
+  it('lets the check run once the flight, date and time are all there', () => {
+    expect(flightCheckBlocker({ flightNumber: 'AF7315', pickupDate: '2026-09-15', pickupTime: '14:30' })).toBeNull()
+  })
+
+  it('asks for a flight number before anything else', () => {
+    expect(flightCheckBlocker({ flightNumber: '  ', pickupDate: '2026-09-15', pickupTime: '14:30' })).toBe(
+      'Enter a flight number to check it.',
+    )
+  })
+
+  it.each([
+    ['no date', { pickupDate: '', pickupTime: '14:30' }],
+    ['no time', { pickupDate: '2026-09-15', pickupTime: '' }],
+    ['neither', { pickupDate: '', pickupTime: '' }],
+  ])('says the pickup date/time is what it is missing — %s', (_case, when) => {
+    expect(flightCheckBlocker({ flightNumber: 'AF7315', ...when })).toBe(
+      'Enter the pickup date and time to verify the flight.',
+    )
   })
 })
 
