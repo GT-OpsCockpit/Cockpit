@@ -22,6 +22,16 @@ export function usePublicTripEvents(ref: string, onChanged: () => void) {
   useEffect(() => {
     if (!ref) return
     const source = new EventSource(`${getBaseUrl()}/api/events/stream`)
+
+    // Same catch-up as the dispatcher hook: nothing replays events missed
+    // while the connection was down, and a driver watching their own ride
+    // has no second screen to notice the page went stale on.
+    let reconnect = false
+    source.onopen = () => {
+      if (reconnect) onChangedRef.current()
+      reconnect = true
+    }
+
     source.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data) as TripChangedEvent
