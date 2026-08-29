@@ -15,6 +15,7 @@ import {
 } from '../common/business/assignability';
 import { compatibleFleetCategories } from '../common/constants/vehicle-compatibility';
 import { can } from '../common/permissions/permissions';
+import { assertRequiredFields } from '../common/business/assert-required-fields';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import {
   FLEET_MAKES,
@@ -338,23 +339,10 @@ export class FleetVehiclesService {
     dto: CreateFleetVehicleDto,
   ): Promise<ValidatedFleetVehicle> {
     const isLocal = dto.isLocal === undefined ? true : dto.isLocal;
-    if (!isLocal) {
-      if (!dto.countryCode) {
-        throw new BadRequestException(
-          'country is required for an external (non-local) vehicle',
-        );
-      }
-      if (!dto.area?.trim()) {
-        throw new BadRequestException(
-          'area is required for an external (non-local) vehicle',
-        );
-      }
-      if (!dto.partnerCompany?.trim()) {
-        throw new BadRequestException(
-          'partnerCompany is required for an external (non-local) vehicle',
-        );
-      }
-    }
+    // Only the discriminant-driven requirements. What follows — category,
+    // make, model, year, pax, colour — is checked against the META tables the
+    // server owns, which is a different kind of rule and stays here.
+    assertRequiredFields('fleetVehicle', dto);
 
     const category = await this.prisma.vehicleType.findUnique({
       where: { name: dto.category },

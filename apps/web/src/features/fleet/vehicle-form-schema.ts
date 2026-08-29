@@ -1,11 +1,12 @@
 import { z } from 'zod'
+import { addRequiredFieldIssues } from '@/lib/required-fields-issues'
 
 /**
- * Mirrors FleetVehiclesService's assertValid() (apps/api/src/fleet/fleet-vehicles.service.ts)
- * for the fields that depend on user input/choices — category/make/model/color are
- * constrained to META-driven option lists in the UI itself (vehicle-form-fields.tsx),
- * so this only re-validates what a free-typed field could still get wrong: presence,
- * and the isLocal/eventsOnly conditional requirements, same shape as driverFormSchema.
+ * Category/make/model/colour are constrained to META-driven option lists in
+ * the UI itself (vehicle-form-fields.tsx) and checked against the same tables
+ * server-side, so what a free-typed field could still get wrong is presence —
+ * and the isLocal/eventsOnly conditional requirements, which are the shared
+ * rule the API reads too (record-requirements.js).
  */
 export const vehicleFormSchema = z
   .object({
@@ -27,31 +28,7 @@ export const vehicleFormSchema = z
     eventArea: z.string().optional(),
     eventRef: z.string().optional(),
   })
-  .superRefine((data, ctx) => {
-    if (!data.isLocal) {
-      if (!data.countryCode?.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['countryCode'], message: 'Country is required for an external (non-local) vehicle.' })
-      }
-      if (!data.area?.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['area'], message: 'Area is required for an external (non-local) vehicle.' })
-      }
-      if (!data.partnerCompany?.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['partnerCompany'], message: 'Partner is required for an external (non-local) vehicle.' })
-      }
-    }
-
-    if (data.eventsOnly) {
-      if (!data.eventCountry?.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['eventCountry'], message: 'Country is required to link an Event.' })
-      }
-      if (!data.eventArea?.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['eventArea'], message: 'Area is required to link an Event.' })
-      }
-      if (!data.eventRef?.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['eventRef'], message: 'An Event must be selected.' })
-      }
-    }
-  })
+  .superRefine((data, ctx) => addRequiredFieldIssues('fleetVehicle', data, ctx))
 
 export type VehicleFormValues = z.infer<typeof vehicleFormSchema>
 

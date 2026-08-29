@@ -1,8 +1,14 @@
 import { z } from 'zod'
 import { ClientEntityBilling, ClientEntityClientType } from '@cockpit/shared/api'
 import { optionalEmail, optionalPhone } from '@/lib/contact-fields'
+import { addRequiredFieldIssues } from '@/lib/required-fields-issues'
 
-/** Mirrors ClientsService.create()/update()'s conditional validation exactly (apps/api/src/clients/clients.service.ts). */
+/**
+ * The field *declarations* below decide whether what was typed is a real email
+ * or phone; which fields apply at all is the shared rule the API reads too
+ * (record-requirements.js), so there is nothing left here to keep in step by
+ * hand.
+ */
 export const clientFormSchema = z
   .object({
     clientType: z.enum([ClientEntityClientType.INDIVIDUAL, ClientEntityClientType.COMPANY, ClientEntityClientType.EVENT]),
@@ -26,36 +32,7 @@ export const clientFormSchema = z
     eventStartDate: z.string().optional(),
     eventEndDate: z.string().optional(),
   })
-  .superRefine((data, ctx) => {
-    const isCompany = data.clientType === ClientEntityClientType.COMPANY
-    const isEvent = data.clientType === ClientEntityClientType.EVENT
-
-    if (isCompany && !data.company?.trim()) {
-      ctx.addIssue({ code: 'custom', path: ['company'], message: 'Company name is required for a Company-type account.' })
-    }
-    if (isEvent && !data.company?.trim()) {
-      ctx.addIssue({ code: 'custom', path: ['company'], message: 'Event name is required for an Events-type account.' })
-    }
-    if (isEvent) {
-      if (!data.eventCountry?.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['eventCountry'], message: 'Country is required for an Events-type account.' })
-      }
-      if (!data.eventArea?.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['eventArea'], message: 'Area is required for an Events-type account.' })
-      }
-      if (!data.eventStartDate?.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['eventStartDate'], message: 'Start date is required for an Events-type account.' })
-      }
-      if (!data.eventEndDate?.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['eventEndDate'], message: 'End date is required for an Events-type account.' })
-      }
-    }
-    if (!isCompany && !isEvent && !(data.contactFirstName?.trim() && data.contactLastName?.trim())) {
-      const message = 'First and last name are required for an Individual-type account.'
-      ctx.addIssue({ code: 'custom', path: ['contactFirstName'], message })
-      ctx.addIssue({ code: 'custom', path: ['contactLastName'], message })
-    }
-  })
+  .superRefine((data, ctx) => addRequiredFieldIssues('client', data, ctx))
 
 export type ClientFormValues = z.infer<typeof clientFormSchema>
 

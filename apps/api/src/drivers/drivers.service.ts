@@ -17,6 +17,7 @@ import {
   todayUtcMidnight,
 } from '../common/business/assignability';
 import { can } from '../common/permissions/permissions';
+import { assertRequiredFields } from '../common/business/assert-required-fields';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { SetDriverUnavailabilityDto } from './dto/set-unavailability.dto';
@@ -45,53 +46,6 @@ const DRIVER_INCLUDE = {
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
-
-/** Same required-fields tree as the legacy's validateDriverFields(), shared by create and update. */
-function assertValidDriverFields(dto: CreateDriverDto): void {
-  if (dto.eventsOnly) {
-    if (!dto.company?.trim())
-      throw new BadRequestException('company is required for an Events driver');
-    if (!dto.firstName?.trim())
-      throw new BadRequestException(
-        'firstName is required for an Events driver',
-      );
-    if (!dto.lastName?.trim())
-      throw new BadRequestException(
-        'lastName is required for an Events driver',
-      );
-    if (!dto.email?.trim())
-      throw new BadRequestException('email is required for an Events driver');
-    if (!dto.phone?.trim())
-      throw new BadRequestException('phone is required for an Events driver');
-    return;
-  }
-  const isPartner = !!dto.company?.trim();
-  const hasName = !!dto.firstName?.trim() || !!dto.lastName?.trim();
-  if (!isPartner) {
-    if (!dto.firstName || !dto.lastName || !dto.phone) {
-      throw new BadRequestException(
-        'firstName, lastName and phone are required',
-      );
-    }
-    return;
-  }
-  if (hasName) {
-    if (!dto.email?.trim())
-      throw new BadRequestException(
-        'email is required for a partner chauffeur',
-      );
-    if (!dto.phone?.trim())
-      throw new BadRequestException(
-        'phone is required for a partner chauffeur',
-      );
-    return;
-  }
-  if (!dto.email?.trim()) {
-    throw new BadRequestException(
-      'email is required when Company is set (partner)',
-    );
-  }
-}
 
 function driverRefPrefix(
   countryCode: string | undefined,
@@ -181,7 +135,7 @@ export class DriversService {
   }
 
   async create(dto: CreateDriverDto): Promise<DriverEntity> {
-    assertValidDriverFields(dto);
+    assertRequiredFields('driver', dto);
 
     // null, never '': Driver.phone is a unique column, so several phone-less
     // partner companies would collide on '' but not on NULL.
@@ -230,7 +184,7 @@ export class DriversService {
 
   async update(ref: string, dto: CreateDriverDto): Promise<DriverEntity> {
     const existing = await this.findByRefOrThrow(ref);
-    assertValidDriverFields(dto);
+    assertRequiredFields('driver', dto);
 
     if (dto.phone !== undefined) {
       const normalized = normalizePhone(dto.phone);

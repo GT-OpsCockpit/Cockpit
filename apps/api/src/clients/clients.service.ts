@@ -24,6 +24,7 @@ import { ReactivateDto } from './dto/reactivate.dto';
 import { ReactivateResponseEntity } from './dto/reactivate-response.entity';
 import { ReactivationCandidatesEntity } from './dto/reactivation-candidates.entity';
 import { can } from '../common/permissions/permissions';
+import { assertRequiredFields } from '../common/business/assert-required-fields';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -119,41 +120,13 @@ export class ClientsService {
     return { data: clients.map(withName), total, page, limit };
   }
 
-  // TODO: this type-discriminated required-fields tree is duplicated, each
-  // in its own shape, in DriversService.assertValidDriverFields() and
-  // FleetVehiclesService.assertValid(). Extract a shared "required fields by
-  // discriminant" helper so a fix to one doesn't have to be repeated in the
-  // other two (this is exactly how the create/update event-field bugs
-  // happened here).
   async create(
     dto: CreateClientDto,
     user: AuthenticatedUser,
   ): Promise<ClientEntity> {
-    const isCompany = dto.clientType === ClientType.COMPANY;
     const isEvent = dto.clientType === ClientType.EVENT;
-    if (isCompany && !dto.company) {
-      throw new BadRequestException(
-        'Company name is required for a Company-type account.',
-      );
-    }
-    if (isEvent && !dto.company) {
-      throw new BadRequestException(
-        'Event name is required for an Events-type account.',
-      );
-    }
-    if (
-      isEvent &&
-      !(
-        dto.eventCountry &&
-        dto.eventArea &&
-        dto.eventStartDate &&
-        dto.eventEndDate
-      )
-    ) {
-      throw new BadRequestException(
-        'Country, area and date range are required for an Events-type account.',
-      );
-    }
+    assertRequiredFields('client', dto);
+
     // Ported from the legacy's separate OWNER_PASSWORD gate on creating an
     // event in the past (events.html:437-444) — see docs/agents/permissions.md.
     if (isEvent && dto.eventStartDate) {
@@ -167,16 +140,6 @@ export class ClientsService {
         );
       }
     }
-    if (
-      !isCompany &&
-      !isEvent &&
-      !(dto.contactFirstName && dto.contactLastName)
-    ) {
-      throw new BadRequestException(
-        'Contact first name and last name are required for an Individual-type account.',
-      );
-    }
-
     const email = dto.email?.trim() ? normalizeEmail(dto.email) : null;
     if (email) {
       this.assertValidEmailFormat(email, 'email address');
@@ -226,43 +189,21 @@ export class ClientsService {
     const existing = await this.findByRefOrThrow(ref);
 
     const clientType = dto.clientType ?? existing.clientType;
-    const isCompany = clientType === ClientType.COMPANY;
     const isEvent = clientType === ClientType.EVENT;
-    if (isCompany && !(dto.company ?? existing.company)) {
-      throw new BadRequestException(
-        'Company name is required for a Company-type account.',
-      );
-    }
-    if (isEvent && !(dto.company ?? existing.company)) {
-      throw new BadRequestException(
-        'Event name is required for an Events-type account.',
-      );
-    }
-    if (
-      isEvent &&
-      !(
-        (dto.eventCountry ?? existing.eventCountry) &&
-        (dto.eventArea ?? existing.eventArea) &&
-        (dto.eventStartDate ?? existing.eventStartDate) &&
-        (dto.eventEndDate ?? existing.eventEndDate)
-      )
-    ) {
-      throw new BadRequestException(
-        'Country, area and date range are required for an Events-type account.',
-      );
-    }
-    if (
-      !isCompany &&
-      !isEvent &&
-      !(
-        (dto.contactFirstName ?? existing.contactFirstName) &&
-        (dto.contactLastName ?? existing.contactLastName)
-      )
-    ) {
-      throw new BadRequestException(
-        'Contact first name and last name are required for an Individual-type account.',
-      );
-    }
+    // The values as they will be *after* the write, not as they arrived: a
+    // PATCH that touches nothing must not fail on a field the stored row
+    // already carries. Getting this merge wrong here is how the create/update
+    // event-field bugs happened.
+    assertRequiredFields('client', {
+      clientType,
+      company: dto.company ?? existing.company,
+      contactFirstName: dto.contactFirstName ?? existing.contactFirstName,
+      contactLastName: dto.contactLastName ?? existing.contactLastName,
+      eventCountry: dto.eventCountry ?? existing.eventCountry,
+      eventArea: dto.eventArea ?? existing.eventArea,
+      eventStartDate: dto.eventStartDate ?? existing.eventStartDate,
+      eventEndDate: dto.eventEndDate ?? existing.eventEndDate,
+    });
 
     const mergedFirst =
       dto.contactFirstName !== undefined

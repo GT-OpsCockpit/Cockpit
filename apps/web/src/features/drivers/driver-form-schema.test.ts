@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { driverFormSchema, type DriverFormValues } from './driver-form-schema'
 
+/**
+ * Which fields a driver needs is the shared rule, tested as a table in
+ * packages/shared/src/business/record-requirements.test.ts. What is tested
+ * here is that those gaps reach the right form fields, and the contact
+ * formats the schema owns on its own.
+ */
+
 function base(overrides: Partial<DriverFormValues> = {}): DriverFormValues {
   return {
     countryCode: '',
@@ -18,110 +25,60 @@ function base(overrides: Partial<DriverFormValues> = {}): DriverFormValues {
   }
 }
 
-function issuePaths(values: DriverFormValues): string[] {
+function issues(values: DriverFormValues): { path: string; message: string }[] {
   const result = driverFormSchema.safeParse(values)
-  return result.success ? [] : result.error.issues.map((i) => String(i.path[0]))
+  return result.success ? [] : result.error.issues.map((i) => ({ path: String(i.path[0]), message: i.message }))
 }
 
-describe('driverFormSchema — conditional validation (mirrors assertValidDriverFields)', () => {
-  describe('internal driver — no company: firstName, lastName and phone required', () => {
-    it('accepts a fully valid internal driver', () => {
-      expect(driverFormSchema.safeParse(base({ firstName: 'John', lastName: 'Smith', phone: '+33611111111' })).success).toBe(
-        true,
-      )
-    })
-
-    it('rejects with any of firstName/lastName/phone blank', () => {
-      expect(issuePaths(base({ lastName: 'Smith', phone: '+33611111111' }))).toContain('firstName')
-      expect(issuePaths(base({ firstName: 'John', phone: '+33611111111' }))).toContain('lastName')
-      expect(issuePaths(base({ firstName: 'John', lastName: 'Smith' }))).toContain('phone')
-    })
-
-    it('does not require email', () => {
-      expect(driverFormSchema.safeParse(base({ firstName: 'John', lastName: 'Smith', phone: '+33611111111' })).success).toBe(
-        true,
-      )
-    })
-  })
-
-  describe('contact formats (mirrors the API\'s @IsPhone / @IsEmailFormat)', () => {
-    it('rejects a phone that is not E.164, including the national form it used to store', () => {
-      for (const phone of ['0611111111', 'not-a-phone', '+33400456789']) {
-        expect(issuePaths(base({ firstName: 'John', lastName: 'Smith', phone }))).toContain('phone')
-      }
-    })
-
-    it('rejects an email that is not one', () => {
-      expect(issuePaths(base({ company: 'Uber', email: 'ops@uber' }))).toContain('email')
-    })
-  })
-
-  describe('partner company, no contact name — email only required', () => {
-    it('accepts with just company + email', () => {
-      expect(driverFormSchema.safeParse(base({ company: 'Uber', email: 'ops@uber.test' })).success).toBe(true)
-    })
-
-    it('rejects with email blank', () => {
-      expect(issuePaths(base({ company: 'Uber' }))).toContain('email')
-    })
-
-    it('does not require phone', () => {
-      expect(driverFormSchema.safeParse(base({ company: 'Uber', email: 'ops@uber.test' })).success).toBe(true)
-    })
-  })
-
-  describe('named partner chauffeur (company + a name) — email AND phone required', () => {
-    it('accepts with company, a name, email and phone', () => {
-      const result = driverFormSchema.safeParse(
-        base({ company: 'Uber', firstName: 'Bob', email: 'bob@uber.test', phone: '+33611111111' }),
-      )
-      expect(result.success).toBe(true)
-    })
-
-    it('rejects with email blank', () => {
-      expect(issuePaths(base({ company: 'Uber', firstName: 'Bob', phone: '+33611111111' }))).toContain('email')
-    })
-
-    it('rejects with phone blank', () => {
-      expect(issuePaths(base({ company: 'Uber', firstName: 'Bob', email: 'bob@uber.test' }))).toContain('phone')
-    })
-
-    it('triggers on lastName alone, same as firstName alone', () => {
-      expect(issuePaths(base({ company: 'Uber', lastName: 'Smith', email: 'bob@uber.test' }))).toContain('phone')
-    })
-  })
-
-  describe('eventsOnly — company, firstName, lastName, email, phone, and the Event link all required', () => {
-    function eventBase(overrides: Partial<DriverFormValues> = {}): DriverFormValues {
-      return base({
-        eventsOnly: true,
-        company: 'Acme',
-        firstName: 'A',
-        lastName: 'B',
-        email: 'a@b.test',
-        phone: '+33611111111',
-        eventCountry: 'MC',
-        eventArea: 'Monaco',
-        eventRef: 'CE1',
-        ...overrides,
-      })
-    }
-
-    it('accepts a fully valid Events driver', () => {
-      expect(driverFormSchema.safeParse(eventBase()).success).toBe(true)
-    })
-
-    it.each(['company', 'firstName', 'lastName', 'email', 'phone', 'eventCountry', 'eventArea', 'eventRef'] as const)(
-      'rejects with %s blank',
-      (field) => {
-        expect(issuePaths(eventBase({ [field]: '' }))).toContain(field)
-      },
+describe('driverFormSchema — the shared rules reach the right fields', () => {
+  it('accepts a fully valid own chauffeur', () => {
+    expect(driverFormSchema.safeParse(base({ firstName: 'John', lastName: 'Smith', phone: '+33611111111' })).success).toBe(
+      true,
     )
+  })
 
-    it('bypasses the non-events partner/internal branches entirely', () => {
-      // No company-based branching applies once eventsOnly is set — every
-      // field above is unconditionally required regardless of company shape.
-      expect(driverFormSchema.safeParse(eventBase()).success).toBe(true)
-    })
+  it('marks every missing field of an own chauffeur, each with its own message', () => {
+    expect(issues(base())).toEqual([
+      { path: 'firstName', message: 'First name is required.' },
+      { path: 'lastName', message: 'Last name is required.' },
+      { path: 'phone', message: 'Phone is required.' },
+    ])
+  })
+
+  // The discriminant is a field of the form itself: typing a Company changes
+  // which boxes the form marks, live.
+  it('marks a different set as soon as a Company is typed', () => {
+    expect(issues(base({ company: 'Uber' }))).toEqual([
+      { path: 'email', message: 'Email is required for a partner company.' },
+    ])
+  })
+
+  it('marks the whole Events block, the Event link included', () => {
+    expect(issues(base({ eventsOnly: true })).map((i) => i.path)).toEqual([
+      'company',
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'eventCountry',
+      'eventArea',
+      'eventRef',
+    ])
+  })
+})
+
+describe("driverFormSchema — contact formats (mirrors the API's @IsPhone / @IsEmailFormat)", () => {
+  it('rejects a phone that is not E.164, including the national form it used to store', () => {
+    for (const phone of ['0611111111', 'not-a-phone', '+33400456789']) {
+      expect(issues(base({ firstName: 'John', lastName: 'Smith', phone })).map((i) => i.path)).toContain('phone')
+    }
+  })
+
+  it('rejects an email that is not one', () => {
+    expect(issues(base({ company: 'Uber', email: 'ops@uber' })).map((i) => i.path)).toContain('email')
+  })
+
+  it('accepts a partner company with just a company and a well-formed email', () => {
+    expect(driverFormSchema.safeParse(base({ company: 'Uber', email: 'ops@uber.test' })).success).toBe(true)
   })
 })
