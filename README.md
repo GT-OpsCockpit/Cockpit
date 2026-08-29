@@ -27,6 +27,7 @@ docker compose up --build
 - API : http://localhost:3000
 - Web : http://localhost:5173
 - Postgres : localhost:5432 (user/db `cockpit`)
+- MinIO (stockage des fichiers uploadés) : API S3 sur localhost:9000, console web sur http://localhost:9001 (`minioadmin`/`minioadmin`)
 
 ### CI/CD
 

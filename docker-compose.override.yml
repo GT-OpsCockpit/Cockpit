@@ -6,15 +6,29 @@ services:
     ports:
       - '5432:5432'
 
+  # Published on the host in dev only, so uploaded files can be inspected from
+  # the browser console (http://localhost:9001) and so the API / e2e suite can
+  # be run directly on the host against the same instance the containers use.
+  minio:
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
       target: dev
-    # docker-compose.yml (prod) only forwards DATABASE_URL/PORT — dev needs
+    # docker-compose.yml (prod) only forwards DATABASE_URL/PORT/S3_* — dev needs
     # the rest of apps/api/.env (ADMIN_EMAIL, AUTH_DEV_OTP, ...) too.
     env_file:
       - ./apps/api/.env
+    environment:
+      # `environment:` wins over `env_file:`, so the bucket has to be restated
+      # here to match apps/api/.env — otherwise the container would use the
+      # prod default (cockpit-uploads) while an API run on the host uses
+      # cockpit-uploads-dev, and each would be blind to the other's uploads.
+      S3_BUCKET: cockpit-uploads-dev
     volumes:
       - ./apps/api/src:/app/apps/api/src
       - ./apps/api/prisma:/app/apps/api/prisma

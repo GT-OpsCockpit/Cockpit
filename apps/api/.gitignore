@@ -4,7 +4,6 @@ node_modules
 .env.test
 
 /generated/prisma
-/uploads
 
 # One-off migration run artifact (see docs/phone-e164-migration.md)
 backfill-phones-report.json

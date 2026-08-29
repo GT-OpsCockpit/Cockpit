@@ -23,6 +23,8 @@
     "start:e2e": "dotenv -e .env.test -- nest start"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1120.0",
+    "@aws-sdk/lib-storage": "^3.1120.0",
     "@cockpit/shared": "workspace:*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",

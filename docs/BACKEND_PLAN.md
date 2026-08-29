@@ -223,7 +223,7 @@ model Trip {
   bufferTime           Int?
   fboAddress           String?
   tailNbr              String?
-  nameboardUrl         String?             // fichier stocké (volume Docker), plus de base64 en mémoire
+  nameboardUrl         String?             // URL relative du fichier stocké en S3/MinIO (cf. DEVOPS_PLAN.md), plus de base64 en mémoire
   pickupIata           String?
   dropoffIata          String?
   subContractor        Boolean  @default(false)

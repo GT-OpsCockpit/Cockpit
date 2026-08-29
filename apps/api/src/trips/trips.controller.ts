@@ -33,13 +33,12 @@ import { Public } from '../common/decorators/public.decorator';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
-import { nameboardMulterOptions } from './nameboard-upload.config';
+import {
+  nameboardMulterOptions,
+  type UploadedNameboard,
+} from './nameboard-upload.config';
 import { SubcontractEmailQueryDto } from './dto/subcontract-email-query.dto';
 import { SubcontractEmailEntity } from './dto/subcontract-email.entity';
-
-interface UploadedNameboard {
-  filename: string;
-}
 
 @Controller('trips')
 export class TripsController {
@@ -134,6 +133,6 @@ export class TripsController {
     @UploadedFile() file?: UploadedNameboard,
   ) {
     if (!file) throw new BadRequestException('file is required');
-    return this.tripsService.setNameboard(ref, file.filename);
+    return this.tripsService.setNameboard(ref, file);
   }
 }

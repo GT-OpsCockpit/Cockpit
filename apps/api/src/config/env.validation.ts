@@ -95,8 +95,30 @@ export class EnvironmentVariables {
   @IsString()
   NOMINATIM_USER_AGENT: string = 'CockpitV2/1.0';
 
+  /**
+   * S3-compatible object storage (see common/storage). Points at the
+   * self-hosted MinIO service today; switching to a real provider
+   * (AWS/OVH/Scaleway) is a matter of changing these values only.
+   */
   @IsString()
-  NAMEBOARD_UPLOAD_DIR: string = './uploads/nameboards';
+  S3_ENDPOINT: string;
+
+  /** Ignored by MinIO, required by real AWS S3. */
+  @IsString()
+  S3_REGION: string = 'us-east-1';
+
+  @IsString()
+  S3_ACCESS_KEY: string;
+
+  @IsString()
+  S3_SECRET_KEY: string;
+
+  @IsString()
+  S3_BUCKET: string;
+
+  /** 'true' for MinIO (no wildcard DNS per bucket), 'false' for real AWS S3. */
+  @IsBooleanString()
+  S3_FORCE_PATH_STYLE: string = 'true';
 
   @IsString()
   CORS_ORIGIN: string = '*';

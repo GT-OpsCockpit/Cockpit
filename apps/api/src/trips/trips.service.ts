@@ -6,6 +6,8 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { basename, extname } from 'node:path';
 import { DateTime } from 'luxon';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
@@ -14,7 +16,12 @@ import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { TripRefService } from './trip-ref.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import { NAMEBOARD_URL_PREFIX } from './nameboard-upload.config';
+import {
+  NAMEBOARD_KEY_PREFIX,
+  NAMEBOARD_URL_PREFIX,
+  type UploadedNameboard,
+} from './nameboard-upload.config';
+import { StorageService } from '../common/storage/storage.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { computeDriverName } from '../common/utils/driver-name';
 import { CompanyService } from '../company/company.service';
@@ -123,6 +130,7 @@ export class TripsService {
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeService,
     private readonly company: CompanyService,
+    private readonly storage: StorageService,
   ) {}
 
   list(query: ListTripsQueryDto): Promise<TripEntity[]> {
@@ -650,8 +658,29 @@ export class TripsService {
     return this.findByRefOrThrow(ref);
   }
 
-  async setNameboard(ref: string, filename: string): Promise<TripEntity> {
+  async setNameboard(
+    ref: string,
+    file: UploadedNameboard,
+  ): Promise<TripEntity> {
     const trip = await this.findByRefOrThrow(ref);
+
+    // Replacing a nameboard: drop the object the trip pointed at, otherwise
+    // every replacement would leak an orphan in the bucket (the disk-backed
+    // version this replaced never cleaned up either). Best-effort by design —
+    // StorageService.delete() logs instead of throwing, so a failed cleanup
+    // can't fail the upload that matters.
+    if (trip.nameboardUrl?.startsWith(`${NAMEBOARD_URL_PREFIX}/`)) {
+      const previousKey = `${NAMEBOARD_KEY_PREFIX}/${basename(trip.nameboardUrl)}`;
+      await this.storage.delete(previousKey);
+    }
+
+    const filename = `${randomUUID()}${extname(file.originalname)}`;
+    await this.storage.put(
+      `${NAMEBOARD_KEY_PREFIX}/${filename}`,
+      file.buffer,
+      file.mimetype,
+    );
+
     await this.prisma.trip.update({
       where: { id: trip.id },
       data: { nameboardUrl: `${NAMEBOARD_URL_PREFIX}/${filename}` },

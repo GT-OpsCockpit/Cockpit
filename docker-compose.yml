@@ -18,16 +18,49 @@ services:
       timeout: 5s
       retries: 10
 
+  # S3-compatible object storage for uploaded files (nameboards today, any
+  # future upload feature). Self-hosted for now; switching to a real provider
+  # (AWS/OVH/Scaleway) means changing the S3_* values below and dropping this
+  # service — no application code changes.
+  #
+  # Never published on the host here: only the `api` service reaches it, over
+  # the internal compose network. The dev override exposes its ports locally.
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   api:
     image: ${DOCKERHUB_NAMESPACE:-gtopscockpit}/cockpit-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-cockpit}:${POSTGRES_PASSWORD:-cockpit}@postgres:5432/${POSTGRES_DB:-cockpit}?schema=public
       PORT: 3000
+      # `minio` is the compose service name, resolvable only inside the compose
+      # network. The API reuses MinIO's root account directly, same as it reuses
+      # POSTGRES_USER/PASSWORD for Postgres.
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-cockpit-uploads}
+      S3_FORCE_PATH_STYLE: 'true'
     ports:
       - '3000:3000'
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   web:
@@ -40,3 +73,4 @@ services:
 
 volumes:
   postgres_data:
+  minio_data:

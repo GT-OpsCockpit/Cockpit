@@ -1,17 +1,19 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, RequestMethod } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
-import express from 'express';
-import { dirname, resolve } from 'node:path';
 
 /** Shared app configuration applied both by main.ts and by e2e test setup. */
 export function configureApp(app: INestApplication): void {
   app.use(cookieParser());
-  // Public (no session needed — the driver/dashboard pages that display a
-  // nameboard photo are themselves public), mounted before the /api prefix.
-  const uploadDir = process.env.NAMEBOARD_UPLOAD_DIR ?? './uploads/nameboards';
-  app.use('/uploads', express.static(resolve(dirname(uploadDir))));
-  app.setGlobalPrefix('api');
+  // NameboardController proxies stored nameboard files back from the storage
+  // bucket. It stays outside the /api prefix so the `/uploads/nameboards/<file>`
+  // URLs already persisted in `trip.nameboardUrl` (and used as-is by the
+  // frontend) keep resolving — same shape the express.static mount served.
+  app.setGlobalPrefix('api', {
+    exclude: [
+      { path: 'uploads/nameboards/:filename', method: RequestMethod.GET },
+    ],
+  });
 
   // Skipped in tests: it's pure overhead for the 84 e2e specs (which never
   // hit /api/docs*) and DocumentBuilder-scanning every controller on every
