@@ -16,7 +16,10 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { usePermission } from '../auth/use-permission'
 import { AdvanceStepConfirmDialog } from '../bookings/advance-step-confirm-dialog'
+import { BookingCancelDialog } from '../bookings/booking-cancel-dialog'
 import { BookingEditDialog } from '../bookings/booking-edit-dialog'
+import { DispatchConfirmDialog } from '../bookings/dispatch-confirm-dialog'
+import { NameboardUploadDialog } from '../bookings/nameboard-upload-dialog'
 import { driverLabel } from '@cockpit/shared'
 import { useTripEvents } from '../bookings/use-trip-events'
 import { unavailabilityLabel as driverUnavailabilityLabel } from '../drivers/driver-status'
@@ -44,6 +47,12 @@ export function PlanningPage() {
   const hasActiveFilters = filtersChanged(filters, defaultPlanningFilters())
   const resetFilters = () => setFilters(defaultPlanningFilters())
   const [editTarget, setEditTarget] = useState<TripEntity | null>(null)
+  // The legacy rendered Bookings and both Planning lists through the same row
+  // builder (buildTripRowHtml, common.js:3098-3141), so a booking could be
+  // dispatched or cancelled from wherever it was being looked at.
+  const [cancelTarget, setCancelTarget] = useState<TripEntity | null>(null)
+  const [dispatchTarget, setDispatchTarget] = useState<TripEntity | null>(null)
+  const [nameboardTarget, setNameboardTarget] = useState<TripEntity | null>(null)
   const [advanceTarget, setAdvanceTarget] = useState<TripEntity | null>(null)
   const [driverAvailabilityTarget, setDriverAvailabilityTarget] = useState<DriverEntity | null>(null)
   const [vehicleAvailabilityTarget, setVehicleAvailabilityTarget] = useState<FleetVehicleEntity | null>(null)
@@ -158,6 +167,9 @@ export function PlanningPage() {
         <PlanningList
           trips={trips.data ?? []}
           onEdit={setEditTarget}
+          onCancel={setCancelTarget}
+          onDispatch={setDispatchTarget}
+          onNameboard={setNameboardTarget}
           onAdvance={setAdvanceTarget}
           hasActiveFilters={hasActiveFilters}
           onResetFilters={resetFilters}
@@ -204,6 +216,9 @@ export function PlanningPage() {
       )}
 
       <BookingEditDialog trip={editTarget} onOpenChange={(open) => !open && setEditTarget(null)} />
+      <DispatchConfirmDialog trip={dispatchTarget} onOpenChange={(open) => !open && setDispatchTarget(null)} />
+      <BookingCancelDialog trip={cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)} />
+      <NameboardUploadDialog trip={nameboardTarget} onOpenChange={(open) => !open && setNameboardTarget(null)} />
       <AdvanceStepConfirmDialog trip={advanceTarget} onOpenChange={(open) => !open && setAdvanceTarget(null)} />
       <DriverUnavailabilityDialog
         driver={driverAvailabilityTarget}

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { toast } from 'sonner'
-import { DispatchButton } from './bookings-table'
+import { DispatchButton } from './trip-actions-cell'
 import { baseTrip } from './test-fixtures'
 
 vi.mock('sonner', () => ({ toast: { warning: vi.fn(), success: vi.fn(), error: vi.fn() } }))

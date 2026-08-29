@@ -1,7 +1,12 @@
 import type { DriverEntity } from '@cockpit/shared/api'
-import { getDriversControllerListQueryKey, useDriversControllerUpdate } from '@cockpit/shared/api'
+import {
+  getDriversControllerListQueryKey,
+  useDriversControllerDelete,
+  useDriversControllerUpdate,
+} from '@cockpit/shared/api'
 import { useRecordForm } from '@/lib/use-record-form'
 import { RecordFormDialog } from '@/components/record-form-dialog'
+import { PermanentDeleteAction } from '@/components/permanent-delete-action'
 import { DriverFormFields } from './driver-form-fields'
 import { driverFormDefaults, driverFormSchema, type DriverFormValues } from './driver-form-schema'
 import { driverToFormValues, toUpdateDriverDto } from './driver-form-mapping'
@@ -14,6 +19,7 @@ export function DriverEditDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const updateDriver = useDriversControllerUpdate()
+  const deleteDriver = useDriversControllerDelete()
 
   const record = useRecordForm<DriverFormValues, unknown>({
     schema: driverFormSchema,
@@ -33,6 +39,17 @@ export function DriverEditDialog({
       title={`Edit driver${driver ? ` — ${driver.ref}` : ''}`}
       record={record}
       contentClassName="sm:max-w-2xl"
+      actions={
+        driver && (
+          <PermanentDeleteAction
+            label={`driver ${driver.ref}`}
+            description={`${driver.name} will be removed for good, along with any unavailability on file. Deactivating keeps their history — this does not.`}
+            onDelete={() => deleteDriver.mutateAsync({ ref: driver.ref })}
+            invalidateKey={getDriversControllerListQueryKey()}
+            onDeleted={() => onOpenChange(false)}
+          />
+        )
+      }
     >
       <DriverFormFields form={record.form} driver={driver} />
     </RecordFormDialog>

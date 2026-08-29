@@ -1,55 +1,14 @@
-import { Calendar, Check, Image, Pencil, Send, X } from 'lucide-react'
-import { toast } from 'sonner'
+import { Calendar, Check } from 'lucide-react'
 import type { TripEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from './status-badge'
-import { dispatchButtonState } from './trip-status'
 import { clientAccountLabel, itineraryLabel, shortDriverName, tripDriverName, urgencyRowClass } from './trip-display'
 import { PickupTime } from './pickup-time'
-
-export function DispatchButton({
-  trip,
-  isLocal,
-  onDispatch,
-  onEdit,
-}: {
-  trip: TripEntity
-  isLocal: boolean
-  onDispatch: (trip: TripEntity) => void
-  onEdit: (trip: TripEntity) => void
-}) {
-  const { dimmed, disabled, title } = dispatchButtonState(trip, isLocal)
-  // Legacy opened a per-field quick-popup here (driver/vehicle cell edit) when
-  // dispatch was attempted without both assigned. Quick-popups were deliberately not
-  // ported (see docs/agents/permissions.md) — the full edit dialog is where that
-  // reassignment happens now, so route there instead of letting the click through to
-  // a doomed dispatch-driver call that the server would reject with a 400.
-  const handleClick = () => {
-    if (dimmed) {
-      toast.warning(title)
-      onEdit(trip)
-      return
-    }
-    onDispatch(trip)
-  }
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      title={title}
-      disabled={disabled}
-      className={cn(dimmed && 'opacity-40')}
-      onClick={handleClick}
-    >
-      <Send className="size-3.5" />
-    </Button>
-  )
-}
+import { TripActionsCell } from './trip-actions-cell'
 
 interface BookingsTableProps {
   trips: TripEntity[]
@@ -154,26 +113,13 @@ export function BookingsTable({
                       <div className="text-muted-foreground text-[9.5px]">Fee: {trip.cancellationFee}</div>
                     )}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" title="Edit" onClick={() => onEdit(trip)}>
-                        <Pencil className="size-3.5" />
-                      </Button>
-                      <DispatchButton trip={trip} isLocal={isLocal} onDispatch={onDispatch} onEdit={onEdit} />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title={trip.nameboardUrl ? 'View / replace nameboard' : 'Upload nameboard'}
-                        className={cn(trip.nameboardUrl && 'text-primary')}
-                        onClick={() => onNameboard(trip)}
-                      >
-                        <Image className="size-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" title="Cancel" onClick={() => onCancel(trip)}>
-                        <X className="size-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  <TripActionsCell
+                    trip={trip}
+                    onEdit={onEdit}
+                    onCancel={onCancel}
+                    onDispatch={onDispatch}
+                    onNameboard={onNameboard}
+                  />
                 </TableRow>
               )
             })
