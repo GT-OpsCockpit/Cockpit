@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { TableCard } from '@/components/table-card'
 import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from '../bookings/status-badge'
-import { clientAccountLabel, displayPickup, itineraryLabel, tripDriverName, urgencyRowClass } from '../bookings/trip-status'
+import { clientAccountLabel, displayPickup, itineraryLabel, tripDriverName, urgencyRowClass } from '../bookings/trip-display'
 
 interface PlanningListProps {
   trips: TripEntity[]

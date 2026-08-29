@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePermission } from '@/features/auth/use-permission'
 import { PermissionWarning } from '@/components/permission-warning'
-import { clientAccountLabel, displayPickup, itineraryLabel, tripDriverName } from './trip-status'
+import { clientAccountLabel, displayPickup, itineraryLabel, tripDriverName } from './trip-display'
 
 const FEE_OPTIONS: { value: CancelAssignmentDtoCancellationFee; label: string }[] = [
   { value: CancelAssignmentDtoCancellationFee.FREE, label: 'Free' },

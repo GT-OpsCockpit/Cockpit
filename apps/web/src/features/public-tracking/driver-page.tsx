@@ -12,7 +12,7 @@ import {
 import { formatPhoneDisplay } from '@cockpit/shared'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
-import { pickupLocalInstant } from '@/features/bookings/trip-status'
+import { pickupLocalInstant } from '@/features/bookings/trip-display'
 import { usePublicTripEvents } from './use-public-trip-events'
 import { PublicPageShell, PublicPageEmpty, InfoRow, StepIcon } from './public-trip-ui'
 import { retryPublicQuery } from './retry-public-query'

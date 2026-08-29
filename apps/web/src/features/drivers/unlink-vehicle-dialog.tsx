@@ -7,7 +7,7 @@ import {
 } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
-import { driverLabel } from '@/features/bookings/trip-status'
+import { driverLabel } from '@cockpit/shared'
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 
 /**

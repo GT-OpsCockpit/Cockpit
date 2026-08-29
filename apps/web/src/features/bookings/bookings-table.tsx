@@ -8,15 +8,8 @@ import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from './status-badge'
-import {
-  clientAccountLabel,
-  dispatchButtonState,
-  displayPickup,
-  itineraryLabel,
-  shortDriverName,
-  tripDriverName,
-  urgencyRowClass,
-} from './trip-status'
+import { dispatchButtonState } from './trip-status'
+import { clientAccountLabel, displayPickup, itineraryLabel, shortDriverName, tripDriverName, urgencyRowClass } from './trip-display'
 
 export function DispatchButton({
   trip,

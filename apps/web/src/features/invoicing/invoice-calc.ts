@@ -1,5 +1,5 @@
 import type { InvoiceEntity } from '@cockpit/shared/api'
-import { pickupLocalInstant } from '../bookings/trip-status'
+import { pickupLocalInstant } from '../bookings/trip-display'
 
 export function round2(n: number): number {
   return Math.round(n * 100) / 100

@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import type { InvoiceEntity, TripEntity } from '@cockpit/shared/api'
-import { PARIS_ZONE, pickupParisInstant } from '../bookings/trip-status'
+import { PARIS_ZONE, pickupParisInstant } from '../bookings/trip-display'
 
 export interface CustomerFilters {
   /** Client and Event selects are mutually exclusive slots over the same trip.client.ref — same convention as Events' Search block. */

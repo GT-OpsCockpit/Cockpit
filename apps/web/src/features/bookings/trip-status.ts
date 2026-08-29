@@ -1,24 +1,16 @@
-import { DateTime } from 'luxon'
-import {
-  clientDisplayName,
-  currentStep,
-  driverLabel,
-  isBeforeArrival as isBeforeArrivalRule,
-  TRIP_STEP_ORDER,
-} from '@cockpit/shared'
-import { TripEntityService, TripStepEntityStep } from '@cockpit/shared/api'
+import { currentStep, TRIP_STEP_ORDER } from '@cockpit/shared'
+import { TripStepEntityStep } from '@cockpit/shared/api'
 import type { TripEntity } from '@cockpit/shared/api'
 
-// The Trip vocabulary both tiers ask about — the pipeline order, the arrival
-// rule, the Local/Farm-out rule and the naming rules — lives in
-// @cockpit/shared/business and used to be written out a second time here.
-// Re-exported so this module stays the Bookings feature's single import.
-export { clientDisplayName, driverLabel, isLocalTrip, partnerLabel } from '@cockpit/shared'
-
-// Same reference timezone the legacy header uses for every list/urgency
-// computation ("times shown in Europe/Paris"), independent of the trip's own
-// local timezone (shown separately, see pickupLocalInstant).
-export const PARIS_ZONE = 'Europe/Paris'
+/**
+ * Where a booking is in the driver pipeline, and what the dispatcher may do
+ * about it from the board — the status badge, its label, whether it can be
+ * advanced, and the state of the Send button.
+ *
+ * The pipeline order and the arrival rule are the API's too and live in
+ * @cockpit/shared/business/trip-progress.js. How a booking *reads* in a row is
+ * trip-display.ts; what is in view is booking-filters.ts.
+ */
 
 export const STEP_ORDER = TRIP_STEP_ORDER as readonly TripStepEntityStep[]
 
@@ -68,19 +60,6 @@ export function currentStatus(trip: TripEntity): TripStatus {
   return currentStep(trip.steps)
 }
 
-/**
- * Whether the driver has yet to arrive on site — the POC (on-site contact) is
- * only editable up to that point, since past it the name and number are the
- * ones already in use on the ground. Mirrors the legacy's isBeforeArrival
- * (common.js:2391) and the server's own rule
- * (@cockpit/shared/business/trip-progress.js), which is what the API actually
- * enforces in TripsService.update(); this only lets the form say so before the
- * user tries.
- */
-export function isBeforeArrival(trip: TripEntity): boolean {
-  return isBeforeArrivalRule(trip)
-}
-
 /** A sub-contracted job with no specific partner driver on file is pinned at "Sent" server-side — the badge is never clickable in that case. */
 export function isStatusLocked(trip: TripEntity): boolean {
   return trip.subContractor && !trip.partnerId
@@ -125,118 +104,4 @@ export function dispatchButtonState(trip: TripEntity, isLocal: boolean): { dimme
     disabled: trip.dispatched,
     title: trip.dispatched ? 'Already sent — edit or reassign to send again' : 'Dispatch to the driver',
   }
-}
-
-/** "Cust / Pax" column's account label: the acronym when set, name as a plain clarifier — falls back to the name alone. */
-export function clientAccountLabel(trip: TripEntity): { primary: string; secondary?: string } {
-  if (trip.client.acronym) return { primary: trip.client.acronym, secondary: clientDisplayName(trip.client) }
-  return { primary: clientDisplayName(trip.client) }
-}
-
-/** Farm-out or Local: driver name, falling back to the sub-contracted partner's name. */
-export function tripDriverName(trip: TripEntity): string | null {
-  if (trip.driver) return driverLabel(trip.driver)
-  if (trip.partner) return driverLabel(trip.partner)
-  return null
-}
-
-/** "Jean Dupont" -> "Jean D." (Local table's Driver column, to save space). */
-export function shortDriverName(name: string | null | undefined): string {
-  if (!name) return '—'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0]
-  const first = parts[0]
-  const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase()
-  return `${first} ${lastInitial}.`
-}
-
-/**
- * The trip's own pickup instant, resolved in its stored local timezone
- * (falls back to UTC if unset). Takes the minimal shape rather than the
- * full TripEntity so it also works on the leaner TripBaseEntity nested
- * under InvoiceEntity.trips[].trip.
- */
-export function pickupLocalInstant(trip: Pick<TripEntity, 'pickupAt' | 'timezone'>): DateTime {
-  return DateTime.fromISO(trip.pickupAt, { zone: trip.timezone ?? 'utc' })
-}
-
-export function pickupParisInstant(trip: TripEntity): DateTime {
-  return DateTime.fromISO(trip.pickupAt).setZone(PARIS_ZONE)
-}
-
-export function displayPickup(trip: TripEntity): { local: string; paris: string } {
-  const local = pickupLocalInstant(trip)
-  const paris = pickupParisInstant(trip)
-  return { local: local.toFormat('dd/MM HH:mm'), paris: paris.toFormat('HH:mm') }
-}
-
-/** H-6/H-3/H-1 row highlight — only for upcoming trips (a past unassigned trip is shown without urgency styling). */
-export function urgencyRowClass(trip: TripEntity): string {
-  const hoursLeft = pickupParisInstant(trip).diff(DateTime.now().setZone(PARIS_ZONE), 'hours').hours
-  if (hoursLeft < 0) return ''
-  if (hoursLeft < 1) return 'bg-destructive/15'
-  if (hoursLeft < 3) return 'bg-orange-500/15'
-  if (hoursLeft < 6) return 'bg-amber-400/15'
-  return ''
-}
-
-export type TripPeriod = 'upcoming' | 'today' | 'week' | 'past' | 'all'
-
-export interface BookingFilters {
-  search: string
-  period: TripPeriod
-  clientRef: string
-  driverRef: string
-  passenger: string
-  vehicleType: string
-  service: string
-}
-
-export function defaultBookingFilters(): BookingFilters {
-  return { search: '', period: 'upcoming', clientRef: '', driverRef: '', passenger: '', vehicleType: '', service: '' }
-}
-
-/**
- * Refines an already server-bounded result set (TripsService.list() resolves
- * `period` and the always-on date-window/Events-client rules — see the
- * 2026-08-27 handoff) — search/client/driver/passenger/vehicle/service are
- * lightweight in-memory narrowing over that bounded set, not a second copy
- * of the date-window logic. Mirrors the legacy's renderTrips() filter chain
- * (dispatcher.html L442-455) for these fields, minus the Local/Farm-out
- * split (done separately by isLocalTrip). Sort order is the server's
- * (pickupAt ascending) — filtering here never reorders.
- */
-export function applyBookingFilters(trips: TripEntity[], filters: BookingFilters): TripEntity[] {
-  const q = filters.search.trim().toLowerCase()
-  const passenger = filters.passenger.trim().toLowerCase()
-
-  return trips
-    .filter(
-      (t) =>
-        !q ||
-        t.ref.toLowerCase().includes(q) ||
-        clientDisplayName(t.client).toLowerCase().includes(q) ||
-        (t.passengerName || '').toLowerCase().includes(q) ||
-        (tripDriverName(t) || '').toLowerCase().includes(q),
-    )
-    .filter((t) => !filters.clientRef || t.client.ref === filters.clientRef)
-    .filter((t) => !filters.driverRef || t.driver?.ref === filters.driverRef)
-    .filter((t) => !passenger || (t.passengerName || '').toLowerCase().includes(passenger))
-    .filter((t) => !filters.vehicleType || t.vehicleType?.name === filters.vehicleType)
-    .filter((t) => !filters.service || t.service === filters.service)
-}
-
-export function itineraryLabel(trip: TripEntity): string {
-  const pu = trip.pickupIata || shortenLocation(trip.pickupLocation)
-  const dropoff =
-    trip.service === TripEntityService.ASD
-      ? `ASD (${trip.hours ?? '?'}h)`
-      : trip.dropoffIata || shortenLocation(trip.dropoffLocation) || '—'
-  return `${pu} → ${dropoff}`
-}
-
-function shortenLocation(location: string | null | undefined): string {
-  if (!location) return '—'
-  const firstSegment = location.split(',')[0]?.trim()
-  return firstSegment || location
 }

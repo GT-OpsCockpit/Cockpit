@@ -1,7 +1,8 @@
 import { DateTime } from 'luxon'
 import { TripEntityService } from '@cockpit/shared/api'
 import type { TripEntity } from '@cockpit/shared/api'
-import { PARIS_ZONE, pickupParisInstant, type TripPeriod } from '../bookings/trip-status'
+import { PARIS_ZONE, pickupParisInstant } from '../bookings/trip-display'
+import { type TripPeriod } from '../bookings/booking-filters'
 
 export type PlanningResource = 'drivers' | 'vehicles'
 export type PlanningCategory = 'daily' | 'event' | 'all'

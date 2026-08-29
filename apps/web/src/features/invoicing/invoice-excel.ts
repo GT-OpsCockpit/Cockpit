@@ -1,11 +1,7 @@
 import type { InvoiceEntity, TripEntity } from '@cockpit/shared/api'
-import {
-  clientDisplayName,
-  currentStatus,
-  driverLabel,
-  pickupLocalInstant,
-  statusLabel,
-} from '../bookings/trip-status'
+import { clientDisplayName, driverLabel } from '@cockpit/shared'
+import { currentStatus, statusLabel } from '../bookings/trip-status'
+import { pickupLocalInstant } from '../bookings/trip-display'
 import { invoiceLineRows, round2 } from './invoice-calc'
 
 /** Strips anything but word chars/dashes so a free-text label is safe as part of a filename. */

@@ -44,7 +44,7 @@ import {
 } from '@/components/ui/form'
 import type { TripFormValues } from './trip-form-schema'
 import { tripFormRules } from './trip-form-rules'
-import { clientDisplayName, driverLabel, partnerLabel } from './trip-status'
+import { clientDisplayName, driverLabel, partnerLabel } from '@cockpit/shared'
 
 /**
  * Marks a field the schema rejects when empty — including the ones that only

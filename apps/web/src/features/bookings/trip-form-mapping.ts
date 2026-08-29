@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import { TripEntityBilling, type CreateTripDto, type TripEntity, type UpdateTripDto } from '@cockpit/shared/api'
-import { pickupLocalInstant } from './trip-status'
+import { pickupLocalInstant } from './trip-display'
 import type { TripFormValues } from './trip-form-schema'
 
 /** Combines the form's date/time/timezone fields into the ISO instant the API's `pickupAt` expects. */

@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import type { TripEntity } from '@cockpit/shared/api'
-import { PARIS_ZONE, pickupParisInstant } from '../bookings/trip-status'
+import { PARIS_ZONE, pickupParisInstant } from '../bookings/trip-display'
 
 export interface PartnerFilters {
   partnerRef: string

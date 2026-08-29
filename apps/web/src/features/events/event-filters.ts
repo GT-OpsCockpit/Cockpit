@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import type { TripEntity } from '@cockpit/shared/api'
-import { PARIS_ZONE } from '../bookings/trip-status'
+import { PARIS_ZONE } from '../bookings/trip-display'
 
 export interface EventFilters {
   clientRef: string

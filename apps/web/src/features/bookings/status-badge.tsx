@@ -3,14 +3,7 @@ import type { TripEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { STEP_ICONS } from './trip-step-icons'
-import {
-  NO_STATUS_LABEL,
-  currentStatus,
-  isStatusAdvanceable,
-  isStatusHighlighted,
-  statusLabel,
-  type TripStatus,
-} from './trip-status'
+import { NO_STATUS_LABEL, currentStatus, isStatusAdvanceable, isStatusHighlighted, statusLabel, type TripStatus } from './trip-status'
 
 // Pill-outline (tinted background + border and text in the status colour), on
 // theme tokens rather than raw Tailwind palette classes.

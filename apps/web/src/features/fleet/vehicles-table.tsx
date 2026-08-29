@@ -1,7 +1,7 @@
 import { CalendarPlus, Pencil, RotateCcw, Truck, Wrench, X } from 'lucide-react'
 import type { FleetColorEntity, FleetVehicleEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
-import { driverLabel } from '@/features/bookings/trip-status'
+import { driverLabel } from '@cockpit/shared'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CountryLabel } from '@/components/country-label'

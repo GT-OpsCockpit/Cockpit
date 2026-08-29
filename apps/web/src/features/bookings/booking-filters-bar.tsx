@@ -10,7 +10,7 @@ import { SearchCombobox } from '@/components/search-combobox'
 import { FilterResetButton } from '@/components/filter-reset-button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import type { BookingFilters, TripPeriod } from './trip-status'
+import type { BookingFilters, TripPeriod } from './booking-filters'
 
 const PERIOD_OPTIONS: { value: TripPeriod; label: string }[] = [
   { value: 'upcoming', label: 'Upcoming' },

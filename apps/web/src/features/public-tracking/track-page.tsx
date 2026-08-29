@@ -1,7 +1,7 @@
 import { useParams } from 'react-router'
 import { DateTime } from 'luxon'
 import { useTripsControllerGetPublic, NotifyStepDtoStep, type PublicTripEntity } from '@cockpit/shared/api'
-import { pickupLocalInstant } from '@/features/bookings/trip-status'
+import { pickupLocalInstant } from '@/features/bookings/trip-display'
 import { usePublicTripEvents } from './use-public-trip-events'
 import { PublicPageShell, PublicPageEmpty, InfoRow, StepIcon } from './public-trip-ui'
 import { retryPublicQuery } from './retry-public-query'

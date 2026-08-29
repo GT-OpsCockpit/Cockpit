@@ -6,7 +6,7 @@ import { TableCard } from '@/components/table-card'
 import { EmptyState } from '@/components/empty-state'
 import { DispatchButton } from '../bookings/bookings-table'
 import { StatusBadge } from '../bookings/status-badge'
-import { clientAccountLabel, displayPickup, itineraryLabel } from '../bookings/trip-status'
+import { clientAccountLabel, displayPickup, itineraryLabel } from '../bookings/trip-display'
 
 /**
  * Billing-oriented columns, deliberately not the generic Bookings table —

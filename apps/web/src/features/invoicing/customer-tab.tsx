@@ -7,7 +7,7 @@ import { AdvanceStepConfirmDialog } from '../bookings/advance-step-confirm-dialo
 import { BookingCancelDialog } from '../bookings/booking-cancel-dialog'
 import { BookingEditDialog } from '../bookings/booking-edit-dialog'
 import { DispatchConfirmDialog } from '../bookings/dispatch-confirm-dialog'
-import { clientDisplayName } from '../bookings/trip-status'
+import { clientDisplayName } from '@cockpit/shared'
 import { CustomerFiltersBar } from './customer-filters-bar'
 import {
   applyInvoiceFilters,

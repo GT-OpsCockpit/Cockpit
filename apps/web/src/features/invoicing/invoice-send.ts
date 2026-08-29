@@ -1,5 +1,5 @@
 import type { InvoiceEntity } from '@cockpit/shared/api'
-import { clientDisplayName } from '../bookings/trip-status'
+import { clientDisplayName } from '@cockpit/shared'
 import { round2 } from './invoice-calc'
 
 /**

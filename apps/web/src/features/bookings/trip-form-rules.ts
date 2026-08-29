@@ -2,7 +2,8 @@ import { DateTime } from 'luxon'
 import { asdTotal, isLocalTrip, marginPercent } from '@cockpit/shared'
 import { TripEntityService } from '@cockpit/shared/api'
 import type { TripEntity } from '@cockpit/shared/api'
-import { isBeforeArrival, PARIS_ZONE } from './trip-status'
+import { isBeforeArrival } from '@cockpit/shared'
+import { PARIS_ZONE } from './trip-display'
 
 /**
  * Everything the booking form derives from what the dispatcher has typed so

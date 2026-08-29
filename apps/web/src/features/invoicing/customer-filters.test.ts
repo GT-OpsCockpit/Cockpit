@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DateTime } from 'luxon'
 import { baseClient, baseTrip } from '../bookings/test-fixtures'
-import { PARIS_ZONE } from '../bookings/trip-status'
+import { PARIS_ZONE } from '../bookings/trip-display'
 import { baseInvoice } from './test-fixtures'
 import {
   applyCustomerTripFilters,

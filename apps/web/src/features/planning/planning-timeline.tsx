@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import type { TripEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { clientAccountLabel, itineraryLabel, tripDriverName } from '../bookings/trip-status'
+import { clientAccountLabel, itineraryLabel, tripDriverName } from '../bookings/trip-display'
 import {
   blockGeometry,
   compareUnassignedTrips,

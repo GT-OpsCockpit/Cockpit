@@ -2,7 +2,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FilterResetButton } from '@/components/filter-reset-button'
-import type { TripPeriod } from '../bookings/trip-status'
+import type { TripPeriod } from '../bookings/booking-filters'
 import type { PlanningCategory, PlanningFilters, PlanningView } from './planning-status'
 
 const PERIOD_OPTIONS: { value: TripPeriod; label: string }[] = [
