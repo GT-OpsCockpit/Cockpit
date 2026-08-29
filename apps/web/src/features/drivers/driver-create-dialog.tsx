@@ -14,7 +14,7 @@ import { Form } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 import { LinkVehicleToPartnerDialog } from '@/features/fleet/link-vehicle-to-partner-dialog'
-import { driverDisplayName } from '@/features/bookings/trip-status'
+import { driverLabel } from '@/features/bookings/trip-status'
 import { DriverFormFields } from './driver-form-fields'
 import { driverFormDefaults, driverFormSchema, type DriverFormValues } from './driver-form-schema'
 import { toCreateDriverDto } from './driver-form-mapping'
@@ -110,7 +110,7 @@ export function DriverCreateDialog() {
         open={!!offerLinkTarget}
         onOpenChange={(open) => !open && setOfferLinkTarget(null)}
         title="Link a vehicle to this partner?"
-        description={offerLinkTarget && `Do you wish to link ${driverDisplayName(offerLinkTarget)} to a vehicle now?`}
+        description={offerLinkTarget && `Do you wish to link ${driverLabel(offerLinkTarget)} to a vehicle now?`}
         cancelLabel="No"
         confirmLabel="Yes"
         onConfirm={() => {

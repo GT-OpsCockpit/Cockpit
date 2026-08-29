@@ -23,7 +23,6 @@ import {
 } from './nameboard-upload.config';
 import { StorageService } from '../common/storage/storage.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
-import { computeDriverName } from '../common/utils/driver-name';
 import { CompanyService } from '../company/company.service';
 import {
   buildCanceledSubcontractEmail,
@@ -40,15 +39,18 @@ import {
   todayUtcMidnight,
 } from '../common/business/assignability';
 import { MESSAGES } from '../common/constants/messages';
-import { FULL_STEP_ORDER } from '../common/constants/step-order';
-import { isBeforeArrival } from '../common/business/trip-progress';
+import {
+  driverDisplayName,
+  type DriverStep,
+  isBeforeArrival,
+  TRIP_STEP_ORDER,
+} from '@cockpit/shared';
 import { buildTripMessageContext } from './trip-message.util';
 import { toPublicTrip } from './public-trip.mapper';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { AssignTripDto } from './dto/assign-trip.dto';
 import { CancelAssignmentDto } from './dto/cancel-assignment.dto';
-import { DRIVER_STEP_VALUES } from './dto/notify-step.dto';
 import { ListTripsQueryDto, type TripPeriod } from './dto/list-trips-query.dto';
 import {
   CancellationFee,
@@ -112,7 +114,7 @@ function periodDateRange(
 }
 
 const STEP_MESSAGE_KEY: Record<
-  (typeof DRIVER_STEP_VALUES)[number],
+  DriverStep,
   'accepted' | 'enroute' | 'arrived' | 'onboard' | 'dropped'
 > = {
   ACCEPTED: 'accepted',
@@ -539,16 +541,16 @@ export class TripsService {
 
     const present = new Set(trip.steps.map((s) => s.step));
     let currentIndex = -1;
-    FULL_STEP_ORDER.forEach((key, i) => {
+    TRIP_STEP_ORDER.forEach((key, i) => {
       if (present.has(key)) currentIndex = i;
     });
     const nextIndex = currentIndex + 1;
-    if (nextIndex >= FULL_STEP_ORDER.length) {
+    if (nextIndex >= TRIP_STEP_ORDER.length) {
       throw new BadRequestException(
         'This trip is already at its last status (Done).',
       );
     }
-    const nextStep = FULL_STEP_ORDER[nextIndex];
+    const nextStep = TRIP_STEP_ORDER[nextIndex];
 
     if (
       nextStep === TripStepKind.TRANSMITTED ||
@@ -590,7 +592,7 @@ export class TripsService {
 
   async notify(
     ref: string,
-    step: (typeof DRIVER_STEP_VALUES)[number],
+    step: DriverStep,
   ): Promise<PublicTripActionResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
     if (trip.assignmentCancelled) {
@@ -638,7 +640,7 @@ export class TripsService {
       );
 
     const body = MESSAGES.driverDispatch(buildTripMessageContext(trip), {
-      name: computeDriverName(assignee),
+      name: driverDisplayName(assignee),
     });
     try {
       await this.notifications.send(assignee.phone, body);

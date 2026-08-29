@@ -256,7 +256,7 @@ dans le legacy a été porté, sans rien reclasser en « choix produit ».**
 - ✅ **`offerEventReactivation` (4.4)** — `GET /clients/:ref/reactivation-candidates` +
   `POST /clients/:ref/reactivate`, en une transaction là où le legacy enchaînait N PUT. Proposé
   depuis les deux endroits où un compte Events se crée.
-- ✅ **`isBeforeArrival` sur le POC (6.6.2)** — `common/business/trip-progress.ts`, appliqué dans
+- ✅ **`isBeforeArrival` sur le POC (6.6.2)** — `packages/shared/src/business/trip-progress.js`, appliqué dans
   `update()`. Les popups d'édition rapide restent volontairement non portées.
 - ✅ **`PATCH /trips/:ref/assign` (6.6.1)** — notification « updated » au POC selon la règle
   `notifyDriver: hadDriver`, et respect du verrou de sous-traitance. La régénération de ref et

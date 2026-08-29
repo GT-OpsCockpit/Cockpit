@@ -5,7 +5,7 @@ import type { DriverEntity } from '@cockpit/shared/api'
 import { getFleetVehiclesControllerListQueryKey, useFleetVehiclesControllerCreate } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
-import { driverDisplayName } from '@/features/bookings/trip-status'
+import { driverLabel } from '@/features/bookings/trip-status'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Form } from '@/components/ui/form'
@@ -45,7 +45,7 @@ export function LinkVehicleToPartnerDialog({
       const vehicle = await createVehicle.mutateAsync({
         data: { ...toCreateFleetVehicleDto(values), driverRef: driver.ref },
       })
-      toast.success(`Vehicle ${vehicle.ref} linked to ${driverDisplayName(driver)}.`)
+      toast.success(`Vehicle ${vehicle.ref} linked to ${driverLabel(driver)}.`)
       onOpenChange(false)
       void queryClient.invalidateQueries({ queryKey: getFleetVehiclesControllerListQueryKey() })
     } catch (error) {
@@ -57,7 +57,7 @@ export function LinkVehicleToPartnerDialog({
     <Dialog open={!!driver} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Link a vehicle{driver ? ` to ${driverDisplayName(driver)}` : ''}</DialogTitle>
+          <DialogTitle>Link a vehicle{driver ? ` to ${driverLabel(driver)}` : ''}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form className="grid gap-4" onSubmit={onSubmit}>

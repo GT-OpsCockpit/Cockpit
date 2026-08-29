@@ -118,10 +118,12 @@ brouillons d'email de sous-traitance lit ce `name`, et fonctionne donc déjà.
 
 Rien n'est bloqué. Quelques choses qui n'étaient pas dans l'audit mais qui se sont vues :
 
-- `packages/shared/src/business/` contient déjà `isLocalTrip` et `pricing`, mais l'ordre des étapes
+- ~~`packages/shared/src/business/` contient déjà `isLocalTrip` et `pricing`, mais l'ordre des étapes
   d'une course est dupliqué entre `apps/api/src/common/constants/step-order.ts` et
-  `apps/web/src/features/bookings/trip-status.ts`. Les deux `isBeforeArrival` en héritent. Une
-  seule source dans `shared` serait plus propre — ce n'était pas le sujet de ce lot.
+  `apps/web/src/features/bookings/trip-status.ts`. Les deux `isBeforeArrival` en héritent.~~
+  **Fait (2026-08-29)** : l'ordre des étapes, `isBeforeArrival` et les règles de nommage
+  client/chauffeur vivent dans `packages/shared/src/business/`. `isLocalTrip` avait en plus une
+  copie mot pour mot dans `trip-status.ts`, supprimée.
 - Aucune UI n'expose de suppression définitive alors que les quatre endpoints existent (et sont
   maintenant protégés). À décider : les exposer derrière `record:delete`, ou les retirer.
 - Le warning `No HydrateFallback element provided to render during initial hydration` sort à chaque

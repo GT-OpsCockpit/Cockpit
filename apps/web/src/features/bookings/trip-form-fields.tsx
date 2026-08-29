@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/form'
 import type { TripFormValues } from './trip-form-schema'
 import { asdTotal, isLocalTrip, marginPercent } from '@cockpit/shared'
-import { clientDisplayName, driverDisplayName, isBeforeArrival, PARIS_ZONE } from './trip-status'
+import { clientDisplayName, driverLabel, isBeforeArrival, partnerLabel, PARIS_ZONE } from './trip-status'
 
 /**
  * Marks a field the schema rejects when empty — including the ones that only
@@ -197,15 +197,15 @@ export function TripFormFields({
   }))
   const driverOptions = driverResults
   const driverSelectedLabel = trip?.driver
-    ? `${driverDisplayName(trip.driver)} (${trip.driver.ref})`
+    ? `${driverLabel(trip.driver)} (${trip.driver.ref})`
     : (driverSeedOption?.label ?? undefined)
 
   const partnerResults = (partners.data?.data ?? [])
     .filter((d) => d.active && d.company)
-    .map((d) => ({ value: d.ref, label: `${d.name} — ${d.company}` }))
+    .map((d) => ({ value: d.ref, label: partnerLabel(d) }))
   const partnerOptions = partnerResults
   const partnerSelectedLabel = trip?.partner
-    ? `${driverDisplayName(trip.partner)} — ${trip.partner.company ?? ''}`
+    ? partnerLabel(trip.partner)
     : (partnerSeedOption?.label ?? undefined)
 
   const selectedVehicleType = meta.data?.vehicleTypes.find((v) => v.name === vehicleType)

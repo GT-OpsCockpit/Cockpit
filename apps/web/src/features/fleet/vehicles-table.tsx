@@ -1,7 +1,7 @@
 import { CalendarPlus, Pencil, RotateCcw, Truck, Wrench, X } from 'lucide-react'
 import type { FleetColorEntity, FleetVehicleEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
-import { driverDisplayName } from '@/features/bookings/trip-status'
+import { driverLabel } from '@/features/bookings/trip-status'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CountryLabel } from '@/components/country-label'
@@ -215,7 +215,7 @@ export function VehiclesTable(props: VehiclesTableProps) {
                     <TableCell className="text-xs">
                       {vehicle.regNbr}
                       {vehicle.driver && (
-                        <div className="text-muted-foreground text-[10px]">{driverDisplayName(vehicle.driver)}</div>
+                        <div className="text-muted-foreground text-[10px]">{driverLabel(vehicle.driver)}</div>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">{vehicle.acronym ?? '—'}</TableCell>

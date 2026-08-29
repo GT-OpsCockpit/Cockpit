@@ -29,7 +29,7 @@ export class ClientBaseEntity {
   updatedAt: Date;
 }
 
-/** A Client account, plus the derived display `name` computeClientName() adds on every clients-module read. */
+/** A Client account, plus the derived display `name` clientDisplayName() adds on every clients-module read. */
 export class ClientEntity extends ClientBaseEntity {
   name: string;
 }

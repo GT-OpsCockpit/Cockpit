@@ -7,7 +7,7 @@ import {
 } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
-import { driverDisplayName } from '@/features/bookings/trip-status'
+import { driverLabel } from '@/features/bookings/trip-status'
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 
 /**
@@ -45,7 +45,7 @@ export function UnlinkVehicleDialog({
       title="Unlink this vehicle from the chauffeur?"
       description={
         driver?.fleetReserved &&
-        `${driver.fleetReserved.regNbr} will no longer be reserved for ${driverDisplayName(driver)} — the vehicle itself is not deleted.`
+        `${driver.fleetReserved.regNbr} will no longer be reserved for ${driverLabel(driver)} — the vehicle itself is not deleted.`
       }
       confirmLabel="Unlink"
       pending={setDriver.isPending}

@@ -10,7 +10,7 @@ type ContainsClause<F extends string> = {
  * Matching the whole string against each column separately — which is what this
  * replaces — could never find anything spanning two columns, and the names
  * users actually type are exactly that: `name` is derived from
- * firstName + lastName (computeClientName / computeDriverName), a vehicle is
+ * firstName + lastName (clientDisplayName / driverDisplayName), a vehicle is
  * "make model". So "Marc Dubois", "Julien Petit" and "Mercedes V-Class" all
  * returned nothing, while the search placeholders promise to search by name.
  *

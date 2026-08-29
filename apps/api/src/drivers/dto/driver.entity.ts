@@ -31,7 +31,7 @@ export class DriverBaseEntity {
   updatedAt: Date;
 }
 
-/** A Driver record, plus the derived display `name` computeDriverName() adds on every read. */
+/** A Driver record, plus the derived display `name` driverDisplayName() adds on every read. */
 export class DriverEntity extends DriverBaseEntity {
   name: string;
   // The linked Event Client (eventsOnly=true only) — lets the edit form seed

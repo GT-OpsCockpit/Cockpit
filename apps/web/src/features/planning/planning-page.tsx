@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { usePermission } from '../auth/use-permission'
 import { AdvanceStepConfirmDialog } from '../bookings/advance-step-confirm-dialog'
 import { BookingEditDialog } from '../bookings/booking-edit-dialog'
-import { driverDisplayName } from '../bookings/trip-status'
+import { driverLabel } from '../bookings/trip-status'
 import { useTripEvents } from '../bookings/use-trip-events'
 import { unavailabilityLabel as driverUnavailabilityLabel } from '../drivers/driver-status'
 import { DriverUnavailabilityDialog } from '../drivers/driver-unavailability-dialog'
@@ -89,7 +89,7 @@ export function PlanningPage() {
 
   const resourceOptions =
     filters.resource === 'drivers'
-      ? (drivers.data?.data ?? []).map((d) => ({ value: d.ref, label: driverDisplayName(d) }))
+      ? (drivers.data?.data ?? []).map((d) => ({ value: d.ref, label: driverLabel(d) }))
       : (vehicles.data?.data ?? []).map((v) => ({ value: v.regNbr, label: v.regNbr }))
 
   const listTrips = (trips.data ?? []).filter((t) => {
@@ -101,12 +101,12 @@ export function PlanningPage() {
 
   const driverRows: TimelineRow[] = (drivers.data?.data ?? [])
     .slice()
-    .sort((a, b) => driverDisplayName(a).localeCompare(driverDisplayName(b)))
+    .sort((a, b) => driverLabel(a).localeCompare(driverLabel(b)))
     .map((d) => {
       const active = coversDate(d.unavailability, filters.timelineDate)
       return {
         key: d.ref,
-        label: driverDisplayName(d),
+        label: driverLabel(d),
         subLabel: formatPhoneDisplay(d.phone) || undefined,
         icon: {
           icon: CalendarOff,

@@ -10,7 +10,6 @@ import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { EventLinkService } from '../common/event-link/event-link.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { letters } from '../common/utils/letters';
-import { computeDriverName } from '../common/utils/driver-name';
 import { searchTokensFilter } from '../common/utils/search-tokens';
 import {
   driverEffectivelyActiveFilter,
@@ -37,6 +36,7 @@ import type {
   Prisma,
 } from '../../generated/prisma/client';
 
+import { driverDisplayName } from '@cockpit/shared';
 const DRIVER_INCLUDE = {
   eventClient: true,
   unavailability: true,
@@ -112,7 +112,7 @@ function withName<
     fleetReserved: FleetVehicle | null;
   },
 >(driver: T): T & { name: string } {
-  return { ...driver, name: computeDriverName(driver) };
+  return { ...driver, name: driverDisplayName(driver) };
 }
 
 @Injectable()
@@ -151,7 +151,7 @@ export class DriversService {
       );
     }
 
-    // `name` is derived (computeDriverName), not a column — search the fields
+    // `name` is derived (driverDisplayName), not a column — search the fields
     // it's derived from instead, plus ref/email/phone. Token by token, so
     // "Julien Petit" spans firstName + lastName (see searchTokensFilter).
     const searchFilter = searchTokensFilter(query.search, [

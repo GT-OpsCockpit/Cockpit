@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { TripMessageContext } from '../common/constants/messages';
-import { computeDriverName } from '../common/utils/driver-name';
 
+import { driverDisplayName } from '@cockpit/shared';
 export interface TripForMessage {
   ref: string;
   pocName: string | null;
@@ -34,7 +34,7 @@ export function buildTripMessageContext(
     pocName: trip.pocName,
     driverName:
       trip.driver || trip.partner
-        ? computeDriverName((trip.driver ?? trip.partner)!)
+        ? driverDisplayName((trip.driver ?? trip.partner)!)
         : null,
     passengerName: trip.passengerName,
     pickupLocation: trip.pickupLocation,

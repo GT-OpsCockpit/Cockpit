@@ -2,7 +2,7 @@ import type { InvoiceEntity, TripEntity } from '@cockpit/shared/api'
 import {
   clientDisplayName,
   currentStatus,
-  driverDisplayName,
+  driverLabel,
   pickupLocalInstant,
   statusLabel,
 } from '../bookings/trip-status'
@@ -31,7 +31,7 @@ export function tripsExcelRows(trips: TripEntity[]) {
       Dropoff: t.dropoffLocation ?? '',
       Vehicle: t.vehicleType?.name ?? '',
       'Reg Nbr': t.fleetVehicle?.regNbr ?? '',
-      'Driver / Partner': (t.driver && driverDisplayName(t.driver)) || (t.partner && driverDisplayName(t.partner)) || '',
+      'Driver / Partner': (t.driver && driverLabel(t.driver)) || (t.partner && driverLabel(t.partner)) || '',
       'Sub-C': t.subContractor ? 'Yes' : 'No',
       'Retail net (€)': t.priceEur != null ? Number(t.priceEur) : '',
       Status: statusLabel(currentStatus(t)),
@@ -53,7 +53,7 @@ export function partnerTripsExcelRows(trips: TripEntity[]) {
       Dropoff: t.dropoffLocation ?? '',
       Vehicle: t.vehicleType?.name ?? '',
       'Reg Nbr': t.fleetVehicle?.regNbr ?? '',
-      Partner: (t.partner && driverDisplayName(t.partner)) || '',
+      Partner: (t.partner && driverLabel(t.partner)) || '',
       'Partner rate (€)': t.partnerRateEur != null ? Number(t.partnerRateEur) : '',
       Status: statusLabel(currentStatus(t)),
     }

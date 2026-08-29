@@ -6,7 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DateTime } from 'luxon';
-import { isValidEmail, normalizeEmail } from '@cockpit/shared';
+import {
+  clientDisplayName,
+  driverDisplayName,
+  isValidEmail,
+  normalizeEmail,
+} from '@cockpit/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
@@ -15,7 +20,6 @@ import {
   outsideEventWindowFilter,
   todayUtcMidnight,
 } from '../common/business/assignability';
-import { computeDriverName } from '../common/utils/driver-name';
 import { ReactivateDto } from './dto/reactivate.dto';
 import { ReactivateResponseEntity } from './dto/reactivate-response.entity';
 import { ReactivationCandidatesEntity } from './dto/reactivation-candidates.entity';
@@ -47,24 +51,10 @@ const REF_SCOPE: Record<ClientType, string> = {
   [ClientType.EVENT]: 'client:event',
 };
 
-/** Company name if set, else the contact's full name, else a generic fallback — never stored, always derived. */
-export function computeClientName(client: {
-  ref: string;
-  company: string | null;
-  contactFirstName: string | null;
-  contactLastName: string | null;
-}): string {
-  const contactFullName = [client.contactFirstName, client.contactLastName]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-  return client.company?.trim() || contactFullName || `Account ${client.ref}`;
-}
-
 export type ClientWithName = Client & { name: string };
 
 function withName<T extends Client>(client: T): T & { name: string } {
-  return { ...client, name: computeClientName(client) };
+  return { ...client, name: clientDisplayName(client) };
 }
 
 @Injectable()
@@ -97,7 +87,7 @@ export class ClientsService {
       ];
     }
 
-    // `name` is derived (computeClientName), not a column — search the fields
+    // `name` is derived (clientDisplayName), not a column — search the fields
     // it's derived from instead, plus ref/email/acronym. Token by token, so a
     // full name typed as "Marc Dubois" spans contactFirstName + contactLastName
     // (see searchTokensFilter).
@@ -445,7 +435,7 @@ export class ClientsService {
     return {
       drivers: drivers.map((d) => ({
         ref: d.ref,
-        label: computeDriverName(d),
+        label: driverDisplayName(d),
         ...previous(d.eventClient!),
       })),
       fleetVehicles: fleetVehicles.map((v) => ({

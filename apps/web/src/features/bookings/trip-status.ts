@@ -1,21 +1,26 @@
 import { DateTime } from 'luxon'
+import {
+  clientDisplayName,
+  currentStep,
+  driverLabel,
+  isBeforeArrival as isBeforeArrivalRule,
+  TRIP_STEP_ORDER,
+} from '@cockpit/shared'
 import { TripEntityService, TripStepEntityStep } from '@cockpit/shared/api'
-import type { ClientBaseEntity, DriverBaseEntity, TripEntity } from '@cockpit/shared/api'
+import type { TripEntity } from '@cockpit/shared/api'
+
+// The Trip vocabulary both tiers ask about — the pipeline order, the arrival
+// rule, the Local/Farm-out rule and the naming rules — lives in
+// @cockpit/shared/business and used to be written out a second time here.
+// Re-exported so this module stays the Bookings feature's single import.
+export { clientDisplayName, driverLabel, isLocalTrip, partnerLabel } from '@cockpit/shared'
 
 // Same reference timezone the legacy header uses for every list/urgency
 // computation ("times shown in Europe/Paris"), independent of the trip's own
 // local timezone (shown separately, see pickupLocalInstant).
 export const PARIS_ZONE = 'Europe/Paris'
 
-export const STEP_ORDER = [
-  TripStepEntityStep.TRANSMITTED,
-  TripStepEntityStep.RECEIVED,
-  TripStepEntityStep.ACCEPTED,
-  TripStepEntityStep.ENROUTE,
-  TripStepEntityStep.ARRIVED,
-  TripStepEntityStep.ONBOARD,
-  TripStepEntityStep.DROPPED,
-] as const
+export const STEP_ORDER = TRIP_STEP_ORDER as readonly TripStepEntityStep[]
 
 // Text only — the leading emoji the legacy used are lucide icons now, rendered
 // alongside the label by StatusBadge (see docs/UI_REFRESH_PLAN.md). Keeping the
@@ -60,10 +65,7 @@ export type TripStatus = TripStepEntityStep | 'CANCELLED' | null
 /** Latest step reached, or 'CANCELLED' if the assignment was pulled — mirrors the legacy's currentStatus(). */
 export function currentStatus(trip: TripEntity): TripStatus {
   if (trip.assignmentCancelled) return 'CANCELLED'
-  let last: TripStepEntityStep | null = null
-  const present = new Set(trip.steps.map((s) => s.step))
-  for (const step of STEP_ORDER) if (present.has(step)) last = step
-  return last
+  return currentStep(trip.steps)
 }
 
 /**
@@ -71,14 +73,12 @@ export function currentStatus(trip: TripEntity): TripStatus {
  * only editable up to that point, since past it the name and number are the
  * ones already in use on the ground. Mirrors the legacy's isBeforeArrival
  * (common.js:2391) and the server's own rule
- * (apps/api/src/common/business/trip-progress.ts), which is what actually
- * enforces it; this only lets the form say so before the user tries.
+ * (@cockpit/shared/business/trip-progress.js), which is what the API actually
+ * enforces in TripsService.update(); this only lets the form say so before the
+ * user tries.
  */
 export function isBeforeArrival(trip: TripEntity): boolean {
-  const status = currentStatus(trip)
-  if (status === 'CANCELLED') return false
-  if (!status) return true
-  return STEP_ORDER.indexOf(status) < STEP_ORDER.indexOf(TripStepEntityStep.ARRIVED)
+  return isBeforeArrivalRule(trip)
 }
 
 /** A sub-contracted job with no specific partner driver on file is pinned at "Sent" server-side — the badge is never clickable in that case. */
@@ -127,15 +127,6 @@ export function dispatchButtonState(trip: TripEntity, isLocal: boolean): { dimme
   }
 }
 
-export function clientDisplayName(client: ClientBaseEntity): string {
-  const contact = [client.contactFirstName, client.contactLastName].filter(Boolean).join(' ').trim()
-  return client.company?.trim() || contact || `Account ${client.ref}`
-}
-
-export function driverDisplayName(driver: DriverBaseEntity): string {
-  return [driver.firstName, driver.lastName].filter(Boolean).join(' ').trim() || driver.company || driver.ref
-}
-
 /** "Cust / Pax" column's account label: the acronym when set, name as a plain clarifier — falls back to the name alone. */
 export function clientAccountLabel(trip: TripEntity): { primary: string; secondary?: string } {
   if (trip.client.acronym) return { primary: trip.client.acronym, secondary: clientDisplayName(trip.client) }
@@ -144,8 +135,8 @@ export function clientAccountLabel(trip: TripEntity): { primary: string; seconda
 
 /** Farm-out or Local: driver name, falling back to the sub-contracted partner's name. */
 export function tripDriverName(trip: TripEntity): string | null {
-  if (trip.driver) return driverDisplayName(trip.driver)
-  if (trip.partner) return driverDisplayName(trip.partner)
+  if (trip.driver) return driverLabel(trip.driver)
+  if (trip.partner) return driverLabel(trip.partner)
   return null
 }
 
@@ -157,17 +148,6 @@ export function shortDriverName(name: string | null | undefined): string {
   const first = parts[0]
   const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase()
   return `${first} ${lastInitial}.`
-}
-
-const LOCAL_AREA_NAMES = ['nice', 'cannes', 'st tropez', 'st-tropez', 'saint-tropez', 'saint tropez']
-
-/** Geographic "Local" (Nice/Cannes/St-Tropez/Monaco) vs "Farm out" split for the two Bookings tables. */
-export function isLocalTrip(trip: TripEntity): boolean {
-  const area = (trip.area || '').trim().toLowerCase()
-  if (LOCAL_AREA_NAMES.some((n) => area === n)) return true
-  if (trip.countryCode === 'MC') return true
-  const text = `${trip.pickupLocation || ''} ${trip.dropoffLocation || ''}`.toLowerCase()
-  return LOCAL_AREA_NAMES.some((n) => text.includes(n))
 }
 
 /**

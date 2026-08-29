@@ -6,8 +6,6 @@ import {
   currentStatus,
   defaultBookingFilters,
   dispatchButtonState,
-  isBeforeArrival,
-  isLocalTrip,
   isStatusAdvanceable,
   isStatusLocked,
 } from './trip-status'
@@ -138,32 +136,6 @@ describe('dispatchButtonState', () => {
   })
 })
 
-describe('isLocalTrip', () => {
-  it('matches a known local area name, case/whitespace-insensitive', () => {
-    expect(isLocalTrip(baseTrip({ area: 'Nice' }))).toBe(true)
-    expect(isLocalTrip(baseTrip({ area: ' CANNES ' }))).toBe(true)
-    expect(isLocalTrip(baseTrip({ area: 'Saint-Tropez' }))).toBe(true)
-  })
-
-  it('matches Monaco by country code regardless of area', () => {
-    expect(isLocalTrip(baseTrip({ area: 'Somewhere else', countryCode: 'MC' }))).toBe(true)
-  })
-
-  it('matches when a local area name appears inside the pickup/drop-off text', () => {
-    expect(
-      isLocalTrip(
-        baseTrip({ area: 'Other', countryCode: 'FR', pickupLocation: 'Nice Côte d\'Azur Airport', dropoffLocation: 'Villa' }),
-      ),
-    ).toBe(true)
-  })
-
-  it('is false for an unrelated area with no local keyword anywhere', () => {
-    expect(
-      isLocalTrip(baseTrip({ area: 'Berlin', countryCode: 'DE', pickupLocation: 'Berlin Airport', dropoffLocation: 'Hotel Adlon' })),
-    ).toBe(false)
-  })
-})
-
 describe('applyBookingFilters', () => {
   // The date-window/Events-client bounding (previously periodMatches/
   // baseVisibility/isEventClientTrip, tested here with fake timers) moved
@@ -218,44 +190,5 @@ describe('applyBookingFilters', () => {
     // pure narrowing filter must preserve it exactly as given.
     const result = applyBookingFilters([later, earlier], defaultBookingFilters())
     expect(result.map((t) => t.ref)).toEqual(['R-LATER', 'R-EARLIER'])
-  })
-})
-// The POC (on-site contact) is only editable while nobody is on site yet —
-// past "In position" the name and number are the ones already in use on the
-// ground. Legacy isBeforeArrival (common.js:2391); the server enforces it
-// (trip-progress.ts), this only lets the form say so first.
-describe('isBeforeArrival', () => {
-  const at = (...steps: TripStepEntityStep[]) => baseTrip({ steps: steps.map((s) => step(s)) })
-
-  it('is true right up to the moment the driver is in position', () => {
-    expect(isBeforeArrival(at())).toBe(true)
-    expect(isBeforeArrival(at(TripStepEntityStep.TRANSMITTED))).toBe(true)
-    expect(
-      isBeforeArrival(
-        at(
-          TripStepEntityStep.TRANSMITTED,
-          TripStepEntityStep.RECEIVED,
-          TripStepEntityStep.ACCEPTED,
-          TripStepEntityStep.ENROUTE,
-        ),
-      ),
-    ).toBe(true)
-  })
-
-  it('is false from "In position" onwards', () => {
-    expect(
-      isBeforeArrival(
-        at(TripStepEntityStep.TRANSMITTED, TripStepEntityStep.RECEIVED, TripStepEntityStep.ARRIVED),
-      ),
-    ).toBe(false)
-    expect(
-      isBeforeArrival(
-        at(TripStepEntityStep.TRANSMITTED, TripStepEntityStep.ARRIVED, TripStepEntityStep.DROPPED),
-      ),
-    ).toBe(false)
-  })
-
-  it('is false for a cancelled assignment — there is nobody to meet', () => {
-    expect(isBeforeArrival(baseTrip({ steps: [], assignmentCancelled: true }))).toBe(false)
   })
 })

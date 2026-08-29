@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { partnerLabel } from '@cockpit/shared'
 import { ClientsControllerListType, useClientsControllerList, useDriversControllerList } from '@cockpit/shared/api'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
@@ -27,7 +28,7 @@ export function PartnerFiltersBar({
   const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT })
   const partnerOptions = [
     { value: '', label: 'All partners' },
-    ...(partners.data?.data ?? []).filter((d) => d.company).map((d) => ({ value: d.ref, label: `${d.name} — ${d.company}` })),
+    ...(partners.data?.data ?? []).filter((d) => d.company).map((d) => ({ value: d.ref, label: partnerLabel(d) })),
   ]
 
   const [eventSearch, setEventSearch] = useState('')

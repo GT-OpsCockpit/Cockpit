@@ -1,5 +1,6 @@
 import { DriverUnavailabilityEntityType } from '@cockpit/shared/api'
 import type { DriverEntity, DriverUnavailabilityEntity } from '@cockpit/shared/api'
+import { partnerLabel } from '@cockpit/shared'
 import type { BookingPrefill } from '@/features/bookings/booking-create-dialog'
 
 export interface DriverFilters {
@@ -28,7 +29,7 @@ export function isPartner(driver: DriverEntity): boolean {
  */
 export function driverBookingPrefill(driver: DriverEntity): BookingPrefill {
   return isPartner(driver)
-    ? { subContractor: true, partnerRef: driver.ref, partnerLabel: `${driver.name} — ${driver.company}`, driverRef: '' }
+    ? { subContractor: true, partnerRef: driver.ref, partnerLabel: partnerLabel(driver), driverRef: '' }
     : { driverRef: driver.ref, driverLabel: `${driver.name} (${driver.ref})`, subContractor: false, partnerRef: '' }
 }
 

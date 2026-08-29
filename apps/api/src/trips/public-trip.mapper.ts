@@ -1,5 +1,4 @@
-import { computeClientName } from '../clients/clients.service';
-import { computeDriverName } from '../common/utils/driver-name';
+import { clientDisplayName, driverDisplayName } from '@cockpit/shared';
 import { TripStepEntity } from './dto/trip.entity';
 import { PublicTripEntity } from './dto/public-trip.entity';
 
@@ -36,11 +35,11 @@ export function toPublicTrip(
     ref: trip.ref,
     tracking: trip.tracking,
     assignmentCancelled: trip.assignmentCancelled,
-    clientName: computeClientName(trip.client),
+    clientName: clientDisplayName(trip.client),
     clientRef: trip.client.ref,
     driverName:
       trip.driver || trip.partner
-        ? computeDriverName((trip.driver ?? trip.partner)!)
+        ? driverDisplayName((trip.driver ?? trip.partner)!)
         : null,
     passengerName: trip.passengerName,
     paxCount: trip.paxCount,
