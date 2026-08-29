@@ -26,7 +26,8 @@ import type {
 
 import type {
   CreateInvoiceDto,
-  InvoiceEntity
+  InvoiceEntity,
+  InvoicingPeriodEntity
 } from '../../model';
 
 import { fetcher } from '../../fetcher';
@@ -216,3 +217,97 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getInvoicesControllerCreateMutationOptions(options), queryClient);
     }
+    export const getInvoicesControllerDefaultPeriodUrl = () => {
+
+
+
+
+  return `/api/invoices/default-period`
+}
+
+export const invoicesControllerDefaultPeriod = async ( options?: Parameters<typeof fetcher>[1]): Promise<InvoicingPeriodEntity> => {
+
+  return fetcher<InvoicingPeriodEntity>(getInvoicesControllerDefaultPeriodUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getInvoicesControllerDefaultPeriodQueryKey = () => {
+    return [
+    `/api/invoices/default-period`
+    ] as const;
+    }
+
+
+export const getInvoicesControllerDefaultPeriodQueryOptions = <TData = Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getInvoicesControllerDefaultPeriodQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>> = ({ signal }) => invoicesControllerDefaultPeriod({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type InvoicesControllerDefaultPeriodQueryResult = NonNullable<Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>>
+export type InvoicesControllerDefaultPeriodQueryError = unknown
+
+
+export function useInvoicesControllerDefaultPeriod<TData = Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>,
+          TError,
+          Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useInvoicesControllerDefaultPeriod<TData = Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>,
+          TError,
+          Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useInvoicesControllerDefaultPeriod<TData = Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useInvoicesControllerDefaultPeriod<TData = Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof invoicesControllerDefaultPeriod>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getInvoicesControllerDefaultPeriodQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+

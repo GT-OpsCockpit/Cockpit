@@ -160,6 +160,110 @@ describe('Invoices (e2e)', () => {
       .expect(400);
   });
 
+  // The browser used to work the opening period out itself by scanning every
+  // unbilled trip it had downloaded, which is why the Customer tab asked for
+  // the whole history (period=all).
+  describe('GET /api/invoices/default-period', () => {
+    async function tripAt(
+      client: ClientBody,
+      pickupAt: string,
+    ): Promise<TripBody> {
+      const res = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt, priceEur: 100 })
+        .expect(201);
+      return res.body as TripBody;
+    }
+
+    const period = async () => {
+      const res = await request(server())
+        .get('/api/invoices/default-period')
+        .set('Cookie', cookie)
+        .expect(200);
+      return res.body as { start: string; end: string };
+    };
+
+    function previousMonth(): { start: string; end: string } {
+      const now = new Date();
+      const start = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
+      );
+      const end = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0),
+      );
+      return {
+        start: start.toISOString().slice(0, 10),
+        end: end.toISOString().slice(0, 10),
+      };
+    }
+
+    it('opens on last month when nothing older is waiting to be billed', async () => {
+      expect(await period()).toEqual(previousMonth());
+    });
+
+    it('reaches back to the month of the oldest unbilled booking', async () => {
+      const client = await createClient();
+      await tripAt(client, '2024-11-20T10:00:00.000Z');
+      expect(await period()).toEqual({
+        start: '2024-11-01',
+        end: previousMonth().end,
+      });
+    });
+
+    // The tab's own Pending table lists `category=daily` only, so reaching the
+    // period back for an Events booking would open it on an empty month.
+    it('ignores an Events-client booking, which that tab never lists anyway', async () => {
+      const eventClient = await request(server())
+        .post('/api/clients')
+        .set('Cookie', cookie)
+        .send({
+          clientType: 'EVENT',
+          company: 'Grand Prix',
+          eventCountry: 'MC',
+          eventArea: 'Monaco',
+          eventStartDate: '2024-11-18',
+          eventEndDate: '2024-11-25',
+          pocPhone: '+33612121212',
+        })
+        .expect(201);
+      await tripAt(eventClient.body as ClientBody, '2024-11-20T10:00:00.000Z');
+
+      expect(await period()).toEqual(previousMonth());
+    });
+
+    it('ignores a booking once it has been invoiced — that backlog is cleared', async () => {
+      const client = await createClient();
+      const old = await tripAt(client, '2024-11-20T10:00:00.000Z');
+      await request(server())
+        .post('/api/invoices')
+        .set('Cookie', cookie)
+        .send({ tripRefs: [old.ref], clientRef: client.ref })
+        .expect(201);
+
+      expect(await period()).toEqual(previousMonth());
+    });
+  });
+
+  it('unbilled=true keeps only the bookings still to be billed', async () => {
+    const client = await createClient();
+    const billed = await createTrip(client, 100);
+    const pending = await createTrip(client, 50);
+    await request(server())
+      .post('/api/invoices')
+      .set('Cookie', cookie)
+      .send({ tripRefs: [billed.ref], clientRef: client.ref })
+      .expect(201);
+
+    const list = await request(server())
+      .get('/api/trips?period=all&unbilled=true')
+      .set('Cookie', cookie)
+      .expect(200);
+    const refs = (list.body as TripBody[]).map((t) => t.ref);
+    expect(refs).toContain(pending.ref);
+    expect(refs).not.toContain(billed.ref);
+  });
+
   it('lists created invoices', async () => {
     const client = await createClient();
     const t1 = await createTrip(client, 100);

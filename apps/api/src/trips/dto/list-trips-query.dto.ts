@@ -94,6 +94,15 @@ export class ListTripsQueryDto {
   @IsIn(Object.values(Service))
   service?: Service;
 
+  /**
+   * Only bookings still to be billed — the Invoicing Customer tab's Pending
+   * table, which shows nothing else.
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  unbilled?: boolean;
+
   /** Defaults to 'upcoming' in TripsService.list() — see periodDateRange(). */
   @IsOptional()
   @IsIn(TRIP_PERIODS)

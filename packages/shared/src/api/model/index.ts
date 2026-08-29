@@ -66,6 +66,7 @@ export * from './geoControllerGeocodeTzParams';
 export * from './geoControllerPocSearchParams';
 export * from './invoiceEntity';
 export * from './invoiceTripEntity';
+export * from './invoicingPeriodEntity';
 export * from './loginDto';
 export * from './loginResultEntity';
 export * from './majorCityEntity';

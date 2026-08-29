@@ -1,42 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { DateTime } from 'luxon'
 import { baseClient, baseTrip } from '../bookings/test-fixtures'
-import { PARIS_ZONE } from '../bookings/trip-display'
 import { baseInvoice } from './test-fixtures'
 import {
   applyCustomerTripFilters,
   applyInvoiceFilters,
-  applyPendingFilters,
-  computeCustomerDefaultPeriod,
   customerFilterTarget,
   defaultCustomerFilters,
 } from './customer-filters'
-
-function iso(dateOnly: string): string {
-  return DateTime.fromISO(dateOnly, { zone: PARIS_ZONE }).plus({ hours: 10 }).toUTC().toISO()!
-}
-
-describe('computeCustomerDefaultPeriod', () => {
-  it('defaults to the previous calendar month when there is no older backlog', () => {
-    const now = DateTime.now().setZone(PARIS_ZONE)
-    const trips = [baseTrip({ invoiced: true, pickupAt: iso(now.minus({ months: 1 }).toISODate()!) })]
-    const { start, end } = computeCustomerDefaultPeriod(trips)
-    expect(start).toBe(now.startOf('month').minus({ months: 1 }).toISODate())
-    expect(end).toBe(now.startOf('month').minus({ days: 1 }).toISODate())
-  })
-
-  it('pulls the start back to an older unbilled trip’s month, ignoring already-invoiced ones', () => {
-    const now = DateTime.now().setZone(PARIS_ZONE)
-    const oldMonth = now.startOf('month').minus({ months: 5 })
-    const trips = [
-      baseTrip({ ref: 'R1', invoiced: false, pickupAt: iso(oldMonth.plus({ days: 2 }).toISODate()!) }),
-      baseTrip({ ref: 'R2', invoiced: true, pickupAt: iso(now.minus({ years: 1 }).toISODate()!) }),
-    ]
-    const { start, end } = computeCustomerDefaultPeriod(trips)
-    expect(start).toBe(oldMonth.toISODate())
-    expect(end).toBe(now.startOf('month').minus({ days: 1 }).toISODate())
-  })
-})
 
 describe('customerFilterTarget', () => {
   it('reads clientRef when not in Events mode, eventRef otherwise', () => {
@@ -46,28 +16,24 @@ describe('customerFilterTarget', () => {
   })
 })
 
-describe('applyCustomerTripFilters / applyPendingFilters', () => {
+// The date range, "not yet invoiced" and the opening period are the API's now
+// (from/to, unbilled, GET /invoices/default-period — see invoices.e2e-spec.ts).
+// What is left here is the narrowing the API has no parameter for.
+describe('applyCustomerTripFilters', () => {
   const filters = { ...defaultCustomerFilters({ start: '2026-06-01', end: '2026-06-30' }) }
 
-  it('scopes by client ref, date range, ref/PO (on the client account) and passenger', () => {
+  it('scopes by client ref, ref/PO (on the client account) and passenger', () => {
     const client = baseClient({ ref: 'CI1', refPoOther: 'PO-123' })
-    const inRange = baseTrip({ ref: 'R1', client, pickupAt: '2026-06-15T10:00:00.000Z', passengerName: 'Jane Doe' })
-    const outOfRange = baseTrip({ ref: 'R2', client, pickupAt: '2026-07-15T10:00:00.000Z' })
+    const mine = baseTrip({ ref: 'R1', client, pickupAt: '2026-06-15T10:00:00.000Z', passengerName: 'Jane Doe' })
     const otherClient = baseTrip({ ref: 'R3', client: baseClient({ ref: 'CI2' }), pickupAt: '2026-06-10T10:00:00.000Z' })
 
-    const result = applyCustomerTripFilters([inRange, outOfRange, otherClient], { ...filters, clientRef: 'CI1' })
-    expect(result.map((t) => t.ref)).toEqual(['R1'])
-
-    expect(applyCustomerTripFilters([inRange], { ...filters, refPo: 'po-123' }).map((t) => t.ref)).toEqual(['R1'])
-    expect(applyCustomerTripFilters([inRange], { ...filters, refPo: 'nope' })).toEqual([])
-    expect(applyCustomerTripFilters([inRange], { ...filters, passenger: 'jane' }).map((t) => t.ref)).toEqual(['R1'])
-    expect(applyCustomerTripFilters([inRange], { ...filters, passenger: 'bob' })).toEqual([])
-  })
-
-  it('Pending excludes already-invoiced trips', () => {
-    const pending = baseTrip({ ref: 'R1', invoiced: false, pickupAt: '2026-06-15T10:00:00.000Z' })
-    const invoiced = baseTrip({ ref: 'R2', invoiced: true, pickupAt: '2026-06-15T10:00:00.000Z' })
-    expect(applyPendingFilters([pending, invoiced], filters).map((t) => t.ref)).toEqual(['R1'])
+    expect(applyCustomerTripFilters([mine, otherClient], { ...filters, clientRef: 'CI1' }).map((t) => t.ref)).toEqual([
+      'R1',
+    ])
+    expect(applyCustomerTripFilters([mine], { ...filters, refPo: 'po-123' }).map((t) => t.ref)).toEqual(['R1'])
+    expect(applyCustomerTripFilters([mine], { ...filters, refPo: 'nope' })).toEqual([])
+    expect(applyCustomerTripFilters([mine], { ...filters, passenger: 'jane' }).map((t) => t.ref)).toEqual(['R1'])
+    expect(applyCustomerTripFilters([mine], { ...filters, passenger: 'bob' })).toEqual([])
   })
 })
 

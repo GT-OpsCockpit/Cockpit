@@ -59,6 +59,11 @@ passenger?: string;
 vehicleType?: string;
 service?: TripsControllerListService;
 /**
+ * Only bookings still to be billed — the Invoicing Customer tab's Pending
+ * table, which shows nothing else.
+ */
+unbilled?: boolean;
+/**
  * Defaults to 'upcoming' in TripsService.list() — see periodDateRange().
  */
 period?: TripsControllerListPeriod;

@@ -5,6 +5,10 @@ import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { EnvironmentVariables } from '../config/env.validation';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { InvoiceEntity } from './dto/invoice.entity';
+import { InvoicingPeriodEntity } from './dto/invoicing-period.entity';
+import { invoicingDefaultPeriod } from './invoicing-period';
+import { DateTime } from 'luxon';
+import { ClientType } from '../../generated/prisma/enums';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -20,6 +24,27 @@ export class InvoicesService {
     private readonly refCounter: RefCounterService,
     private readonly config: ConfigService<EnvironmentVariables, true>,
   ) {}
+
+  /**
+   * The period the Customer tab opens on. The browser used to work this out
+   * itself, which is why that tab downloaded every trip ever recorded — it
+   * only ever needed the oldest unbilled one.
+   */
+  async defaultPeriod(): Promise<InvoicingPeriodEntity> {
+    // Events-client bookings are excluded, because the tab's own Pending table
+    // never lists them (its query is the default `category=daily`). Reaching
+    // the period back for a booking it cannot show would just open on an empty
+    // month.
+    const oldest = await this.prisma.trip.findFirst({
+      where: {
+        invoiced: false,
+        client: { clientType: { not: ClientType.EVENT } },
+      },
+      orderBy: { pickupAt: 'asc' },
+      select: { pickupAt: true },
+    });
+    return invoicingDefaultPeriod(oldest?.pickupAt ?? null, DateTime.now());
+  }
 
   list(): Promise<InvoiceEntity[]> {
     return this.prisma.invoice.findMany({

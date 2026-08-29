@@ -267,6 +267,7 @@ export class TripsService {
         : periodDateRange(period, nowParis);
     if (window) where.pickupAt = window;
     if (query.hasPartner) where.partnerId = { not: null };
+    if (query.unbilled) where.invoiced = false;
 
     return this.prisma.trip.findMany({
       where,

@@ -1,6 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { TripEntity } from '@cockpit/shared/api'
-import { useInvoicesControllerList, useTripsControllerList } from '@cockpit/shared/api'
+import {
+  useInvoicesControllerDefaultPeriod,
+  useInvoicesControllerList,
+  useTripsControllerList,
+} from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
 import { FileSpreadsheet, ReceiptText } from 'lucide-react'
 import { AdvanceStepConfirmDialog } from '../bookings/advance-step-confirm-dialog'
@@ -12,10 +16,10 @@ import { CustomerFiltersBar } from './customer-filters-bar'
 import {
   applyInvoiceFilters,
   applyPendingFilters,
-  computeCustomerDefaultPeriod,
   customerFilterTarget,
   defaultCustomerFilters,
 } from './customer-filters'
+import { parisDateRangeWindow } from '../bookings/trip-query'
 import { downloadCustomerPendingExcel, downloadInvoicesExcel } from './invoice-excel'
 import { InvoiceCreateDialog } from './invoice-create-dialog'
 import { InvoicedTable } from './invoiced-table'
@@ -24,26 +28,38 @@ import { filtersChanged } from '@/lib/utils'
 
 export function CustomerTab() {
   const [filters, setFilters] = useState(() => defaultCustomerFilters({ start: '', end: '' }))
-  const datesInitialized = useRef(false)
+  // State rather than a ref, because the trips query below waits on it: the
+  // first fetch has to carry the period, not go out unbounded and be corrected.
+  const [datesInitialized, setDatesInitialized] = useState(false)
 
-  const trips = useTripsControllerList({ period: 'all' })
+  // The opening period is the API's (invoicingDefaultPeriod) — working it out
+  // in the browser is what made this tab download every trip ever recorded,
+  // when all it needed was the oldest unbilled one.
+  const defaultPeriod = useInvoicesControllerDefaultPeriod()
   const invoices = useInvoicesControllerList()
 
-  // Recomputed from the same rule the mount-time effect below uses — "reset"
-  // returns to the current default period, not to blank dates.
-  const defaultFilters = defaultCustomerFilters(computeCustomerDefaultPeriod(trips.data ?? []))
+  const trips = useTripsControllerList(
+    {
+      ...parisDateRangeWindow(filters.dateStart, filters.dateEnd),
+      ...(!filters.dateStart && !filters.dateEnd && { period: 'all' as const }),
+      unbilled: true,
+    },
+    { query: { enabled: datesInitialized } },
+  )
+
+  // "Reset" returns to the current default period, not to blank dates.
+  const defaultFilters = defaultCustomerFilters(defaultPeriod.data ?? { start: '', end: '' })
   const hasActiveFilters = filtersChanged(filters, defaultFilters)
   const resetFilters = () => setFilters(defaultFilters)
 
-  // Computed once on the first successful load, not on every refetch — matches
-  // the legacy's custDatesInitialized flag (invoicing.html:234) so the
-  // dispatcher's own date edits aren't fought on a background refresh.
+  // Applied once, not on every refetch — matches the legacy's
+  // custDatesInitialized flag (invoicing.html:234) so the dispatcher's own date
+  // edits aren't fought on a background refresh.
   useEffect(() => {
-    if (datesInitialized.current || !trips.data) return
-    datesInitialized.current = true
-    const period = computeCustomerDefaultPeriod(trips.data)
-    setFilters((f) => ({ ...f, dateStart: period.start, dateEnd: period.end }))
-  }, [trips.data])
+    if (datesInitialized || !defaultPeriod.data) return
+    setFilters((f) => ({ ...f, dateStart: defaultPeriod.data.start, dateEnd: defaultPeriod.data.end }))
+    setDatesInitialized(true)
+  }, [defaultPeriod.data, datesInitialized])
 
   const [editTarget, setEditTarget] = useState<TripEntity | null>(null)
   const [cancelTarget, setCancelTarget] = useState<TripEntity | null>(null)
