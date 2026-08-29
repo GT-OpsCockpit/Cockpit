@@ -801,6 +801,108 @@ describe('Trips (e2e)', () => {
       expect(refs).toContain(unassignedRef);
     });
 
+    // The Planning Gantt's window and the Invoicing/Partner billing month are
+    // real date ranges, which the named periods cannot express — they used to
+    // ask for period=all (no bound) and narrow in the browser.
+    describe('an explicit from/to window', () => {
+      it('bounds the list at both ends, `from` inclusive and `to` exclusive', async () => {
+        const client = await createClient();
+        const mkAt = async (pickupAt: string) => {
+          const res = await request(server())
+            .post('/api/trips')
+            .set('Cookie', cookie)
+            .send({ ...BASE_TRIP, clientRef: client.ref, pickupAt })
+            .expect(201);
+          return (res.body as TripBody).ref;
+        };
+        // Both bounds are pinned to a single instant and reused for the seeded
+        // pickups AND the query, so the boundary rows really sit ON them
+        // rather than a few milliseconds either side.
+        const from = isoOffsetDays(-3);
+        const to = isoOffsetDays(0);
+
+        const before = await mkAt(isoOffsetDays(-5));
+        const onFrom = await mkAt(from);
+        const inside = await mkAt(isoOffsetDays(-2));
+        const onTo = await mkAt(to);
+        const after = await mkAt(isoOffsetDays(3));
+
+        const list = await request(server())
+          .get(`/api/trips?from=${from}&to=${to}`)
+          .set('Cookie', cookie)
+          .expect(200);
+        const refs = (list.body as TripBody[]).map((t) => t.ref);
+        expect(refs).toContain(onFrom);
+        expect(refs).toContain(inside);
+        expect(refs).not.toContain(before);
+        expect(refs).not.toContain(onTo);
+        expect(refs).not.toContain(after);
+      });
+
+      // Otherwise a caller that means "this window" would silently also get
+      // the 'upcoming' default and lose the whole past half of it.
+      it('replaces the period default rather than narrowing it', async () => {
+        const client = await createClient();
+        const past = await request(server())
+          .post('/api/trips')
+          .set('Cookie', cookie)
+          .send({
+            ...BASE_TRIP,
+            clientRef: client.ref,
+            pickupAt: isoOffsetDays(-2),
+          })
+          .expect(201);
+
+        const list = await request(server())
+          .get(`/api/trips?from=${isoOffsetDays(-4)}&to=${isoOffsetDays(4)}`)
+          .set('Cookie', cookie)
+          .expect(200);
+        expect((list.body as TripBody[]).map((t) => t.ref)).toContain(
+          (past.body as TripBody).ref,
+        );
+      });
+    });
+
+    // The Partner log shows nothing but farmed-out bookings, and used to
+    // download every trip ever recorded to find them.
+    it('hasPartner=true keeps only the bookings farmed out to a partner', async () => {
+      const client = await createClient();
+      const partner = await request(server())
+        .post('/api/drivers')
+        .set('Cookie', cookie)
+        .send({
+          firstName: 'Paul',
+          lastName: 'Partner',
+          phone: '+33699000042',
+          company: 'Riviera Cars',
+          email: 'paul.window@riviera.test',
+        })
+        .expect(201);
+      const plain = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({ ...BASE_TRIP, clientRef: client.ref })
+        .expect(201);
+      const farmedOut = await request(server())
+        .post('/api/trips')
+        .set('Cookie', cookie)
+        .send({
+          ...BASE_TRIP,
+          clientRef: client.ref,
+          subContractor: true,
+          partnerRef: (partner.body as { ref: string }).ref,
+        })
+        .expect(201);
+
+      const list = await request(server())
+        .get('/api/trips?period=all&hasPartner=true')
+        .set('Cookie', cookie)
+        .expect(200);
+      const refs = (list.body as TripBody[]).map((t) => t.ref);
+      expect(refs).toContain((farmedOut.body as TripBody).ref);
+      expect(refs).not.toContain((plain.body as TripBody).ref);
+    });
+
     it('the default category (daily) excludes Events-client trips, regardless of period', async () => {
       const eventClient = await request(server())
         .post('/api/clients')

@@ -195,8 +195,17 @@ export class TripsService {
     } else if (category === 'event') {
       where.client = { clientType: ClientType.EVENT };
     }
-    const periodRange = periodDateRange(period, nowParis);
-    if (periodRange) where.pickupAt = periodRange;
+    // An explicit window replaces the named period entirely — see
+    // ListTripsQueryDto.from.
+    const window =
+      query.from || query.to
+        ? {
+            ...(query.from && { gte: new Date(query.from) }),
+            ...(query.to && { lt: new Date(query.to) }),
+          }
+        : periodDateRange(period, nowParis);
+    if (window) where.pickupAt = window;
+    if (query.hasPartner) where.partnerId = { not: null };
 
     return this.prisma.trip.findMany({
       where,

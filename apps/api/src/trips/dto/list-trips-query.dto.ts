@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsIn, IsOptional } from 'class-validator';
+import { IsBoolean, IsIn, IsISO8601, IsOptional } from 'class-validator';
 
 export const TRIP_PERIODS = [
   'upcoming',
@@ -17,6 +17,35 @@ export const TRIP_CATEGORIES = ['daily', 'event', 'all'] as const;
 export type TripCategory = (typeof TRIP_CATEGORIES)[number];
 
 export class ListTripsQueryDto {
+  /**
+   * Explicit pickup window, as ISO instants: `from` inclusive, `to` exclusive.
+   *
+   * For the callers whose window is a real date range rather than one of the
+   * named periods below — the Planning Gantt navigates to an arbitrary date
+   * plus a 1-3 day span, the Invoicing/Partner logs to a billing month. They
+   * used to ask for `period=all` (no bound at all) and narrow in the browser.
+   *
+   * Giving either bound replaces `period` entirely, so a caller that means
+   * "this window" cannot accidentally also get the 'upcoming' default.
+   */
+  @IsOptional()
+  @IsISO8601()
+  from?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  to?: string;
+
+  /**
+   * Only bookings farmed out to a partner — the Invoicing Partner log, which
+   * shows nothing else. Omit for no filtering; `false` is not a filter for
+   * "no partner", there is no caller for that.
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  hasPartner?: boolean;
+
   /** Defaults to 'upcoming' in TripsService.list() — see periodDateRange(). */
   @IsOptional()
   @IsIn(TRIP_PERIODS)

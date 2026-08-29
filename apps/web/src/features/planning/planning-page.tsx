@@ -27,6 +27,7 @@ import { PlanningFiltersBar } from './planning-filters-bar'
 import { PlanningList } from './planning-list'
 import { coversDate, defaultPlanningFilters, vehicleTypeColor, type PlanningResource } from './planning-status'
 import { PlanningTimeline, type TimelineRow } from './planning-timeline'
+import { timelineWindow } from '../bookings/trip-query'
 import { PageTitle } from '@/components/layout/page-title'
 import { filtersChanged } from '@/lib/utils'
 
@@ -50,14 +51,16 @@ export function PlanningPage() {
   const isEditable = (trip: TripEntity) => new Date(trip.pickupAt) >= new Date() || canEditPast
 
   // The Timeline navigates to an arbitrary date + 1-3 day span, which the
-  // named `period` enum can't bound precisely — 'all' is still a bounded,
-  // "operationally relevant" set (today onward, plus the never-dropped past
-  // backlog — see TripsService.list()), not the unbounded fetch this project
-  // has otherwise ruled out; the List view keeps using the selected period.
-  const trips = useTripsControllerList({
-    period: filters.view === 'timeline' ? 'all' : filters.period,
-    category: filters.category,
-  })
+  // named `period` enum cannot express — it used to ask for 'all', which puts
+  // no bound on the query at all. It sends its own window now (see
+  // timelineWindow, which also reaches back far enough to catch a booking
+  // still running into the first visible day). The List view keeps using the
+  // selected period.
+  const trips = useTripsControllerList(
+    filters.view === 'timeline'
+      ? { ...timelineWindow(filters.timelineDate, filters.timelineDays), category: filters.category }
+      : { period: filters.period, category: filters.category },
+  )
 
   const drivers = useDriversControllerList(
     { includeInactive: false, limit: ROSTER_LIMIT },
