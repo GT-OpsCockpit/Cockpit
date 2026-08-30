@@ -136,3 +136,49 @@ affichait la totalité des comptes d'un bloc.
 **Bilan `/clients` : 3 features legacy manquantes**, toutes de l'affichage de liste (Country, POC,
 dates d'événement), toutes de faible effort, toutes recommandées au portage.
 
+## `/drivers` ↔ `/drivers.html`
+
+Legacy comparé : `http://localhost:4100/drivers.html` (+ `server.js:478-560`,
+`public/common.js:3498-3556`, `public/drivers.html:199-290`).
+État de données créé à la main : **2 chauffeurs** — un interne (`D•FR•INT•1`, FR/Nice) et une
+société partenaire (`D•FR•PA•LEG•1`, FR/Paris) — sans quoi les deux tableaux restent vides.
+
+**Inventaire legacy — tableau Drivers** : REF | Country (+ drapeau) | Area | Company (« In-house ») |
+Surname | Name | Mobile | Action.
+**Tableau Partners** : les mêmes, **plus Email**.
+Par ligne : 🫥 (Day off / Holidays), ✏️ Edit, ❌ Deactivate. L'indisponibilité et le badge
+d'inactivité s'affichent en sous-ligne sous le nom, pas en colonne.
+
+**Inventaire legacy — formulaire** : Country (**requis**), Area, Company, « Ind. » (désactivée),
+Email (désactivée tant qu'aucune société), Surname (requis), Name (requis), Mobile (requis),
+« Events » + 3 champs cachés de rattachement.
+
+### Features legacy sans équivalent v2
+
+| Feature | Ce qu'elle fait | Où elle vit | Pourquoi pas d'équivalent | Effort | Recommandation |
+|---|---|---|---|---|---|
+| **Colonne Country** (+ drapeau) | Le pays du chauffeur dans la liste | `common.js:3531` / `:3550` | **Oubli** — même angle mort que sur `/clients` : v2 a redéfini les colonnes et le pays n'est plus lisible qu'en ouvrant la fiche | Faible | **À porter**, avec celle de `/clients` |
+| **Colonne Company** | « In-house » pour un interne, la société pour un partenaire | `common.js:3531` | Partiellement porté : v2 met la société entre parenthèses dans la cellule Nom (`(Uber Elite London)`), mais un interne n'affiche rien là où le legacy écrivait « In-house » | Très faible | À trancher — l'information existe, sa présentation diffère |
+| **Colonnes Surname / Name séparées** | Deux colonnes triables | `drivers.html:274-279` | v2 fusionne en une colonne Name | — | Sans objet (v2 ne trie sur aucune colonne) |
+
+### Écarts de règle sur des contrôles présents des deux côtés
+
+| Contrôle | Legacy | v2 | Verdict |
+|---|---|---|---|
+| **Country sur le formulaire** | `required` sur `#d-country-input` (`drivers.html`) — impossible de créer un chauffeur sans pays | `countryCode: z.string().optional()` — **vérifié en live** : `D-XX-XX-QAP-001` a été créé sans pays ni area | **Validation perdue, à trancher par Romain.** Même famille que les quatre « validations perdues » restaurées le 2026-08-29 (`24107ea`). Non appliquée ici parce qu'elle a des conséquences sur les données : plusieurs chauffeurs de la base de dev ont `countryCode: null` et deviendraient inéditables tant qu'un pays ne leur est pas donné. Le serveur legacy ne l'exigeait pas non plus (`validateDriverFields` ne teste pas le pays) — c'était une contrainte de formulaire seule |
+| **Format de la référence** | `D•FR•INT•1` — séparateur **puce** `•`, séquence **non paddée** (`nextDriverRef`, `server.js:531-535`) | `D-FR-INT-003` — tiret, séquence sur 3 chiffres | **Écart réel, jamais consigné.** À noter : le commentaire du legacy lui-même décrit « FR-INT-001, FR-INT-002… US-LO-UBE-001 » (`server.js:511-515`) — **le code et son propre commentaire divergent**, et v2 a implémenté le commentaire. **Recommandation : ne rien changer** — la logique de préfixe est identique (mêmes `letters()`, même découpe pays, 2 lettres d'area, 3 de société), l'écart est cosmétique, et l'aligner imposerait une migration de toutes les refs existantes pour un caractère plus difficile à taper et à rechercher |
+| **Indisponibilité** | plage complète, « Day off » / « Sickness leave » | idem depuis `c39d6ce` (**corrigé pendant cette passe**) | Écart supprimé |
+| **Emplacement de l'indisponibilité** | sous-ligne rouge sous le nom + icône 🫥 colorée quand elle est en vigueur | colonne dédiée | Présentation, pas de perte d'information |
+| **Réactivation** | derrière le mot de passe Manager (`common.js:3596`) | derrière `driver:reactivate` (ADMIN) | Porté (§15) — **revu, non touché** |
+| **Tri** | actifs puis `ref` | actifs puis `createdAt` | **Écart assumé** (§15) — **revu, non touché** |
+| **Titres des tableaux** | « Drivers » / « Partners » | étaient « Chauffeurs » / « Partenaires » ; corrigés (`c39d6ce`) | Écart supprimé |
+
+### Ajouts v2 sans équivalent legacy
+
+Recherche, « Show deactivated », pagination serveur, bouton « New booking » pré-remplissant le
+chauffeur ou le partenaire, colonne Email sur les deux tableaux, et le **cadenas de déliaison
+véhicule↔chauffeur** (porté depuis la fiche Vehicles du legacy, cf. handoff du 2026-08-27).
+
+**Bilan `/drivers` : 1 feature legacy manquante** (colonne Country), **1 validation perdue à
+trancher** (Country requis), **1 écart de format de référence documenté et volontairement conservé**.
+
