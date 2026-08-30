@@ -14,3 +14,12 @@ export function cn(...inputs: ClassValue[]) {
 export function filtersChanged<T>(current: T, defaults: T): boolean {
   return JSON.stringify(current) !== JSON.stringify(defaults)
 }
+
+/**
+ * A stored ISO date as the roster lists show it: DD/MM/YYYY, the format the
+ * legacy's ymdToDmy produced (common.js). Shared by the Drivers and Vehicles
+ * unavailability labels, which had a copy each.
+ */
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB')
+}

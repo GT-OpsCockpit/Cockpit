@@ -143,7 +143,7 @@ test.describe('Events — select/create event, bulk-create bookings', () => {
     await expect(page.getByText(/Hotel Negresco → ASD \(4h\)/)).toBeVisible() // bulk day 3 (last)
 
     // One of the bulk legs carries the reference in its Info field — spot-check via the edit dialog.
-    const bulkDay2Row = page.getByRole('row').filter({ hasText: 'Hotel Negresco → Hotel Negresco' })
+    const bulkDay2Row = page.getByRole('row').filter({ hasText: /Hotel Negresco → .*Hotel Negresco/ })
     await bulkDay2Row.getByRole('button', { name: 'Edit' }).click()
     const editDialog = page.getByRole('dialog', { name: /^Edit booking/ })
     await expect(editDialog.getByLabel('Info', { exact: true })).toHaveValue('Ref: PO-E2E-001')

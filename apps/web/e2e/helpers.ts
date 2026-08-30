@@ -81,6 +81,10 @@ async function fillCombobox(
   await scope.getByLabel(label, { exact: true }).click()
   await expect(search).toHaveCount(1)
   await search.fill(value)
+  // These lists are remote and debounced: rows are re-rendered as results
+  // land, which detaches the one being clicked. CommandList marks the wait
+  // with aria-busy, so wait for it rather than racing the re-render.
+  await expect(page.locator('[data-slot="command-list"][aria-busy="true"]')).toHaveCount(0)
   await page.getByRole('option', { name: new RegExp(`^(${escaped}|Use “${escaped}”)$`) }).click()
   await expect(scope.getByLabel(label, { exact: true })).toHaveText(value)
   await expect(search).toHaveCount(0)

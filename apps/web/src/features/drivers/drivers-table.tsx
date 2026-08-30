@@ -44,7 +44,7 @@ export function DriversTable({
   return (
     <div className="grid gap-6">
       <DriverGroup
-        title="Chauffeurs"
+        title="Drivers"
         drivers={chauffeurs}
         loading={loading}
         onEdit={onEdit}
@@ -57,7 +57,7 @@ export function DriversTable({
         onResetFilters={onResetFilters}
       />
       <DriverGroup
-        title="Partenaires"
+        title="Partners"
         drivers={partners}
         loading={loading}
         onEdit={onEdit}

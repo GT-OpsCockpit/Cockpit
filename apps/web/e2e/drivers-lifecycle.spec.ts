@@ -26,7 +26,12 @@ function toast(page: Page, textOrPattern: string | RegExp) {
 // one, and this database is never truncated between runs (playwright.config.ts),
 // so a ref like "F8" also matches the "F80" a later run created.
 function row(page: Page, text: string) {
-  return page.getByRole('row').filter({ has: page.getByRole('cell', { name: text, exact: true }) })
+  // Anchored on the ref, but not exact: the External vehicles table renders an
+  // <InactivityBadge> inside the same cell. Anchoring still keeps "F8" from
+  // matching the "F80" a later run created — this database is never truncated
+  // between runs (playwright.config.ts).
+  const ref = new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
+  return page.getByRole('row').filter({ has: page.getByRole('cell', { name: ref }) })
 }
 
 /**

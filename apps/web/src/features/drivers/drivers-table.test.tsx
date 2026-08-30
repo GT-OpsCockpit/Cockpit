@@ -26,13 +26,13 @@ describe('DriversTable', () => {
     expect(onResetFilters).toHaveBeenCalledOnce()
   })
 
-  it('splits an internal driver into Chauffeurs and a company driver into Partenaires', () => {
+  it('splits an internal driver into Drivers and a company driver into Partners', () => {
     const chauffeur = baseDriver({ ref: 'D-FR-INT-001', company: null })
     const partner = baseDriver({ ref: 'D-US-LO-UBE-001', company: 'Uber', name: 'Uber Ops' })
     render(<DriversTable drivers={[chauffeur, partner]} canReactivate {...noop} />)
 
-    const chauffeursGroup = screen.getByText('Chauffeurs').closest('div')!
-    const partnersGroup = screen.getByText('Partenaires').closest('div')!
+    const chauffeursGroup = screen.getByText('Drivers').closest('div')!
+    const partnersGroup = screen.getByText('Partners').closest('div')!
     expect(within(chauffeursGroup).getByText('D-FR-INT-001')).toBeInTheDocument()
     expect(within(chauffeursGroup).queryByText('D-US-LO-UBE-001')).not.toBeInTheDocument()
     expect(within(partnersGroup).getByText('D-US-LO-UBE-001')).toBeInTheDocument()
@@ -57,7 +57,7 @@ describe('DriversTable', () => {
         unavailability: { id: 'u1', driverId: 'driver-1', type: DriverUnavailabilityEntityType.OFF, date: today, startDate: null, endDate: null },
       })
       render(<DriversTable drivers={[driver]} canReactivate {...noop} />)
-      expect(screen.getAllByText(/^Off /)).not.toHaveLength(0)
+      expect(screen.getAllByText(/^Day off — /)).not.toHaveLength(0)
     })
 
     it('says nothing when the unavailability on file does not cover today', () => {
@@ -181,11 +181,11 @@ describe('DriversTable', () => {
       unavailability: { id: 'u1', driverId: 'driver-1', type: DriverUnavailabilityEntityType.OFF, date: '2026-06-01T00:00:00.000Z', startDate: null, endDate: null },
     })
     const { rerender } = render(<DriversTable drivers={[off]} canReactivate {...noop} />)
-    expect(screen.getByText('Off 01/06/2026')).toBeInTheDocument()
+    expect(screen.getByText('Day off — 01/06/2026')).toBeInTheDocument()
 
     const none = baseDriver({ ref: 'D-FR-INT-002' })
     rerender(<DriversTable drivers={[none]} canReactivate {...noop} />)
-    expect(screen.queryByText(/Off /)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Day off /)).not.toBeInTheDocument()
   })
 
   it('falls back to an em dash for a missing phone or email', () => {

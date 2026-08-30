@@ -1,6 +1,7 @@
 import { FleetUnavailabilityEntityType } from '@cockpit/shared/api'
 import type { FleetUnavailabilityEntity, FleetVehicleEntity } from '@cockpit/shared/api'
 import type { BookingPrefill } from '@/features/bookings/booking-create-dialog'
+import { formatDate } from '@/lib/utils'
 
 export interface VehicleFilters {
   search: string
@@ -18,10 +19,6 @@ export function vehicleBookingPrefill(vehicle: FleetVehicleEntity): BookingPrefi
     fleetRegNbr: vehicle.regNbr,
     regNbrLabel: `${vehicle.regNbr} — ${vehicle.category.name}`,
   }
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB')
 }
 
 const UNAVAILABILITY_LABELS: Record<FleetUnavailabilityEntityType, string> = {
