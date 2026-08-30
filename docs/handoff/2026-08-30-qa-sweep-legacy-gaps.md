@@ -303,6 +303,9 @@ Event name, Ref/PO/Other — **identique à v2** ; « Ride list » aux mêmes co
 **Bilan `/events` : 1 feature legacy manquante** (`offerEventReactivation`), **déjà tranchée** dans
 l'audit et laissée en l'état, comme le prompt le demande.
 
+> **Rectification 2026-08-30.** Ce constat est faux : `offerEventReactivation` **était déjà portée** au moment de la passe, par le commit `408f5ff` du 28/08 — `GET /clients/:ref/reactivation-candidates`, `POST /clients/:ref/reactivate`, `EventReactivationDialog` monté sur `/clients` **et** `/events`, avec ses tests (`clients.e2e-spec.ts`, `event-reactivation-dialog.test.tsx`). Ni la passe QA ni le plan d'écarts ne l'avaient vue. Seul manquait un e2e de câblage, ajouté depuis (`event-reactivation.spec.ts`). Voir la §4.4 de `docs/LEGACY_PARITY_AUDIT.md`.
+
+
 ## `/invoicing` ↔ `/invoicing.html`
 
 Legacy comparé : `http://localhost:4100/invoicing.html` (+ `public/invoicing.html:38-44`,
