@@ -9,6 +9,8 @@ import type { PublicUserEntityRole } from './publicUserEntityRole';
 
 export interface PublicUserEntity {
   id: string;
+  /** O-001 / D-001… — see the `ref` column on the User model. */
+  ref: string;
   email: string;
   role: PublicUserEntityRole;
   firstName: string;

@@ -5,7 +5,9 @@ import {
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { normalizeEmail } from '@cockpit/shared';
+import { Role } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -13,6 +15,7 @@ import { PublicUserEntity } from './dto/user.entity';
 
 const PUBLIC_SELECT = {
   id: true,
+  ref: true,
   email: true,
   role: true,
   firstName: true,
@@ -24,9 +27,22 @@ const PUBLIC_SELECT = {
   createdAt: true,
 } as const;
 
+/** `O-001` for an Admin, `D-001` for a Dispatcher — two independent series, zero-padded to three. */
+async function userRef(
+  refCounter: RefCounterService,
+  role: Role,
+): Promise<string> {
+  const prefix = role === Role.ADMIN ? 'O' : 'D';
+  const seq = await refCounter.next(`user:${prefix}`);
+  return `${prefix}-${String(seq).padStart(3, '0')}`;
+}
+
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly refCounter: RefCounterService,
+  ) {}
 
   list(): Promise<PublicUserEntity[]> {
     // Active accounts first, then deactivated ones at the bottom — same
@@ -45,8 +61,14 @@ export class UsersService {
     if (existing) throw new ConflictException('Email already in use');
 
     const passwordHash = await argon2.hash(dto.password);
+    // The role held at creation picks the series, and the ref never moves
+    // afterwards — switching someone from Dispatch to Admin leaves them
+    // D-002, exactly as the legacy did (server.js:804-806) and as driver and
+    // fleet refs already do here.
+    const ref = await userRef(this.refCounter, dto.role);
     return this.prisma.user.create({
       data: {
+        ref,
         email,
         passwordHash,
         role: dto.role,

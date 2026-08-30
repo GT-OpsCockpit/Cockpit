@@ -20,6 +20,16 @@ describe('UsersTable', () => {
     expect(screen.getByText('ADMIN')).toBeInTheDocument()
   })
 
+  // The Ref column used to print the first eight characters of a cuid, which
+  // names nothing and cannot be read out over the phone. It carries the
+  // account's own reference since the §1.4 port (O-001 / D-001).
+  it('shows the account reference, not a slice of its id', () => {
+    const user = baseUser({ id: 'cmtanuan10000zdo3comdcepd', ref: 'O-002' })
+    render(<UsersTable users={[user]} onEdit={vi.fn()} onSetPassword={vi.fn()} onDeactivate={vi.fn()} canManage />)
+    expect(screen.getByText('O-002')).toBeInTheDocument()
+    expect(screen.queryByText('cmtanuan')).not.toBeInTheDocument()
+  })
+
   it('dims an inactive user and shows its deactivated date', () => {
     const inactive = baseUser({ active: false, deactivatedAt: '2026-02-01T00:00:00.000Z' })
     render(<UsersTable users={[inactive]} onEdit={vi.fn()} onSetPassword={vi.fn()} onDeactivate={vi.fn()} canManage />)

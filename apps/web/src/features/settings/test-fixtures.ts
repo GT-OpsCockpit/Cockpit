@@ -24,6 +24,7 @@ export function baseCompanyInfo(overrides: Partial<CompanyInfoEntity> = {}): Com
 export function baseUser(overrides: Partial<PublicUserEntity> = {}): PublicUserEntity {
   return {
     id: 'user-1',
+    ref: 'D-001',
     email: 'jane.doe@cockpit.test',
     role: 'DISPATCHER',
     firstName: 'Jane',

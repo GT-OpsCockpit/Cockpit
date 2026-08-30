@@ -3,6 +3,8 @@ import { Role } from '../../../generated/prisma/enums';
 /** User record with the password hash stripped out — never returned to clients. */
 export class PublicUserEntity {
   id: string;
+  /** O-001 / D-001… — see the `ref` column on the User model. */
+  ref: string;
   email: string;
   role: Role;
   firstName: string;

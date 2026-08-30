@@ -18,17 +18,21 @@ export async function seedAdmin(prisma: PrismaClient, admin: AdminSeed) {
   // Normalized like every other write path (UsersService) so a capitalized
   // ADMIN_EMAIL in .env still matches the case-insensitive login lookup.
   const email = admin.email.trim().toLowerCase();
-  await prisma.user.upsert({
-    where: { email },
-    create: {
+  const existing = await prisma.user.findUnique({ where: { email } });
+  // Never overwrite an existing admin — neither the password nor the ref,
+  // which is assigned once and never moves (see the User model).
+  if (existing) return;
+
+  const seq = await nextRef(prisma, 'user:O');
+  await prisma.user.create({
+    data: {
+      ref: `O-${String(seq).padStart(3, '0')}`,
       email,
       passwordHash,
       role: Role.ADMIN,
       firstName: admin.firstName,
       lastName: admin.lastName,
     },
-    // Never overwrite an existing admin's password on re-seed.
-    update: {},
   });
 }
 

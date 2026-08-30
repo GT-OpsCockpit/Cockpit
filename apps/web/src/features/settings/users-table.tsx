@@ -1,15 +1,11 @@
 import { KeyRound, Pencil, UserCog, X } from 'lucide-react'
 import type { PublicUserEntity } from '@cockpit/shared/api'
 import { formatPhoneDisplay } from '@cockpit/shared'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
 import { EmptyState } from '@/components/empty-state'
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString()
-}
 
 interface UsersTableProps {
   users: PublicUserEntity[]
@@ -46,7 +42,7 @@ export function UsersTable({ users, onEdit, onSetPassword, onDeactivate, canMana
           ) : (
             users.map((user) => (
               <TableRow key={user.id} className={cn(!user.active && 'opacity-50')}>
-                <TableCell className="text-xs font-medium">{user.id.slice(0, 8)}</TableCell>
+                <TableCell className="text-xs font-medium">{user.ref}</TableCell>
                 <TableCell className="text-xs">{user.firstName}</TableCell>
                 <TableCell className="text-xs">{user.lastName}</TableCell>
                 <TableCell className="text-muted-foreground text-xs">{formatPhoneDisplay(user.phone) || '—'}</TableCell>

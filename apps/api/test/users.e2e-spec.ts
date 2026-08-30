@@ -8,6 +8,7 @@ import { Role } from '../generated/prisma/enums';
 
 interface UserResponseBody {
   id: string;
+  ref: string;
   active: boolean;
   deactivatedAt: string | null;
 }
@@ -32,6 +33,73 @@ describe('Users (e2e)', () => {
   });
 
   const server = () => app.getHttpServer() as Parameters<typeof request>[0];
+
+  // The legacy gave each access record a readable reference — O-001, O-002…
+  // for an Admin, D-001, D-002… for a Dispatch, two independent series, zero-
+  // padded to three (server.js:788-801). v2's Settings table showed the first
+  // eight characters of a cuid instead, which names nothing and cannot be read
+  // out loud over the phone.
+  it('gives every account a readable ref, on its own series per role', async () => {
+    let phoneSeq = 0;
+    const mk = async (email: string, role: Role) => {
+      const res = await request(server())
+        .post('/api/users')
+        .set('Cookie', adminCookie)
+        .send({
+          email,
+          password: 'a-password',
+          role,
+          firstName: 'A',
+          lastName: 'B',
+          phone: `+3360000010${phoneSeq++}`,
+        })
+        .expect(201);
+      return res.body as UserResponseBody;
+    };
+
+    // The seeded admin took the first Admin number.
+    const list = await request(server())
+      .get('/api/users')
+      .set('Cookie', adminCookie)
+      .expect(200);
+    expect((list.body as UserResponseBody[])[0].ref).toBe('O-001');
+
+    expect((await mk('d1@cockpit.test', Role.DISPATCHER)).ref).toBe('D-001');
+    expect((await mk('d2@cockpit.test', Role.DISPATCHER)).ref).toBe('D-002');
+    expect((await mk('a2@cockpit.test', Role.ADMIN)).ref).toBe('O-002');
+  });
+
+  // Same convention as driver and fleet refs, which never change after
+  // creation — the legacy said so explicitly (server.js:804-806).
+  it('keeps the ref a role change would otherwise rewrite', async () => {
+    const created = await request(server())
+      .post('/api/users')
+      .set('Cookie', adminCookie)
+      .send({
+        email: 'promoted@cockpit.test',
+        password: 'a-password',
+        role: Role.DISPATCHER,
+        firstName: 'Pro',
+        lastName: 'Moted',
+        phone: '+33600000200',
+      })
+      .expect(201);
+    const { id, ref } = created.body as UserResponseBody;
+    expect(ref).toBe('D-001');
+
+    const updated = await request(server())
+      .put(`/api/users/${id}`)
+      .set('Cookie', adminCookie)
+      .send({
+        email: 'promoted@cockpit.test',
+        role: Role.ADMIN,
+        firstName: 'Pro',
+        lastName: 'Moted',
+        phone: '+33600000200',
+      })
+      .expect(200);
+    expect((updated.body as UserResponseBody).ref).toBe('D-001');
+  });
 
   it('lets an admin create, list, update and deactivate a dispatcher account', async () => {
     const createRes = await request(server())

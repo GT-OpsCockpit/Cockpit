@@ -64,6 +64,11 @@ enum FleetUnavailKind {
 
 model User {
   id            String    @id @default(cuid())
+  // O-001, O-002... for an Admin, D-001, D-002... for a Dispatcher: two
+  // independent series, assigned from the role held at creation and never
+  // rewritten afterwards, same convention as driver and fleet refs
+  // (server.js:788-806).
+  ref           String    @unique
   email         String    @unique
   passwordHash  String
   role          Role
