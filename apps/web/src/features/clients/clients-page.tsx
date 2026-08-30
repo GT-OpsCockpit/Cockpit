@@ -29,7 +29,7 @@ export function ClientsPage() {
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <PageTitle>Clients</PageTitle>
+        <PageTitle />
         <ClientCreateDialog />
       </div>
 

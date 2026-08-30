@@ -43,7 +43,7 @@ export function VehiclesPage() {
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <PageTitle>Vehicles</PageTitle>
+        <PageTitle />
         <VehicleCreateDialog />
       </div>
 

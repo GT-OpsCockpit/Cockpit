@@ -44,7 +44,7 @@ export function EventsPage() {
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <PageTitle>Events</PageTitle>
+        <PageTitle />
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="size-4" />
           New booking

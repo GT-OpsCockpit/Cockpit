@@ -38,7 +38,7 @@ export function DriversPage() {
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <PageTitle>Drivers</PageTitle>
+        <PageTitle />
         <DriverCreateDialog />
       </div>
 

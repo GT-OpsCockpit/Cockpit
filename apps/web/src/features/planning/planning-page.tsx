@@ -145,7 +145,7 @@ export function PlanningPage() {
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <PageTitle>Planning</PageTitle>
+        <PageTitle />
         <Tabs value={filters.resource} onValueChange={(v) => handleResourceChange(v as PlanningResource)}>
           <TabsList>
             <TabsTrigger value="drivers">Drivers</TabsTrigger>

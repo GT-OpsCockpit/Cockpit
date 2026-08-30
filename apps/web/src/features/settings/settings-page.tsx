@@ -7,7 +7,7 @@ import { PageTitle } from '@/components/layout/page-title'
 export function SettingsPage() {
   return (
     <div className="grid gap-6">
-      <PageTitle>Settings</PageTitle>
+      <PageTitle />
 
       <Tabs defaultValue="company">
         <TabsList>

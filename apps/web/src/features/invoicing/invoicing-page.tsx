@@ -12,7 +12,7 @@ export function InvoicingPage() {
 
   return (
     <div className="grid gap-6">
-      <PageTitle>Invoicing</PageTitle>
+      <PageTitle />
 
       <Tabs defaultValue="customer">
         <TabsList>
