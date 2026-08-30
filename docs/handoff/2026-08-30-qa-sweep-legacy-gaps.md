@@ -232,3 +232,39 @@ véhicule. Le legacy n'avait **aucun filtre** sur cette page.
 
 **Bilan `/vehicles` : aucun écart.**
 
+## `/planning` ↔ `/planning-chauffeur.html` **et** `/planning-vehicules.html`
+
+Les deux pages legacy ont été ouvertes, comme le demande le §4 (deux écrans legacy pour un seul
+écran v2). État de données : les 2 courses créées pour la comparaison `/bookings`.
+
+**Inventaire legacy — `planning-chauffeur.html`** : bascule Daily / Event / All, `select` Period,
+`select` Driver, bascule List / Timeline ; en vue Timeline un `input[type=date]` et une bascule
+1 / 2 / 3 days. Tableau : `Pickup, REF, Cust / Pax, Itinerary, Vehicle, Reg Nbr, Sub-C, Driver,
+Status, Action`. Trois actions par ligne : ✏️, 📤, ❌.
+
+**`planning-vehicules.html`** : strictement la même page, avec `#pv-vehicle` à la place de
+`#pc-driver`.
+
+### Features legacy sans équivalent v2
+
+**Aucune.** v2 fusionne les deux pages legacy derrière une bascule Drivers / Vehicles — choix de
+conception documenté (journal du 2026-08-27), pas une perte : les deux jeux de couloirs, les deux
+sélecteurs et les deux vues sont accessibles.
+
+Le moteur de Gantt est porté fidèlement, y compris ce qui ne se voit pas à l'écran : les courses non
+assignées ne sont **jamais** dessinées sur la grille mais listées comme cartes déplaçables dans la
+pile (`common.js:2089-2094`, `:2240-2248`), les blocs assignés sont déplaçables pour désassigner
+(`:2184`), et la règle `canDrop` refuse un couloir incompatible côté client.
+
+### Écarts de règle sur des contrôles présents des deux côtés
+
+| Contrôle | Legacy | v2 | Verdict |
+|---|---|---|---|
+| Actions de ligne | 3 (✏️ 📤 ❌) | 4 — ajout du bouton nameboard | Ajout v2, cohérent avec `/bookings` |
+| Rafraîchissement | polling 5 s (« Auto-refreshes every 5 seconds ») | SSE (`/api/events/stream`) | Modernisation actée (§ audit 🔵) — **revue, non touchée** |
+| Indicateur « maintenant » sur le Gantt | absent | ligne rouge + point | Ajout v2 assumé (journal du 2026-08-27) |
+| Notification POC au drag & drop | le legacy passait par le `PUT` complet et notifiait le POC | `PATCH /assign` ne notifie pas | **Écart connu et listé** (audit §11.4 / §6.6.1) — **revu, non touché** |
+
+**Bilan `/planning` : aucun écart nouveau.** Le seul point ouvert (la notification POC au drag &
+drop) était déjà consigné.
+
