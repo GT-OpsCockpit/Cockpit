@@ -301,3 +301,31 @@ Event name, Ref/PO/Other — **identique à v2** ; « Ride list » aux mêmes co
 **Bilan `/events` : 1 feature legacy manquante** (`offerEventReactivation`), **déjà tranchée** dans
 l'audit et laissée en l'état, comme le prompt le demande.
 
+## `/invoicing` ↔ `/invoicing.html`
+
+Legacy comparé : `http://localhost:4100/invoicing.html` (+ `public/invoicing.html:38-44`,
+`:132-134`, `:180-184`, `:220-233`, `:279-300`).
+
+**Inventaire legacy** : quatre onglets Customer / Driver log / Partner log / History ;
+onglet Customer avec `select` Client, Date in, Date out, Ref/PO, Passenger, case **Events**, bouton
+**Search**, puis « Pending » (Export to Excel + 🧾 Invoice) et « Invoiced » (Export to Excel).
+**Driver log et History sont littéralement `<div class="empty">Coming soon.</div>`** — v2 les rend à
+l'identique.
+
+### Features legacy sans équivalent v2
+
+**Aucune.**
+
+### Écarts de règle sur des contrôles présents des deux côtés
+
+| Contrôle | Legacy | v2 | Verdict |
+|---|---|---|---|
+| Déclenchement de la recherche | bouton **Search** explicite | filtrage réactif à la frappe | Ajout v2, rien de perdu |
+| Période par défaut | mois précédent, étendu au mois de la plus ancienne course non facturée (`invoicing.html:220-233`) | **règle identique**, calculée côté serveur (`invoicingDefaultPeriod`) | Aucun écart. **Le commentaire HTML du legacy dit « defaults to the current calendar month » — son propre code dit le mois précédent.** Deuxième cas de cette passe où un commentaire legacy contredit son code ; v2 a suivi le code |
+| Mode Events sans événement choisi | ne restreint pas au type Events | idem | Aucun écart |
+| Chargement des courses | la page téléchargeait **toutes** les courses jamais enregistrées pour calculer sa période | un seul `findFirst` côté serveur | Modernisation, comportement identique |
+| Bornes de facturation | classement sur la date murale du PU | instant ramené à minuit Paris | **Écart assumé** (§15) — **revu, non touché** |
+| « Correct » | `alert('to be specified next')` | toast « the correction workflow is not defined yet. » | Aucun écart — non spécifié des deux côtés |
+
+**Bilan `/invoicing` : aucun écart.**
+
