@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TripEntityService, TripStepEntityStep } from '@cockpit/shared/api'
+import { TripEntityService, TripStepEntityStep, type TripEntity } from '@cockpit/shared/api'
 import { flightCheckBlocker, tripFormRules, type TripFormRulesInput } from './trip-form-rules'
 import { baseTrip, step } from './test-fixtures'
 
@@ -95,6 +95,25 @@ describe('dropoffApplies / showAirportInfo', () => {
   it('reveals it for an airport the geocoder could not name a code for', () => {
     expect(tripFormRules(values({ pickupIata: '', pickupIsAirport: true })).showAirportInfo).toBe(true)
     expect(tripFormRules(values({ dropoffIata: '', dropoffIsAirport: true })).showAirportInfo).toBe(true)
+  })
+
+  // `pickupIsAirport` is form-only: it comes off the live geocode and is gone
+  // once the dialog is reopened on a saved booking, which then fell back on
+  // the IATA code alone — the very case the test above covers. Its flight
+  // number, buffer, FBO address, tail number and nameboard all went invisible
+  // and uneditable. What the saved booking carries says it is an airport one.
+  it('keeps it open on a saved booking that carries flight data but no code', () => {
+    const carrying = (overrides: Partial<TripEntity>) =>
+      tripFormRules(values(), baseTrip({ pickupIata: null, dropoffIata: null, ...overrides })).showAirportInfo
+    expect(carrying({ flightNumber: 'AF1234' })).toBe(true)
+    expect(carrying({ bufferTime: 45 })).toBe(true)
+    expect(carrying({ fboAddress: 'Signature Flight Support Nice' })).toBe(true)
+    expect(carrying({ tailNbr: 'FGHIJ' })).toBe(true)
+    expect(carrying({ nameboard: 'Mr Smith' })).toBe(true)
+  })
+
+  it('stays shut on a saved booking with nothing of the sort in it', () => {
+    expect(tripFormRules(values(), baseTrip()).showAirportInfo).toBe(false)
   })
 })
 

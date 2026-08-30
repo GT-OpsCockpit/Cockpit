@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
-import { Toaster } from '@/components/ui/sonner'
 import { LiveClock } from './live-clock'
 import { NAV_ITEMS } from './nav-items'
 
@@ -111,7 +110,6 @@ export function AppShell() {
       <main className="mx-auto max-w-7xl px-4 py-6">
         <Outlet />
       </main>
-      <Toaster />
     </div>
   )
 }

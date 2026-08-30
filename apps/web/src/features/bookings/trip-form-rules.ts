@@ -83,6 +83,21 @@ function parisHintFor(values: TripFormRulesInput): string {
   return `${NO_PARIS_TIME} : ${paris.toFormat('HH:mm')} (${paris.toFormat('dd/MM')})`
 }
 
+/**
+ * Whether a saved booking already holds something only the flight block can
+ * show — the evidence that survives a reload, unlike the geocode's own flags.
+ */
+function carriesFlightInfo(trip?: TripEntity | null): boolean {
+  if (!trip) return false
+  return (
+    !!trip.flightNumber?.trim() ||
+    trip.bufferTime != null ||
+    !!trip.fboAddress?.trim() ||
+    !!trip.tailNbr?.trim() ||
+    !!trip.nameboard?.trim()
+  )
+}
+
 export function tripFormRules(values: TripFormRulesInput, trip?: TripEntity | null): TripFormRules {
   const { service, countryCode, priceEur, partnerRateEur, hours } = values
 
@@ -110,8 +125,17 @@ export function tripFormRules(values: TripFormRulesInput, trip?: TripEntity | nu
     // often than it can name one, and an airport pickup whose code came back
     // empty then had nowhere to enter its flight number. The legacy opened the
     // popup on "is an airport" (common.js:1406).
+    // …and not on the live flags alone either: `pickupIsAirport` comes off the
+    // geocode call and is gone the moment the dialog is reopened on a saved
+    // booking, which then fell back on the IATA code — so an airport booking
+    // the geocoder could not name a code for hid its own flight number, FBO
+    // address and nameboard as soon as it was saved. What it carries says it.
     showAirportInfo:
-      !!values.pickupIata || !!values.dropoffIata || !!values.pickupIsAirport || !!values.dropoffIsAirport,
+      !!values.pickupIata ||
+      !!values.dropoffIata ||
+      !!values.pickupIsAirport ||
+      !!values.dropoffIsAirport ||
+      carriesFlightInfo(trip),
     // A flight number is only ever a commercial one — private aviation has
     // none to look up — and the handling agent and tail number only describe
     // the private case. The legacy locked them out rather than leaving them
