@@ -268,3 +268,36 @@ pile (`common.js:2089-2094`, `:2240-2248`), les blocs assignés sont déplaçabl
 **Bilan `/planning` : aucun écart nouveau.** Le seul point ouvert (la notification POC au drag &
 drop) était déjà consigné.
 
+## `/events` ↔ `/events.html`
+
+Legacy comparé : `http://localhost:4100/events.html` (+ `public/common.js:3905-3960`,
+`public/clients.html:520-535`).
+État de données : les comptes Events de la base de dev v2 côté v2 ; côté legacy, la page a été
+ouverte avec le compte client créé pour `/clients` (le legacy n'avait pas de compte Events, ce qui
+suffit à inventorier les contrôles — le panneau « Select event » et la barre de recherche sont
+rendus indépendamment des données).
+
+**Inventaire legacy** : panneau « Select event » (`select` Client, champs Event et Dates en lecture
+seule, boutons Cancel / New / Confirm) — **identique à v2** ; barre « New booking » avec `Create` et
+**`Create bulk`** ; bloc « Search » : Client, Country, Date start, Date end, Vehicle type,
+Event name, Ref/PO/Other — **identique à v2** ; « Ride list » aux mêmes colonnes que Bookings, avec
+✏️ 📤 ❌ par ligne.
+
+### Features legacy sans équivalent v2
+
+| Feature | Ce qu'elle fait | Où elle vit | Pourquoi pas d'équivalent | Effort | Recommandation |
+|---|---|---|---|---|---|
+| **`offerEventReactivation`** | Après création d'un compte Events, propose de **relier au nouvel événement** les chauffeurs et véhicules `eventsOnly` déjà configurés pour le même **pays + area** lors d'un événement précédent et aujourd'hui dormants — cases à cocher, « Skip » / « Reactivate selected » | `common.js:3905-3980`, déclenchée depuis `clients.html:532` | **Tranché** : listée 🟡 en §4.4 de l'audit, non portée | Moyen (une popup, un filtre sur `eventsOnly` + `eventCountry`/`eventArea` + fenêtre d'événement écoulée, et un `PATCH` par enregistrement retenu) | **Revu, non touché.** Reste la feature legacy manquante la plus coûteuse à laisser tomber : sans elle, un événement récurrent impose de re-saisir toute son équipe |
+
+### Écarts de règle sur des contrôles présents des deux côtés
+
+| Contrôle | Legacy | v2 | Verdict |
+|---|---|---|---|
+| Flux « New » | **deux popups chaînées** (compte Events puis rattachement) | **un seul dialogue** réutilisant `ClientFormFields` verrouillé sur Events | Écart d'UX **délibéré et documenté** (journal du 2026-08-27) ; champs et validations identiques |
+| Libellé du filtre | « Ref/PO/Other » | « Ref/PO » | Cosmétique |
+| Actions de ligne | 3 (✏️ 📤 ❌) | 4 — ajout du nameboard | Ajout v2 |
+| « Create bulk » | présent | présent, même règle de chaînage | Aucun écart (couvert par `bulk-create.ts` et son e2e) |
+
+**Bilan `/events` : 1 feature legacy manquante** (`offerEventReactivation`), **déjà tranchée** dans
+l'audit et laissée en l'état, comme le prompt le demande.
+
