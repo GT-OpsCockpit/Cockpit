@@ -263,10 +263,12 @@ pile (`common.js:2089-2094`, `:2240-2248`), les blocs assignés sont déplaçabl
 | Actions de ligne | 3 (✏️ 📤 ❌) | 4 — ajout du bouton nameboard | Ajout v2, cohérent avec `/bookings` |
 | Rafraîchissement | polling 5 s (« Auto-refreshes every 5 seconds ») | SSE (`/api/events/stream`) | Modernisation actée (§ audit 🔵) — **revue, non touchée** |
 | Indicateur « maintenant » sur le Gantt | absent | ligne rouge + point | Ajout v2 assumé (journal du 2026-08-27) |
-| Notification POC au drag & drop | le legacy passait par le `PUT` complet et notifiait le POC | `PATCH /assign` ne notifie pas | **Écart connu et listé** (audit §11.4 / §6.6.1) — **revu, non touché** |
+| Notification POC au drag & drop | le legacy passait par le `PUT` complet et notifiait le POC | **`PATCH /assign` notifie aussi** | **L'écart n'existe pas.** L'audit (§11.4 / §6.6.1) affirme que `PATCH /assign` ne notifie pas ; **testé en direct** le 2026-08-30 — `PATCH /trips/R-CE5-26-1/assign` avec un nouveau chauffeur sur une course qui en avait déjà un a bien émis « Hello Chef d'Escale, your booking details have been updated… » vers `+33612000111`. `assign()` fait tourner `decideAssignment` avec `notifyPoc: hadDriver`, exactement le funnelling du legacy (`quickUpdateTrip`, `common.js:3310`), et envoie `MESSAGES.updated`. **Deuxième ligne périmée de l'audit** relevée par cette passe |
 
-**Bilan `/planning` : aucun écart nouveau.** Le seul point ouvert (la notification POC au drag &
-drop) était déjà consigné.
+**Bilan `/planning` : aucun écart.** Le seul point qui restait ouvert — la notification POC au
+drag & drop — **a été fermé par la vérification** : elle est bien envoyée. C'est le deuxième cas de
+cette passe où une ligne de l'audit décrit un manque qui n'existe plus (voir aussi §1.3 sur
+`record:delete`).
 
 ## `/events` ↔ `/events.html`
 
@@ -539,8 +541,15 @@ Deux points de méthode, valables au-delà de cette passe :
   « FR-INT-001 » qui est en réalité `FR•INT•1` (`server.js:511-515`). v2 a suivi le **code** dans
   les deux premiers cas et le **commentaire** dans le troisième. Ne pas se fier aux commentaires du
   legacy sans vérifier le code en face.
-- Ce relevé **confirme** le §15 de `docs/LEGACY_PARITY_AUDIT.md` partout où il a été recoupé, à une
-  exception près : le §1.3 affirme que les endpoints `DELETE` « ne sont protégés par aucune
-  permission (un DISPATCHER peut supprimer) ». C'est **faux aujourd'hui** — `record:delete` est
-  `[ADMIN]` seul dans `permissions.ts` et la vérification au `curl` l'a confirmé (voir le rapport
-  QA). Cette ligne de l'audit est périmée.
+- Ce relevé **confirme** le §15 de `docs/LEGACY_PARITY_AUDIT.md` partout où il a été recoupé, à
+  **deux exceptions près, toutes deux des manques que l'audit décrit et qui n'existent plus** :
+  - le **§1.3** affirme que les endpoints `DELETE` « ne sont protégés par aucune permission (un
+    DISPATCHER peut supprimer) ». `record:delete` est `[ADMIN]` seul dans `permissions.ts`, et la
+    vérification au `curl` l'a confirmé (voir le rapport QA) ;
+  - le **§11.4 / §6.6.1** affirme que `PATCH /assign` (le drag & drop du Planning) ne notifie pas le
+    POC. Il le fait — testé en direct, message émis. Le code porte même le commentaire qui explique
+    le funnelling repris du legacy.
+
+  Les deux lignes sont périmées. Leçon de méthode : **cette passe a failli les recopier telles
+  quelles** dans le présent rapport, au motif qu'elles étaient « déjà consignées ». Un manque listé
+  dans l'audit se vérifie comme le reste.
