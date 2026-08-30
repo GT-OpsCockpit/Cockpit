@@ -131,4 +131,54 @@ describe('tripFormSchema — conditional validation', () => {
       expect(tripFormSchema.safeParse(validBase({ subContractor: false, partnerRateEur: undefined })).success).toBe(true)
     })
   })
+
+  // Every message here is rendered verbatim to the dispatcher by <FormMessage>.
+  // Zod's own defaults ("Too small: expected string to have >=1 characters")
+  // are internal wording that leaked to the screen on Area and Pax nb — this
+  // block pins the readable text and guards the whole schema against the next
+  // constraint added without one.
+  describe('error messages — readable, never Zod internals', () => {
+    function messagesFor(values: TripFormValues): string[] {
+      const result = tripFormSchema.safeParse(values)
+      return result.success ? [] : result.error.issues.map((i) => i.message)
+    }
+
+    it('names the Area field rather than its string length', () => {
+      expect(messagesFor(validBase({ area: '' }))).toContain('Area is required.')
+    })
+
+    it.each([0, 51])('states the Pax nb range rather than the bound (%i)', (paxCount) => {
+      expect(messagesFor(validBase({ paxCount }))).toContain('Pax nb must be between 1 and 50.')
+    })
+
+    it('states the Pax nb range for a fractional count', () => {
+      expect(messagesFor(validBase({ paxCount: 2.5 }))).toContain('Pax nb must be between 1 and 50.')
+    })
+
+    it('rejects a negative price in words', () => {
+      expect(messagesFor(validBase({ priceEur: -5 }))).toContain('A price cannot be negative.')
+    })
+
+    it('rejects a negative buffer time in words', () => {
+      expect(messagesFor(validBase({ bufferTime: -10 }))).toContain('Buffer time cannot be negative.')
+    })
+
+    it('leaves no Zod default message anywhere, however many fields are wrong', () => {
+      const messages = messagesFor(
+        validBase({
+          area: '',
+          paxCount: 0,
+          countryCode: '',
+          passengerName: '',
+          pickupLocation: '',
+          priceEur: -1,
+          bufferTime: -1,
+        }),
+      )
+      expect(messages.length).toBeGreaterThan(0)
+      for (const message of messages) {
+        expect(message).not.toMatch(/^(Too small|Too big|Invalid input|Invalid option)/)
+      }
+    })
+  })
 })

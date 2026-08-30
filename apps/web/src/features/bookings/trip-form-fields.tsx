@@ -222,6 +222,8 @@ export function TripFormFields({
     : (partnerSeedOption?.label ?? undefined)
 
   const selectedVehicleType = meta.data?.vehicleTypes.find((v) => v.name === vehicleType)
+  const paxCount = form.watch('paxCount')
+  const overCapacity = !!selectedVehicleType && paxCount > selectedVehicleType.maxPax
   // active / availability / category compatibility are all applied by the
   // API now (availableOnly + compatibleWith) — nothing left to re-filter here.
   const regNbrResults = (fleetVehicles.data?.data ?? []).map((v) => ({
@@ -485,7 +487,9 @@ export function TripFormFields({
             )}
           />
           {/* Order data, not fleet data — the customer states a headcount before
-              a car is picked. The Vehicle field still caps it to its maxPax. */}
+              a car is picked. The chosen Vehicle's capacity is enforced by the
+              server (booking-fields.ts:172); the hint below is the client-side
+              half the legacy also drew, live, as it was typed (common.js:1033). */}
           <FormField
             control={form.control}
             name="paxCount"
@@ -495,13 +499,23 @@ export function TripFormFields({
                 <FormControl>
                   <Input
                     type="number"
-                    min={1}
-                    max={selectedVehicleType?.maxPax ?? 50}
+                    // No native min/max: the browser checks those before the
+                    // submit event, so an out-of-range count aborted the whole
+                    // submission — every other field's message disappeared with
+                    // it. The range is the resolver's (PAX_RANGE), and the
+                    // vehicle's own capacity is a server rule that comes back
+                    // worded as the legacy worded it ("<Vehicle> accepts a
+                    // maximum of N passengers.", booking-fields.ts:172).
                     {...field}
                     value={field.value ?? ''}
                     onChange={(e) => field.onChange(e.target.valueAsNumber)}
                   />
                 </FormControl>
+                {overCapacity && (
+                  <p className="text-destructive text-xs">
+                    {selectedVehicleType!.name} accepts a maximum of {selectedVehicleType!.maxPax} passengers.
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )}
@@ -968,12 +982,17 @@ function FlightInfoFields({
             <FormControl>
               <Input
                 type="number"
-                min={0}
+                // Native min removed for the same reason as Pax nb above. The
+                // legacy could afford one (min="0", common.js:1570) because the
+                // field sat in the Flight info popup, where a block stopped
+                // that popup's Confirm and nothing else; inline it would stop
+                // the booking itself.
                 {...field}
                 value={field.value ?? ''}
                 onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
               />
             </FormControl>
+            <FormMessage />
           </FormItem>
         )}
       />
@@ -1098,7 +1117,12 @@ function PriceField({
             <FormControl>
               <Input
                 type="number"
-                min={0}
+                // No `min` attribute on purpose: a native constraint is checked
+                // by the browser *before* the submit event, so a negative price
+                // silently aborted the whole submission — every other field's
+                // message vanished with it and Create looked dead. Validation
+                // belongs to the zod resolver (shouldUseNativeValidation is off,
+                // its default), which reports it as A price cannot be negative.
                 step="0.01"
                 placeholder="150"
                 disabled={disabled}
@@ -1121,6 +1145,9 @@ function PriceField({
           )}
           {totalHint && <p className="text-muted-foreground text-xs">{totalHint}</p>}
           {marginHint && <p className="text-xs font-medium">{marginHint}</p>}
+          {/* Without this, "Partner rate net is required to sub-contract a
+              booking." had nowhere to render: Create silently did nothing. */}
+          <FormMessage />
         </FormItem>
       )}
     />

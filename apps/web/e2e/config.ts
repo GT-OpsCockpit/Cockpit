@@ -15,4 +15,9 @@ export const DISPATCHER = {
   password: 'Dispatcher-E2E-2026!',
   firstName: 'Dana',
   lastName: 'Dispatcher',
+  // Required by CreateUserDto since the §15 parity pass (2026-08-29) — the
+  // legacy asked it of every access account too (server.js:262-264). Omitting
+  // it made auth.setup.ts fail with a 400, which took the whole web e2e suite
+  // down with it.
+  phone: '+33612000001',
 }

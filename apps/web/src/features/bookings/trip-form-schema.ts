@@ -2,16 +2,23 @@ import { z } from 'zod'
 import { TripEntityBilling, TripEntityService } from '@cockpit/shared/api'
 import { optionalPhone } from '@/lib/contact-fields'
 
+// Bounds whose message is shown verbatim by <FormMessage>, so they say what
+// the field is rather than what the constraint is — Zod's own default
+// ("Too small: expected number to be >=1") reached the screen otherwise.
+const PAX_RANGE = 'Pax nb must be between 1 and 50.'
+const NEGATIVE_PRICE = 'A price cannot be negative.'
+const NEGATIVE_BUFFER = 'Buffer time cannot be negative.'
+
 export const tripFormSchema = z
   .object({
     countryCode: z.string().min(1, 'Country is required.'),
-    area: z.string().min(1),
+    area: z.string().min(1, 'Area is required.'),
     pickupDate: z.string().min(1, 'Date is required.'),
     pickupTime: z.string().min(1, 'Time is required.'),
     service: z.enum([TripEntityService.TSF, TripEntityService.ASD, TripEntityService.SPEC]),
     hours: z.number().int().optional(),
     vehicleType: z.string().min(1, 'Vehicle is required.'),
-    paxCount: z.number().int().min(1).max(50),
+    paxCount: z.number().int(PAX_RANGE).min(1, PAX_RANGE).max(50, PAX_RANGE),
     clientRef: z.string().min(1, 'Customer is required.'),
     billing: z.enum([TripEntityBilling.ACCOUNT, TripEntityBilling.CASH, TripEntityBilling.CARD]),
     passengerName: z.string().min(1, 'Passenger name is required.'),
@@ -24,11 +31,11 @@ export const tripFormSchema = z
     fleetRegNbr: z.string().optional(),
     subContractor: z.boolean(),
     partnerRef: z.string().optional(),
-    priceEur: z.number().min(0).optional(),
-    partnerRateEur: z.number().min(0).optional(),
+    priceEur: z.number().min(0, NEGATIVE_PRICE).optional(),
+    partnerRateEur: z.number().min(0, NEGATIVE_PRICE).optional(),
     tracking: z.boolean(),
     flightNumber: z.string().optional(),
-    bufferTime: z.number().int().optional(),
+    bufferTime: z.number().int(NEGATIVE_BUFFER).min(0, NEGATIVE_BUFFER).optional(),
     fboAddress: z.string().optional(),
     tailNbr: z.string().optional(),
     nameboard: z.string().optional(),
