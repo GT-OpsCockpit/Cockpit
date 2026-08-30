@@ -382,7 +382,7 @@ sur un compte désactivé).
 
 | Feature | Ce qu'elle fait | Où elle vit | Pourquoi pas d'équivalent | Effort | Recommandation |
 |---|---|---|---|---|---|
-| **Référence lisible du compte d'accès** | `createAccess` attribue `O-001`, `O-002`… à un Admin et `D-001`, `D-002`… à un Dispatch — la colonne REF donne le rôle et le rang d'un coup d'œil, et se cite au téléphone | `server.js:788-801`, colonne rendue en `owner.html:353` | **Oubli.** v2 n'a pas de colonne `ref` sur `User` : la colonne « Ref » de l'onglet Users affiche `user.id.slice(0, 8)` (`users-table.tsx:49`), soit les 8 premiers caractères d'un cuid — `cmtanuan`, `cmtb9fzc`. Illisible, non citable, et sans rapport avec le rôle | **Moyen** — une colonne `ref` sur `User`, un compteur par préfixe (le mécanisme existe déjà : `RefCounter` + `TripRefService`), une migration donnant une ref aux 6 comptes en place | **À trancher par Romain.** Aucune perte fonctionnelle — rien dans v2 ne s'adresse à un utilisateur par sa ref — mais la colonne telle qu'elle est n'apporte rien à personne : soit on lui donne une vraie ref, soit on retire la colonne |
+| **Référence lisible du compte d'accès** | `createAccess` attribue `O-001`, `O-002`… à un Admin et `D-001`, `D-002`… à un Dispatch — la colonne REF donne le rôle et le rang d'un coup d'œil, et se cite au téléphone | `server.js:788-801`, colonne rendue en `owner.html:353` | **Tranché** : audit §1.4 🟠, « Réf. des comptes d'accès `D-001` / `O-001` : supprimée. Les `User` v2 n'ont qu'un `cuid` » | — | **Revu, non touché.** Une observation tout de même, qui ne rouvre pas la décision : v2 n'a pas retiré la colonne, il y affiche `user.id.slice(0, 8)` (`users-table.tsx:49`) — `cmtanuan`, `cmtb9fzc`. La décision était de se passer de la référence ; la colonne qui en reste n'apporte rien à personne. **À signaler à Romain comme un point d'affichage**, pas comme une feature à porter |
 | **Porte mot de passe Owner sur la page** | Toute la page reste masquée tant que `OWNER_PASSWORD` n'est pas saisi, à chaque visite | `owner.html:299-311` | **Tranché** : audit §1.2 🟠 — « toutes les portes mot de passe Manager/Owner deviennent des permissions de rôle », `company:edit` et `user:manage` | — | **Revu, non touché** |
 | **❌ « Delete » sur un compte d'accès** | Confirmation + porte mot de passe, puis… `PATCH /api/access/:ref/deactivate` | `owner.html:400-407`, `server.js:284-290` | **Sans objet** : le bouton s'appelle « Delete » mais ne fait qu'une désactivation douce. v2 expose la même opération sous son vrai nom, « Deactivate » | — | Sans objet — v2 est plus honnête que le legacy |
 
@@ -407,8 +407,10 @@ passe par compte, donc rien à changer ; côté v2 c'est le trou déjà comblé 
 (§ « Trou propre à v2, comblé »). La fiche société est aussi affichée **en lecture seule** avant
 édition, ce que le legacy ne faisait pas (ses champs étaient des `<input disabled>`).
 
-**Bilan `/settings` : 1 feature legacy manquante** (la référence lisible d'un compte d'accès),
-à trancher par Romain ; les deux autres écarts relevés sont l'un déjà tranché, l'autre sans objet.
+**Bilan `/settings` : aucune feature legacy manquante non tranchée.** Les trois écarts relevés sont
+deux décisions déjà actées dans l'audit (§1.2 la porte mot de passe, §1.4 la référence de compte) et
+un « sans objet » (le ❌ qui désactive). Reste un point d'affichage à signaler : la colonne « Ref »
+survit à la suppression de la référence et montre un fragment de cuid.
 
 ## `/driver/:ref` ↔ `/chauffeur.html?ref=…`
 
@@ -496,13 +498,17 @@ répartissent ainsi :
 
 | Sort | Nombre | Lesquelles |
 |---|---|---|
-| **Déjà tranchées dans l'audit — revues, non touchées** | 4 | popups d'édition rapide des 6 cellules (`/bookings`), `offerEventReactivation` (`/events`), porte mot de passe Owner (`/settings`), portes mot de passe Manager sur la suppression définitive (`/clients`, `/drivers`, `/vehicles`) |
-| **Sans objet en v2** | 4 | résumé « Flight info » cliquable et icône 📤 du badge (`/bookings`), auto-synchro du POC Full Name et validation live de l'acronyme (`/clients`), ❌ « Delete » d'un compte d'accès (`/settings`) — comptés comme un seul item chacun |
-| **Oublis à porter, effort faible** | 5 | tooltip POC de `/bookings` ; colonnes **Country** de `/clients` et de `/drivers` ; colonne **POC** et **dates d'événement** de `/clients` |
-| **À trancher par Romain** | 3 | **Country requis** sur le formulaire chauffeur (validation perdue) ; colonne **Company / « In-house »** de `/drivers` ; **référence lisible** d'un compte d'accès (`/settings`) |
+| **Déjà tranchées dans l'audit — revues, non touchées** | 5 | popups d'édition rapide des 6 cellules (`/bookings`, §6.6.2), `offerEventReactivation` (`/events`, §4.4), porte mot de passe Owner (`/settings`, §1.2), référence `D-001`/`O-001` d'un compte d'accès (`/settings`, §1.4), portes mot de passe Manager sur la suppression définitive (`/clients`, `/drivers`, `/vehicles`, §1.3) |
+| **Sans objet en v2** | 5 | résumé « Flight info » cliquable et icône 📤 du badge (`/bookings`), auto-synchro du POC Full Name et validation live de l'acronyme (`/clients`), ❌ « Delete » d'un compte d'accès qui ne fait que désactiver (`/settings`) |
+| **Oublis à porter, effort faible** | 4 | tooltip POC de `/bookings` ; colonnes **Country** de `/clients` et de `/drivers` ; colonnes **POC** et **dates d'événement** de `/clients` (même cellule, comptées ensemble) |
+| **À trancher par Romain** | 2 | **Country requis** sur le formulaire chauffeur (validation perdue) ; colonne **Company / « In-house »** de `/drivers` |
 
-Cinq écrans n'ont **aucune feature manquante** : `/login`, `/vehicles`, `/planning`, `/invoicing`,
-`/finance`, plus les deux pages publiques `/driver/:ref` et `/track/:ref`.
+Sept écrans n'ont **aucune feature manquante non tranchée** : `/login`, `/vehicles`, `/planning`,
+`/invoicing`, `/finance`, `/driver/:ref` et `/track/:ref`.
+
+À quoi s'ajoute **un point d'affichage** qui n'est pas une feature manquante : la colonne « Ref »
+de l'onglet Users a survécu à la suppression de la référence de compte (§1.4) et montre huit
+caractères de cuid. Soit on lui redonne une vraie référence, soit on la retire.
 
 ### Les trois plus coûteuses à laisser tomber
 
