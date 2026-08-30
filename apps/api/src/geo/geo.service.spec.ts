@@ -90,6 +90,41 @@ describe('GeoService', () => {
     });
   });
 
+  describe('fboLookup', () => {
+    it('matches an airport by name or code', () => {
+      const service = new GeoService({} as PrismaService, makeConfig());
+      expect(service.fboLookup('Nice Airport').name).toBe(
+        "Nice Côte d'Azur (NCE)",
+      );
+      expect(service.fboLookup('NCE').name).toBe("Nice Côte d'Azur (NCE)");
+      expect(
+        service.fboLookup('Aéroport de Paris-Le Bourget, 93350 Le Bourget')
+          .name,
+      ).toBe('Paris - Le Bourget (LBG)');
+      expect(service.fboLookup('Genève Aéroport').name).toBe('Genève (GVA)');
+    });
+
+    it('does not match a keyword buried inside a longer word', () => {
+      const service = new GeoService({} as PrismaService, makeConfig());
+      // "France" ends in "nce": a raw substring match handed every French
+      // address the Nice FBO, so a CDG pickup pre-filled a Nice address.
+      expect(
+        service.fboLookup(
+          'Aéroport de Paris-Charles-de-Gaulle, Tremblay-en-France, France',
+        ),
+      ).toEqual({ found: false, name: null, fbo: null });
+    });
+
+    it('reports not-found for an airport outside the directory', () => {
+      const service = new GeoService({} as PrismaService, makeConfig());
+      expect(service.fboLookup('Nowhere')).toEqual({
+        found: false,
+        name: null,
+        fbo: null,
+      });
+    });
+  });
+
   describe('flightCheck', () => {
     it('rejects an invalid flight number format', async () => {
       const service = new GeoService({} as PrismaService, makeConfig());

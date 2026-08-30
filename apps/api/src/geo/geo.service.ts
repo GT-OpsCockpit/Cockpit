@@ -125,9 +125,19 @@ export class GeoService {
   }
 
   fboLookup(q: string): FboLookupEntity {
-    const norm = q.toLowerCase();
+    // Matched word by word, not as a raw substring: the legacy's
+    // `norm.includes(m)` (server.js:1553) found "nce" inside "France" and so
+    // pre-filled the Nice handling agent on every French airport — a CDG
+    // pickup came back with a Nice address. Splitting on anything that isn't
+    // a letter or a digit keeps "Cannes-Mandelieu" and "Genève" matching.
+    const words = new Set(
+      q
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter(Boolean),
+    );
     const entry = AIRPORT_FBO_DIRECTORY.find((e) =>
-      e.match.some((m) => norm.includes(m)),
+      e.match.some((m) => words.has(m)),
     );
     return {
       found: !!entry,
