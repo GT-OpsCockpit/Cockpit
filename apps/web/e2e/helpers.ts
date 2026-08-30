@@ -85,7 +85,15 @@ async function fillCombobox(
   // land, which detaches the one being clicked. CommandList marks the wait
   // with aria-busy, so wait for it rather than racing the re-render.
   await expect(page.locator('[data-slot="command-list"][aria-busy="true"]')).toHaveCount(0)
-  await page.getByRole('option', { name: new RegExp(`^(${escaped}|Use “${escaped}”)$`) }).click()
+  // Matched on the start, not the whole name: an option renders its
+  // description beside its label (a POC's phone number, an address's
+  // timezone), and that is part of its accessible name. The free-text row is
+  // rendered above the results, so `.first()` prefers it whenever it is there
+  // — which is exactly when the typed value is not already an option.
+  await page
+    .getByRole('option', { name: new RegExp(`^(Use “${escaped}”|${escaped}\\b)`) })
+    .first()
+    .click()
   await expect(scope.getByLabel(label, { exact: true })).toHaveText(value)
   await expect(search).toHaveCount(0)
 }

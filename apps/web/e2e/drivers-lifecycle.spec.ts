@@ -142,15 +142,15 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
     await unavailabilityDialog.getByLabel('Date', { exact: true }).fill('2026-10-01')
     await unavailabilityDialog.getByRole('button', { name: 'Save' }).click()
     await expect(toast(page, `Unavailability set for ${internalRef}.`)).toBeVisible()
-    await expect(row(page, internalRef).getByText(/^Off /)).toBeVisible()
+    await expect(row(page, internalRef).getByText(/^Day off — /)).toBeVisible()
 
     await row(page, internalRef).getByRole('button', { name: 'Unavailability' }).click()
     unavailabilityDialog = page.getByRole('dialog')
-    await expect(unavailabilityDialog.getByText(/^Off /)).toBeVisible()
+    await expect(unavailabilityDialog.getByText(/^Day off — /)).toBeVisible()
     await expect(unavailabilityDialog.getByText('Clear it before setting a different kind of unavailability.')).toBeVisible()
     await unavailabilityDialog.getByRole('button', { name: 'Clear' }).click()
     await expect(toast(page, `Unavailability cleared for ${internalRef}.`)).toBeVisible()
-    await expect(row(page, internalRef).getByText(/^Off /)).toHaveCount(0)
+    await expect(row(page, internalRef).getByText(/^Day off — /)).toHaveCount(0)
 
     // --- Deactivate / reactivate (ungated for an ADMIN — the RBAC gate on
     // reactivate only is covered by the "reactivate RBAC" describe below) ---
