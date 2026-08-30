@@ -42,6 +42,17 @@ export function clientAccountLabel(trip: TripEntity): { primary: string; seconda
 }
 
 /** Farm-out or Local: driver name, falling back to the sub-contracted partner's name. */
+/**
+ * The Reg Nbr cell. The acronym is what the column is sized for, but a vehicle
+ * without one used to render as "—", indistinguishable from no vehicle at all
+ * (seen on AA-001-BC, assigned and shown as "—"). The legacy had the same
+ * blind spot and kept it (common.js:2604-2611); the plate is the honest
+ * fallback, and "—" is left to mean what it says.
+ */
+export function fleetVehicleLabel(trip: TripEntity): string {
+  return trip.fleetVehicle?.acronym ?? trip.fleetVehicle?.regNbr ?? '—'
+}
+
 export function tripDriverName(trip: TripEntity): string | null {
   if (trip.driver) return driverLabel(trip.driver)
   if (trip.partner) return driverLabel(trip.partner)

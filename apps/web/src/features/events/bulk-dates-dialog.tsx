@@ -100,8 +100,8 @@ export function BulkDatesDialog({
         </DialogHeader>
         <p className="text-muted-foreground text-sm">
           Same booking (all New booking fields above) created once per day in the range below. Day 1 uses the PU/DO
-          typed above; every following day picks up from day 1&apos;s drop-off (client stays put), and the last day
-          is left with no drop-off.
+          typed above; every following day picks up from day 1&apos;s drop-off (client stays put); the last day
+          becomes an at-disposal booking (4 h by default) ending where it starts.
         </p>
         <div className="grid grid-cols-2 gap-4">
           <div className="grid gap-2">

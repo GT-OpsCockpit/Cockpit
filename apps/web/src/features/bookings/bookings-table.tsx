@@ -6,7 +6,14 @@ import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from './status-badge'
-import { cancellationFeeLabel, clientAccountLabel, shortDriverName, tripDriverName, urgencyRowClass } from './trip-display'
+import {
+  cancellationFeeLabel,
+  clientAccountLabel,
+  fleetVehicleLabel,
+  shortDriverName,
+  tripDriverName,
+  urgencyRowClass,
+} from './trip-display'
 import { Itinerary } from './itinerary'
 import { PickupTime } from './pickup-time'
 import { TripActionsCell } from './trip-actions-cell'
@@ -100,7 +107,7 @@ export function BookingsTable({
                     <span className="text-muted-foreground text-[9.5px]">{trip.paxCount ?? '?'} pax</span>
                   </TableCell>
                   {isLocal && (
-                    <TableCell className="text-xs whitespace-nowrap">{trip.fleetVehicle?.acronym ?? '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{fleetVehicleLabel(trip)}</TableCell>
                   )}
                   <TableCell className="text-center text-xs">
                     {trip.subContractor ? <Check className="mx-auto size-3.5" aria-label="Sub-contracted" /> : '—'}

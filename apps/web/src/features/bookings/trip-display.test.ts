@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cancellationFeeLabel, itineraryLabel, shortPlaceLabel } from './trip-display'
+import { cancellationFeeLabel, fleetVehicleLabel, itineraryLabel, shortPlaceLabel } from './trip-display'
 import { baseTrip } from './test-fixtures'
 import { TripEntityCancellationFee, TripEntityService } from '@cockpit/shared/api'
 
@@ -76,5 +76,27 @@ describe('cancellationFeeLabel', () => {
 
   it('has nothing to say about a booking that was never cancelled', () => {
     expect(cancellationFeeLabel(null)).toBeNull()
+  })
+})
+
+// The Reg Nbr column showed the vehicle's acronym and a dash when it had none,
+// which reads exactly like "no vehicle assigned" — seen live on AA-001-BC,
+// assigned and yet shown as "—". The legacy did the same and lived with it
+// (common.js:2604-2611); here the plate is the honest fallback.
+describe('fleetVehicleLabel', () => {
+  it('prefers the acronym, which is what the column is sized for', () => {
+    expect(fleetVehicleLabel(baseTrip({ fleetVehicle: { regNbr: 'AA-001-BC', acronym: 'MERC1' } as never }))).toBe(
+      'MERC1',
+    )
+  })
+
+  it('falls back to the plate rather than claim there is no vehicle', () => {
+    expect(fleetVehicleLabel(baseTrip({ fleetVehicle: { regNbr: 'AA-001-BC', acronym: null } as never }))).toBe(
+      'AA-001-BC',
+    )
+  })
+
+  it('still says "—" when no vehicle is assigned at all', () => {
+    expect(fleetVehicleLabel(baseTrip({ fleetVehicle: null }))).toBe('—')
   })
 })
