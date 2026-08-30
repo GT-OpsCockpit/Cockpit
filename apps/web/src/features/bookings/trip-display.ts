@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { clientDisplayName, driverLabel } from '@cockpit/shared'
+import { clientDisplayName, driverLabel, formatPhoneDisplay } from '@cockpit/shared'
 import { TripEntityCancellationFee, TripEntityService } from '@cockpit/shared/api'
 import type { TripEntity } from '@cockpit/shared/api'
 
@@ -42,6 +42,21 @@ export function clientAccountLabel(trip: TripEntity): { primary: string; seconda
 }
 
 /** Farm-out or Local: driver name, falling back to the sub-contracted partner's name. */
+/**
+ * What to say on hover over the passenger line, or null to say nothing.
+ *
+ * The person to call when a pickup goes wrong is often not the passenger — a
+ * PA, an event coordinator — and their number is what a dispatcher reaches for
+ * under time pressure. Only shown when the POC actually differs from the
+ * passenger (common.js:3108): on a list where most bookings have the passenger
+ * as their own contact, repeating it on every row is noise nobody reads.
+ */
+export function pocTooltipLabel(trip: TripEntity): string | null {
+  if (!trip.pocName || trip.pocName === trip.passengerName) return null
+  const phone = formatPhoneDisplay(trip.pocPhone)
+  return phone ? `POC: ${trip.pocName} · ${phone}` : `POC: ${trip.pocName}`
+}
+
 /**
  * The Reg Nbr cell. The acronym is what the column is sized for, but a vehicle
  * without one used to render as "—", indistinguishable from no vehicle at all

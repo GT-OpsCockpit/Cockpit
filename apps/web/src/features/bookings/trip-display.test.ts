@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cancellationFeeLabel, fleetVehicleLabel, itineraryLabel, shortPlaceLabel } from './trip-display'
+import { cancellationFeeLabel, fleetVehicleLabel, itineraryLabel, pocTooltipLabel, shortPlaceLabel } from './trip-display'
 import { baseTrip } from './test-fixtures'
 import { TripEntityCancellationFee, TripEntityService } from '@cockpit/shared/api'
 
@@ -98,5 +98,32 @@ describe('fleetVehicleLabel', () => {
 
   it('still says "—" when no vehicle is assigned at all', () => {
     expect(fleetVehicleLabel(baseTrip({ fleetVehicle: null }))).toBe('—')
+  })
+})
+
+// The person to call when a pickup goes wrong is often not the passenger — a
+// PA, an event coordinator. The legacy surfaced them on hover over the
+// passenger line, and only when they differ (common.js:3108): on a list where
+// most bookings have the passenger as their own contact, showing it every time
+// is noise nobody reads.
+describe('pocTooltipLabel', () => {
+  it('names the POC and the number to reach them on', () => {
+    expect(
+      pocTooltipLabel(baseTrip({ passengerName: 'Jane Doe', pocName: 'Claire Bonnet', pocPhone: '+33611223344' })),
+    ).toBe('POC: Claire Bonnet · +33 6 11 22 33 44')
+  })
+
+  it('names the POC alone when no number is on file', () => {
+    expect(pocTooltipLabel(baseTrip({ passengerName: 'Jane Doe', pocName: 'Claire Bonnet', pocPhone: null }))).toBe(
+      'POC: Claire Bonnet',
+    )
+  })
+
+  it('says nothing when the POC is the passenger', () => {
+    expect(pocTooltipLabel(baseTrip({ passengerName: 'Jane Doe', pocName: 'Jane Doe' }))).toBeNull()
+  })
+
+  it('says nothing when no POC is named', () => {
+    expect(pocTooltipLabel(baseTrip({ passengerName: 'Jane Doe', pocName: null }))).toBeNull()
   })
 })

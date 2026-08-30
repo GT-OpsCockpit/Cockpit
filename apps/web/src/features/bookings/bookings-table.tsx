@@ -6,10 +6,12 @@ import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from './status-badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   cancellationFeeLabel,
   clientAccountLabel,
   fleetVehicleLabel,
+  pocTooltipLabel,
   shortDriverName,
   tripDriverName,
   urgencyRowClass,
@@ -98,7 +100,7 @@ export function BookingsTable({
                         <span className="text-muted-foreground text-[10px]"> ({account.secondary})</span>
                       )}
                     </div>
-                    <div className="text-muted-foreground text-[10px]">{trip.passengerName}</div>
+                    <PassengerLine trip={trip} />
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs"><Itinerary trip={trip} /></TableCell>
                   <TableCell className="text-xs">
@@ -137,5 +139,25 @@ export function BookingsTable({
         </TableBody>
       </Table>
     </TableCard>
+  )
+}
+
+/**
+ * The passenger's name, carrying the POC on hover when the two differ.
+ *
+ * A shadcn Tooltip rather than a native `title`: the browser's own delay is
+ * around a second, which is too long for the one thing a dispatcher reaches
+ * for when a pickup is going wrong.
+ */
+function PassengerLine({ trip }: { trip: TripEntity }) {
+  const poc = pocTooltipLabel(trip)
+  const name = <div className="text-muted-foreground text-[10px]">{trip.passengerName}</div>
+  if (!poc) return name
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{name}</TooltipTrigger>
+      <TooltipContent>{poc}</TooltipContent>
+    </Tooltip>
   )
 }
