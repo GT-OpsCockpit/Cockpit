@@ -5,6 +5,7 @@ import {
   useMetaControllerGetMeta,
   TripEntityService,
 } from '@cockpit/shared/api'
+import { driverLabel } from '@cockpit/shared'
 import { useDebouncedSearch } from '@/lib/use-debounced-value'
 import { SearchCombobox } from '@/components/search-combobox'
 import { FilterField } from '@/components/filter-field'
@@ -49,7 +50,7 @@ export function BookingFiltersBar({
   const drivers = useDriversControllerList({ search: debouncedDriverSearch || undefined, limit: PICKER_LIMIT })
   const driverOptions = [
     { value: '', label: 'All drivers' },
-    ...(drivers.data?.data ?? []).map((d) => ({ value: d.ref, label: d.name })),
+    ...(drivers.data?.data ?? []).map((d) => ({ value: d.ref, label: driverLabel(d) })),
   ]
 
   const set = <K extends keyof BookingFilters>(key: K, value: BookingFilters[K]) =>

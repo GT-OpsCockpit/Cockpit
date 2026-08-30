@@ -47,7 +47,8 @@ import {
 import type { TripFormValues } from './trip-form-schema'
 import { flightCheckBlocker, tripFormRules } from './trip-form-rules'
 import { applyBookingEdit, type BookingChange, type BookingMeta, type LocatedAddress } from './booking-draft'
-import { clientDisplayName, driverLabel, partnerLabel } from '@cockpit/shared'
+import { clientDisplayName, partnerLabel } from '@cockpit/shared'
+import { driverOptionLabel } from '@/features/drivers/driver-status'
 
 /**
  * Marks a field the schema rejects when empty — including the ones that only
@@ -206,11 +207,11 @@ export function TripFormFields({
 
   const driverResults = (drivers.data?.data ?? []).map((d) => ({
     value: d.ref,
-    label: `${d.name} (${d.ref})`,
+    label: driverOptionLabel(d),
   }))
   const driverOptions = driverResults
   const driverSelectedLabel = trip?.driver
-    ? `${driverLabel(trip.driver)} (${trip.driver.ref})`
+    ? driverOptionLabel(trip.driver)
     : (driverSeedOption?.label ?? undefined)
 
   const partnerResults = (partners.data?.data ?? [])

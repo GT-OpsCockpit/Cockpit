@@ -1,6 +1,7 @@
 import { DriverUnavailabilityEntityType } from '@cockpit/shared/api'
 import type { DriverEntity, DriverUnavailabilityEntity } from '@cockpit/shared/api'
-import { partnerLabel } from '@cockpit/shared'
+import { driverLabel, partnerLabel } from '@cockpit/shared'
+import type { DriverLabelInput } from '@cockpit/shared'
 import type { BookingPrefill } from '@/features/bookings/booking-create-dialog'
 import { formatDate } from '@/lib/utils'
 
@@ -11,6 +12,17 @@ export interface DriverFilters {
 
 export function defaultDriverFilters(): DriverFilters {
   return { search: '', showInactive: false }
+}
+
+/**
+ * A driver on one line in an assignment picker or filter: what they are
+ * called, then their ref. `name` alone is firstName+lastName and is empty on a
+ * partner company with nobody named on file — two of those in the dev data
+ * showed up in the Driver picker as a bare " (D-XX-XX-MAN-001)".
+ */
+export function driverOptionLabel(driver: DriverLabelInput): string {
+  const label = driverLabel(driver)
+  return label === driver.ref ? driver.ref : `${label} (${driver.ref})`
 }
 
 /** Splits the current page into the two always-visible legacy tables — internal chauffeurs vs. partner companies/chauffeurs. */
@@ -31,7 +43,7 @@ export function isPartner(driver: DriverEntity): boolean {
 export function driverBookingPrefill(driver: DriverEntity): BookingPrefill {
   return isPartner(driver)
     ? { subContractor: true, partnerRef: driver.ref, partnerLabel: partnerLabel(driver), driverRef: '' }
-    : { driverRef: driver.ref, driverLabel: `${driver.name} (${driver.ref})`, subContractor: false, partnerRef: '' }
+    : { driverRef: driver.ref, driverLabel: driverOptionLabel(driver), subContractor: false, partnerRef: '' }
 }
 
 // The legacy's own wording (UNAVAILABILITY_LABELS, common.js:3001-3004), which

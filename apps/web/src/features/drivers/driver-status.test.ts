@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DriverUnavailabilityEntityType } from '@cockpit/shared/api'
 import type { DriverUnavailabilityEntity } from '@cockpit/shared/api'
-import { defaultDriverFilters, isPartner, unavailabilityLabel } from './driver-status'
+import { defaultDriverFilters, driverOptionLabel, isPartner, unavailabilityLabel } from './driver-status'
 import { baseDriver as driver } from './test-fixtures'
 
 function unavailability(overrides: Partial<DriverUnavailabilityEntity> = {}): DriverUnavailabilityEntity {
@@ -19,6 +19,26 @@ function unavailability(overrides: Partial<DriverUnavailabilityEntity> = {}): Dr
 describe('defaultDriverFilters', () => {
   it('starts with no search and inactive drivers hidden', () => {
     expect(defaultDriverFilters()).toEqual({ search: '', showInactive: false })
+  })
+})
+
+describe('driverOptionLabel', () => {
+  it('names an internal chauffeur, then their ref', () => {
+    expect(driverOptionLabel(driver())).toBe('John Smith (D-FR-INT-001)')
+  })
+
+  it('falls back to the company for a partner with nobody named on file', () => {
+    expect(
+      driverOptionLabel(
+        driver({ ref: 'D-XX-XX-MAN-001', name: '', firstName: null, lastName: null, company: 'Manual Test Partners' }),
+      ),
+    ).toBe('Manual Test Partners (D-XX-XX-MAN-001)')
+  })
+
+  it('falls back to the ref alone when there is neither', () => {
+    expect(driverOptionLabel(driver({ ref: 'D-XX-XX-ANON-1', name: '', firstName: null, lastName: null }))).toBe(
+      'D-XX-XX-ANON-1',
+    )
   })
 })
 
