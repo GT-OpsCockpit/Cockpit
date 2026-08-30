@@ -182,3 +182,53 @@ véhicule↔chauffeur** (porté depuis la fiche Vehicles du legacy, cf. handoff 
 **Bilan `/drivers` : 1 feature legacy manquante** (colonne Country), **1 validation perdue à
 trancher** (Country requis), **1 écart de format de référence documenté et volontairement conservé**.
 
+## `/vehicles` ↔ `/vehicles.html`
+
+Legacy comparé : `http://localhost:4100/vehicles.html` (+ `public/vehicles.html:240-260`, `:380-395`,
+`:488-530`, `:620-645`).
+État de données créé à la main : **2 véhicules** (un interne, un externe) — sans quoi les deux
+tableaux affichent « No … vehicles yet. » et aucune action de ligne n'est observable.
+
+**Inventaire legacy — tableaux** : colonnes **identiques à v2**, dans le même ordre, pour les deux
+tableaux (*Fleet - Internal* et *Fleet - External*, mêmes intitulés qu'en v2). Par ligne :
+🔧 (Repair shop / Manufacturer service / Bodywork, **véhicules internes seulement**), ✏️ Edit
+(**désactivé sur un véhicule retiré**, infobulle « Reactivate this vehicle to edit it »),
+❌ « Remove from fleet ».
+
+**Inventaire legacy — formulaire** : Category (requis), Local, Reg Nbr (requis), Acr. (requis),
+Make (requis), Model (requis), Year (requis), Color (requis), 4WD, Nb Pax (`readonly`),
+Country / Area / Partner (désactivés tant que « Local » est coché), Events + 3 champs cachés.
+**Un pour un avec le dialogue v2.**
+
+### Features legacy sans équivalent v2
+
+**Aucune.** C'est la page la plus fidèlement portée de la passe : colonnes, ordre, intitulés des
+deux tableaux, champs du formulaire, cascade Category→Make→Model, `defaultFleetPax`, réservation de
+l'indisponibilité aux véhicules internes, crayon grisé sur un véhicule retiré, et la ligne du
+chauffeur réservé sous le Reg Nbr (`linkedDriverLine`, `vehicles.html:499-505`) — tout est là et a
+été vérifié à l'écran.
+
+Point vérifié explicitement parce qu'il ressemblait à un manque : après avoir délié un véhicule de
+son chauffeur (cadenas de `/drivers`), **aucune UI ne permet de le relier** — ni en v2, ni dans le
+legacy. Le modal d'édition legacy n'a pas de champ chauffeur non plus (`vehicles.html:628-641`) ;
+le lien ne se pose que par le raccourci « Ind. » à la création d'un partenaire, des deux côtés.
+Le commentaire du legacy affirme pourtant le contraire (« *or the vehicle is edited to point at a
+different chauffeur* », `vehicles.html:497-498`) — **son commentaire décrit une fonctionnalité que
+son code n'a pas**. Aucun écart : v2 reproduit le comportement réel.
+
+### Écarts de règle sur des contrôles présents des deux côtés
+
+| Contrôle | Legacy | v2 | Verdict |
+|---|---|---|---|
+| Libellé de la désactivation | « Remove from fleet » | « Deactivate » | Cosmétique, aligné sur Clients/Drivers en v2 |
+| `Nb Pax` | `readonly` | `disabled` | Équivalent à l'écran ; sans effet ici, la valeur passe par l'état du formulaire, pas par une soumission native |
+| Réactivation | mot de passe Manager | `vehicle:reactivate` (ADMIN) | Porté (§15) — **revu, non touché** |
+| Tri | actifs puis `ref` | actifs puis `createdAt` | **Écart assumé** (§15) — **revu, non touché** |
+
+### Ajouts v2 sans équivalent legacy
+
+Recherche, « Show deactivated », pagination serveur, bouton « New booking » pré-remplissant le
+véhicule. Le legacy n'avait **aucun filtre** sur cette page.
+
+**Bilan `/vehicles` : aucun écart.**
+
