@@ -89,6 +89,18 @@ export const tripFormSchema = z
         message: 'Partner rate net is required to sub-contract a booking.',
       })
     }
+    // …and naming who it is farmed out to. The legacy kept the submit button
+    // greyed out until the Partner company was entered (refreshFormGuards,
+    // common.js:1046-1054). Saved without one, the booking is farmed out to
+    // nobody: the server pins it at "Sent" and never re-arms Send
+    // (decideAssignment's `locked`), so it quietly goes nowhere.
+    if (data.subContractor && !data.partnerRef?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['partnerRef'],
+        message: 'Partner company is required to sub-contract a booking.',
+      })
+    }
   })
 
 export type TripFormValues = z.infer<typeof tripFormSchema>

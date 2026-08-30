@@ -124,11 +124,34 @@ describe('tripFormSchema — conditional validation', () => {
     })
 
     it('accepts a sub-contracted booking once a rate is given', () => {
-      expect(tripFormSchema.safeParse(validBase({ subContractor: true, partnerRateEur: 90 })).success).toBe(true)
+      expect(
+        tripFormSchema.safeParse(validBase({ subContractor: true, partnerRateEur: 90, partnerRef: 'D-XX-XX-UBE-001' }))
+          .success,
+      ).toBe(true)
     })
 
     it('asks nothing of a booking that is not sub-contracted', () => {
       expect(tripFormSchema.safeParse(validBase({ subContractor: false, partnerRateEur: undefined })).success).toBe(true)
+    })
+  })
+
+  // The legacy kept the submit button greyed out until the Partner company was
+  // entered (refreshFormGuards, common.js:1046-1054). Without it a booking is
+  // farmed out to nobody: the server pins it at "Sent" and never re-arms the
+  // Send button (decideAssignment's `locked`), so it silently goes nowhere.
+  describe('partnerRef — required to sub-contract', () => {
+    it('rejects a sub-contracted booking with no partner company', () => {
+      expect(issuePaths(validBase({ subContractor: true, partnerRateEur: 90, partnerRef: '' }))).toContain('partnerRef')
+    })
+
+    it('rejects a partner company that is only whitespace', () => {
+      expect(issuePaths(validBase({ subContractor: true, partnerRateEur: 90, partnerRef: '   ' }))).toContain(
+        'partnerRef',
+      )
+    })
+
+    it('asks nothing of a booking that is not sub-contracted', () => {
+      expect(tripFormSchema.safeParse(validBase({ subContractor: false, partnerRef: '' })).success).toBe(true)
     })
   })
 

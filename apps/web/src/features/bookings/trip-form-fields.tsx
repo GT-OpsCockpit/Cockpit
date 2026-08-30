@@ -650,7 +650,7 @@ export function TripFormFields({
               name="partnerRef"
               render={({ field }) => (
                 <FormItem className="col-span-6 lg:col-span-6">
-                  <FormLabel>Partner</FormLabel>
+                  <FormLabel className={REQUIRED_MARK}>Partner</FormLabel>
                   <FormControl>
                     <SearchCombobox
                       value={field.value ?? ''}
@@ -664,6 +664,7 @@ export function TripFormFields({
                       selectedLabel={partnerSelectedLabel}
                     />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
