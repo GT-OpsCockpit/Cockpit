@@ -1,7 +1,8 @@
 import { CalendarPlus, Pencil, RotateCcw, Users, X } from 'lucide-react'
-import type { ClientEntity } from '@cockpit/shared/api'
+import { ClientEntityClientType, type ClientEntity } from '@cockpit/shared/api'
 import { formatPhoneDisplay } from '@cockpit/shared'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
+import { CountryLabel } from '@/components/country-label'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
@@ -35,9 +36,11 @@ export function ClientsTable({
         <TableHeader>
           <TableRow>
             <TableHead>Ref</TableHead>
+            <TableHead>Country</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Email</TableHead>
+            <TableHead>POC</TableHead>
             <TableHead>POC phone</TableHead>
             <TableHead>Billing</TableHead>
             <TableHead>Action</TableHead>
@@ -45,10 +48,10 @@ export function ClientsTable({
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableSkeletonRows columns={7} />
+            <TableSkeletonRows columns={9} />
           ) : clients.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="p-0 whitespace-normal">
+              <TableCell colSpan={9} className="p-0 whitespace-normal">
                 <EmptyState
                   icon={Users}
                   title="No accounts to display"
@@ -62,12 +65,26 @@ export function ClientsTable({
             clients.map((client) => (
               <TableRow key={client.ref} className={cn(!client.active && 'opacity-50')}>
                 <TableCell className="text-xs font-medium">{client.ref}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">
+                  <CountryLabel code={client.countryCode} />
+                </TableCell>
                 <TableCell className="text-xs">
                   {client.name}
                   {client.acronym && <span className="text-muted-foreground text-[10px]"> ({client.acronym})</span>}
+                  {/* An Events account is booked against its dates, and a
+                      finished one is the usual reason a driver can no longer be
+                      assigned — the legacy put them right under the name for
+                      that reason (common.js:3358-3360). */}
+                  {client.clientType === ClientEntityClientType.EVENT && (client.eventStartDate || client.eventEndDate) && (
+                    <div className="text-muted-foreground text-[10px]">
+                      {client.eventStartDate ? formatDate(client.eventStartDate) : '?'} →{' '}
+                      {client.eventEndDate ? formatDate(client.eventEndDate) : '?'}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="text-xs">{clientTypeLabel(client.clientType)}</TableCell>
                 <TableCell className="text-muted-foreground text-xs">{client.email ?? '—'}</TableCell>
+                <TableCell className="text-xs">{client.pocName ?? '—'}</TableCell>
                 <TableCell className="text-muted-foreground text-xs">{formatPhoneDisplay(client.pocPhone) || '—'}</TableCell>
                 <TableCell className="text-xs">{client.billing ?? '—'}</TableCell>
                 <TableCell className="whitespace-nowrap">

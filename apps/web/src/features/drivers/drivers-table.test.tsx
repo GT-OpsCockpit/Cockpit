@@ -1,8 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { DriverUnavailabilityEntityType } from '@cockpit/shared/api'
-import { DriversTable } from './drivers-table'
-import { baseDriver } from './test-fixtures'
+
+// The Country column renders <CountryLabel>, which reads the country catalogue
+// off /meta to spell the code out. Stub just that hook (the rest of the module
+// is kept) so the table stays renderable without a QueryClientProvider.
+vi.mock('@cockpit/shared/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@cockpit/shared/api')>()),
+  useMetaControllerGetMeta: () => ({ data: { countries: [{ code: 'FR', name: 'France' }] } }),
+}))
+
+const { DriversTable } = await import('./drivers-table')
+const { baseDriver } = await import('./test-fixtures')
 
 afterEach(cleanup)
 
@@ -194,5 +203,25 @@ describe('DriversTable', () => {
 
     const row = screen.getByRole('row', { name: /D-FR-INT-001/ })
     expect(row.textContent?.match(/—/g)?.length).toBeGreaterThanOrEqual(3)
+  })
+})
+
+// The legacy's Drivers & Partners lists both carried Country as a column
+// (common.js:3531). Without it, a partner's country only showed through their
+// ref prefix — and an in-house chauffeur's ref is always D-FR-INT, so it
+// showed nowhere at all.
+describe('DriversTable — Country', () => {
+  const firstRow = () => within(screen.getAllByRole('table')[0]).getAllByRole('row')[1]
+  // Ref | Country | Name | Phone | Email | Area | Unavailability | Action
+  const cell = (index: number) => within(firstRow()).getAllByRole('cell')[index]
+
+  it('spells the country out, the same way the Fleet list does', () => {
+    render(<DriversTable drivers={[baseDriver({ countryCode: 'FR' })]} canReactivate {...noop} />)
+    expect(cell(1)).toHaveTextContent('France (FR)')
+  })
+
+  it('says "—" in the Country cell itself for a driver with no country on file', () => {
+    render(<DriversTable drivers={[baseDriver({ countryCode: null })]} canReactivate {...noop} />)
+    expect(cell(1)).toHaveTextContent('—')
   })
 })

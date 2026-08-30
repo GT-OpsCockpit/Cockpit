@@ -2,6 +2,7 @@ import { CalendarClock, CalendarPlus, Car, Lock, Pencil, RotateCcw, X } from 'lu
 import type { DriverEntity } from '@cockpit/shared/api'
 import { effectiveActivity, formatPhoneDisplay } from '@cockpit/shared'
 import { cn } from '@/lib/utils'
+import { CountryLabel } from '@/components/country-label'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
@@ -94,6 +95,7 @@ function DriverGroup({
           <TableHeader>
             <TableRow>
               <TableHead>Ref</TableHead>
+              <TableHead>Country</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Email</TableHead>
@@ -104,10 +106,10 @@ function DriverGroup({
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableSkeletonRows columns={7} />
+              <TableSkeletonRows columns={8} />
             ) : drivers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="p-0 whitespace-normal">
+                <TableCell colSpan={8} className="p-0 whitespace-normal">
                   <EmptyState
                     icon={Car}
                     title="No records to display"
@@ -129,6 +131,9 @@ function DriverGroup({
                 return (
                   <TableRow key={driver.ref} className={cn(!activity.active && 'opacity-50')}>
                     <TableCell className="text-xs font-medium">{driver.ref}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      <CountryLabel code={driver.countryCode} />
+                    </TableCell>
                     <TableCell className="text-xs">
                       {driver.name}
                       {driver.company && <span className="text-muted-foreground text-[10px]"> ({driver.company})</span>}

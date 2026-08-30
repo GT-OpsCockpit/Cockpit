@@ -1,9 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { ClientsTable } from './clients-table'
-import { baseClient } from './test-fixtures'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { ClientEntityClientType } from '@cockpit/shared/api'
+
+// The Country column renders <CountryLabel>, which reads the country catalogue
+// off /meta to spell the code out. Stub just that hook (the rest of the module
+// is kept) so the table stays renderable without a QueryClientProvider.
+vi.mock('@cockpit/shared/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@cockpit/shared/api')>()),
+  useMetaControllerGetMeta: () => ({ data: { countries: [{ code: 'FR', name: 'France' }] } }),
+}))
+
+const { ClientsTable } = await import('./clients-table')
+const { baseClient } = await import('./test-fixtures')
 
 afterEach(cleanup)
+
+const noop = { onEdit: vi.fn(), onToggleActive: vi.fn(), onNewBooking: vi.fn() }
 
 describe('ClientsTable', () => {
   it('shows a placeholder row when there are no accounts', () => {
@@ -75,11 +87,70 @@ describe('ClientsTable', () => {
     expect(onToggleActive).toHaveBeenCalledWith(client)
   })
 
+  // Named cells rather than a count of em dashes in the row: the count broke
+  // the moment a column was added, and never said which cell had gone blank.
   it('falls back to an em dash for a missing email, POC phone or billing', () => {
     const client = baseClient({ ref: 'CI1', email: null, pocPhone: null, billing: null })
     render(<ClientsTable clients={[client]} onEdit={vi.fn()} onToggleActive={vi.fn()} onNewBooking={vi.fn()} />)
 
-    const row = screen.getByRole('row', { name: /CI1/ })
-    expect(row.textContent?.match(/—/g)).toHaveLength(3)
+    // Ref | Country | Name | Type | Email | POC | POC phone | Billing | Action
+    const cells = within(screen.getByRole('row', { name: /CI1/ })).getAllByRole('cell')
+    expect(cells[4]).toHaveTextContent('—')
+    expect(cells[6]).toHaveTextContent('—')
+    expect(cells[7]).toHaveTextContent('—')
+  })
+})
+
+// The legacy's account list carried Country and POC as columns of their own
+// (common.js:3358-3375). v2 dropped both, so telling a French account from a
+// Monegasque one, or reaching the person to call, meant opening each record.
+describe('ClientsTable — Country, POC and Event dates', () => {
+  const row = () => screen.getAllByRole('row')[1]
+  // Ref | Country | Name | Type | Email | POC | POC phone | Billing | Action
+  const cell = (index: number) => within(row()).getAllByRole('cell')[index]
+
+  it('spells the country out, the same way the Fleet list does', () => {
+    render(<ClientsTable clients={[baseClient({ countryCode: 'FR' })]} {...noop} />)
+    expect(cell(1)).toHaveTextContent('France (FR)')
+  })
+
+  it('says "—" in the Country cell itself for an account with no country', () => {
+    render(<ClientsTable clients={[baseClient({ countryCode: null })]} {...noop} />)
+    expect(cell(1)).toHaveTextContent('—')
+  })
+
+  it('names the POC next to the number to call them on', () => {
+    render(<ClientsTable clients={[baseClient({ pocName: 'Claire Bonnet', pocPhone: '+33611223344' })]} {...noop} />)
+    expect(cell(5)).toHaveTextContent('Claire Bonnet')
+  })
+
+  it('says "—" in the POC cell itself when no contact is named', () => {
+    render(<ClientsTable clients={[baseClient({ pocName: null })]} {...noop} />)
+    expect(cell(5)).toHaveTextContent('—')
+  })
+
+  // The dates belong in the name's own cell, in grey, as in the legacy — an
+  // Events account is booked against its dates, and a stale one is the usual
+  // reason a driver can't be assigned.
+  it("shows an Events account's dates under its name", () => {
+    render(
+      <ClientsTable
+        clients={[
+          baseClient({
+            clientType: ClientEntityClientType.EVENT,
+            name: 'Régate du Sud',
+            eventStartDate: '2026-08-25T00:00:00.000Z',
+            eventEndDate: '2026-08-30T00:00:00.000Z',
+          }),
+        ]}
+        {...noop}
+      />,
+    )
+    expect(within(row()).getByText('25/08/2026 → 30/08/2026')).toBeInTheDocument()
+  })
+
+  it('shows no date line for an account that is not an Event', () => {
+    render(<ClientsTable clients={[baseClient({ clientType: ClientEntityClientType.INDIVIDUAL })]} {...noop} />)
+    expect(within(row()).queryByText(/→/)).not.toBeInTheDocument()
   })
 })
