@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { itineraryLabel, shortPlaceLabel } from './trip-display'
+import { cancellationFeeLabel, itineraryLabel, shortPlaceLabel } from './trip-display'
 import { baseTrip } from './test-fixtures'
-import { TripEntityService } from '@cockpit/shared/api'
+import { TripEntityCancellationFee, TripEntityService } from '@cockpit/shared/api'
 
 // A full street address doesn't fit the Itinerary column next to Reg Nbr,
 // Sub-C and Driver — and cutting it at the first comma keeps the wrong end.
@@ -58,5 +58,23 @@ describe('itineraryLabel', () => {
   it('says how long an at-disposal booking runs instead of a drop-off', () => {
     const trip = baseTrip({ service: TripEntityService.ASD, hours: 4, pickupLocation: 'Nice, France' })
     expect(itineraryLabel(trip)).toEqual(expect.stringContaining('→ ASD (4h)'))
+  })
+})
+
+// The Bookings table printed the Prisma enum member straight out ("Fee: FIFTY")
+// where the legacy — and v2's own cancel dialog — say "Fee: 50%"
+// (common.js:3114 / booking-cancel-dialog.tsx's FEE_OPTIONS).
+describe('cancellationFeeLabel', () => {
+  it.each([
+    [TripEntityCancellationFee.FREE, 'Free'],
+    [TripEntityCancellationFee.FIFTY, '50%'],
+    [TripEntityCancellationFee.SEVENTYFIVE, '75%'],
+    [TripEntityCancellationFee.HUNDRED, '100%'],
+  ])('reads %s as %s', (fee, expected) => {
+    expect(cancellationFeeLabel(fee)).toBe(expected)
+  })
+
+  it('has nothing to say about a booking that was never cancelled', () => {
+    expect(cancellationFeeLabel(null)).toBeNull()
   })
 })

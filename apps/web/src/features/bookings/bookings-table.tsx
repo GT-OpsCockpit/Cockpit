@@ -6,7 +6,7 @@ import { TableCard } from '@/components/table-card'
 import { TableSkeletonRows } from '@/components/table-skeleton-rows'
 import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from './status-badge'
-import { clientAccountLabel, shortDriverName, tripDriverName, urgencyRowClass } from './trip-display'
+import { cancellationFeeLabel, clientAccountLabel, shortDriverName, tripDriverName, urgencyRowClass } from './trip-display'
 import { Itinerary } from './itinerary'
 import { PickupTime } from './pickup-time'
 import { TripActionsCell } from './trip-actions-cell'
@@ -111,7 +111,9 @@ export function BookingsTable({
                   <TableCell className="text-xs">
                     <StatusBadge trip={trip} onAdvance={onAdvance} />
                     {trip.cancellationFee && trip.cancellationFee !== 'FREE' && (
-                      <div className="text-muted-foreground text-[9.5px]">Fee: {trip.cancellationFee}</div>
+                      <div className="text-muted-foreground text-[9.5px]">
+                        Fee: {cancellationFeeLabel(trip.cancellationFee)}
+                      </div>
                     )}
                   </TableCell>
                   <TripActionsCell

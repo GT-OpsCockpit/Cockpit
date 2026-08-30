@@ -15,16 +15,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePermission } from '@/features/auth/use-permission'
 import { PermissionWarning } from '@/components/permission-warning'
-import { clientAccountLabel, tripDriverName } from './trip-display'
+import { CANCELLATION_FEE_LABELS, clientAccountLabel, tripDriverName } from './trip-display'
 import { Itinerary } from './itinerary'
 import { PickupTime } from './pickup-time'
 
+// Labels shared with the Bookings table's "Fee: …" line (trip-display.ts), so
+// the select and the row can never word the same fee differently.
 const FEE_OPTIONS: { value: CancelAssignmentDtoCancellationFee; label: string }[] = [
-  { value: CancelAssignmentDtoCancellationFee.FREE, label: 'Free' },
-  { value: CancelAssignmentDtoCancellationFee.FIFTY, label: '50%' },
-  { value: CancelAssignmentDtoCancellationFee.SEVENTYFIVE, label: '75%' },
-  { value: CancelAssignmentDtoCancellationFee.HUNDRED, label: '100%' },
-]
+  CancelAssignmentDtoCancellationFee.FREE,
+  CancelAssignmentDtoCancellationFee.FIFTY,
+  CancelAssignmentDtoCancellationFee.SEVENTYFIVE,
+  CancelAssignmentDtoCancellationFee.HUNDRED,
+].map((value) => ({ value, label: CANCELLATION_FEE_LABELS[value] }))
 
 /**
  * The fee this booking already carries. A cancelled booking can be reopened —

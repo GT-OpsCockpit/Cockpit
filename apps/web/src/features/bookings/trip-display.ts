@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import { clientDisplayName, driverLabel } from '@cockpit/shared'
-import { TripEntityService } from '@cockpit/shared/api'
+import { TripEntityCancellationFee, TripEntityService } from '@cockpit/shared/api'
 import type { TripEntity } from '@cockpit/shared/api'
 
 /**
@@ -15,6 +15,25 @@ import type { TripEntity } from '@cockpit/shared/api'
 // computation ("times shown in Europe/Paris"), independent of the trip's own
 // local timezone (shown separately, see pickupLocalInstant).
 export const PARIS_ZONE = 'Europe/Paris'
+
+/**
+ * A cancellation fee as a dispatcher reads it, not as Prisma stores it.
+ *
+ * The enum member is what the table used to print, so a booking cancelled at
+ * half price showed "Fee: FIFTY" — the legacy printed the percentage
+ * (common.js:3114). Shared with the cancel dialog's own select so the two can
+ * never drift apart again.
+ */
+export const CANCELLATION_FEE_LABELS: Record<NonNullable<TripEntityCancellationFee>, string> = {
+  [TripEntityCancellationFee.FREE]: 'Free',
+  [TripEntityCancellationFee.FIFTY]: '50%',
+  [TripEntityCancellationFee.SEVENTYFIVE]: '75%',
+  [TripEntityCancellationFee.HUNDRED]: '100%',
+}
+
+export function cancellationFeeLabel(fee: TripEntityCancellationFee): string | null {
+  return fee ? CANCELLATION_FEE_LABELS[fee] : null
+}
 
 /** "Cust / Pax" column's account label: the acronym when set, name as a plain clarifier — falls back to the name alone. */
 export function clientAccountLabel(trip: TripEntity): { primary: string; secondary?: string } {
