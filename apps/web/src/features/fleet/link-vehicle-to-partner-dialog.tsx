@@ -60,7 +60,7 @@ export function LinkVehicleToPartnerDialog({
           <DialogTitle>Link a vehicle{driver ? ` to ${driverLabel(driver)}` : ''}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form className="grid gap-4" onSubmit={onSubmit}>
+          <form className="grid gap-4" onSubmit={onSubmit} noValidate>
             <VehicleFormFields form={form} lockExternal />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

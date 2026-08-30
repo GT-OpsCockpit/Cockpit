@@ -107,7 +107,7 @@ function CredentialsForm({ onCodeSent }: { onCodeSent: (step: Step) => void }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={onSubmit} className="grid gap-4">
+      <form onSubmit={onSubmit} className="grid gap-4" noValidate>
         <FormField
           control={form.control}
           name="email"
@@ -200,7 +200,7 @@ function OtpForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={onSubmit} className="grid gap-4">
+      <form onSubmit={onSubmit} className="grid gap-4" noValidate>
         {devCode && (
           <p className="rounded-md bg-accent px-3 py-2 text-accent-foreground text-sm">
             Dev mode: code auto-filled ({devCode}).

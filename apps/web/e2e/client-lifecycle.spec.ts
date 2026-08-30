@@ -38,8 +38,11 @@ function toast(page: Page, textOrPattern: string | RegExp) {
   return page.getByText(textOrPattern).first()
 }
 
+// Matched on the ref cell, exactly — an accessible-name match is a substring
+// one, and this database is never truncated between runs (playwright.config.ts),
+// so a ref like "F8" also matches the "F80" a later run created.
 function row(page: Page, text: string) {
-  return page.getByRole('row', { name: text })
+  return page.getByRole('row').filter({ has: page.getByRole('cell', { name: text, exact: true }) })
 }
 
 /**
@@ -114,10 +117,12 @@ test.describe('Clients — account lifecycle', () => {
     await expect(dialog.getByLabel('Company name', { exact: true })).toHaveValue(companyName)
     await expect(dialog.getByLabel('Country', { exact: true })).toHaveText('France (FR)')
 
-    await dialog.getByLabel('Acronym', { exact: true }).fill('E2ECO')
+    // 4 characters, not 5: the legacy's cap was restored on 2026-08-29
+    // (`24107ea`) and this spec still carried the old 'E2ECO'.
+    await dialog.getByLabel('Acronym', { exact: true }).fill('E2EC')
     await dialog.getByRole('button', { name: 'Confirm' }).click()
     await expect(toast(page, `Account ${companyRef} updated.`)).toBeVisible()
-    await expect(row(page, companyRef).getByText('(E2ECO)')).toBeVisible()
+    await expect(row(page, companyRef).getByText('(E2EC)')).toBeVisible()
 
     // --- Deactivate / reactivate ---
     await row(page, companyRef).getByRole('button', { name: 'Deactivate' }).click()

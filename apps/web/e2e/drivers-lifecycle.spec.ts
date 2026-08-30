@@ -22,8 +22,11 @@ function toast(page: Page, textOrPattern: string | RegExp) {
   return page.getByText(textOrPattern).first()
 }
 
+// Matched on the ref cell, exactly — an accessible-name match is a substring
+// one, and this database is never truncated between runs (playwright.config.ts),
+// so a ref like "F8" also matches the "F80" a later run created.
 function row(page: Page, text: string) {
-  return page.getByRole('row', { name: text })
+  return page.getByRole('row').filter({ has: page.getByRole('cell', { name: text, exact: true }) })
 }
 
 /**
@@ -308,7 +311,9 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
     await expect(linkDialog.getByRole('heading', { name: `Link a vehicle to ${company}` })).toBeVisible()
     await expect(linkDialog.getByLabel('Local', { exact: true })).toBeDisabled()
     await expect(linkDialog.getByLabel('Local', { exact: true })).not.toBeChecked()
-    await expect(linkDialog.getByLabel('Partner', { exact: true })).toHaveValue(company)
+    // A combobox trigger since 2026-08-29 (`35fbf52`), not an <input>: it carries
+    // its selection as text, so toHaveValue no longer applies.
+    await expect(linkDialog.getByLabel('Partner', { exact: true })).toHaveText(company)
 
     await linkDialog.getByLabel('Category', { exact: true }).click()
     await page.getByRole('option', { name: 'Business', exact: true }).click()

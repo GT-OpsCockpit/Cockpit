@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { fillArea } from './helpers'
+import { fillAddress, fillArea, fillPocName } from './helpers'
 
 /**
  * Transcribes the manual browser walkthrough from
@@ -72,9 +72,9 @@ test.describe('Booking lifecycle', () => {
     await selectFromDropdown(page, form, 'Vehicle', 'Business')
     await selectSearchCombobox(page, form, 'Customer', 'Marc', 'Marc Dubois')
     await form.getByLabel('Pax Name').fill('E2E Playwright Passenger')
-    await form.getByLabel('PU', { exact: true }).fill('Nice Airport')
-    await form.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
-    await form.getByLabel('POC Name').fill('Sophie Durand')
+    await fillAddress(page, form, 'PU', 'Nice Airport')
+    await fillAddress(page, form, 'DO', 'Hotel Negresco')
+    await fillPocName(page, form, 'Sophie Durand')
     await form.getByLabel('POC Mobile').fill('+33612345678')
     await selectSearchCombobox(page, form, 'Driver', 'Julien', 'Julien Petit')
     await selectFromDropdown(page, form, 'Reg Nbr', 'AA-001-BC — Business')

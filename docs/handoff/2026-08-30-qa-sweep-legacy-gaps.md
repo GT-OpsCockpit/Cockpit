@@ -91,3 +91,48 @@ Aucun des bugs corrigés sur `/bookings` (voir le rapport QA, `d04d366` et `2791
 est le rappel de capacité véhicule, rétabli avec **sa** formulation (`common.js:4329`), et le libellé
 du frais d'annulation, rétabli au format du legacy (`common.js:3114`).
 
+## `/clients` ↔ `/clients.html`
+
+Legacy comparé : `http://localhost:4100/clients.html` (+ `public/common.js:3349-3440`,
+`public/clients.html:200-260` et `:490-520`).
+État de données créé à la main : 1 compte individuel (`CI1`), sans quoi la table affiche
+« No accounts yet. » et aucune action de ligne n'est observable.
+
+**Inventaire legacy — table** : REF | COUNTRY | ACRONYM | CUSTOMER | POC | POC PHONE |
+INVOICE RECIPIENT | ACTION. Une seule action par ligne : ✏️ *Edit*. Aucune barre de filtres,
+aucune recherche, aucune pagination — la liste est rendue en entier.
+
+**Inventaire legacy — formulaire de création** (inline sur la page, pas un dialogue) : Type,
+POC Surname, POC Name, Company, Acronym, Payment, Ref/PO/Other, Address, Zip Code, City, Country,
+VAT Nbr, Invoice recipient, POC Full Name, POC Mobile, POC Email, `Create` ; plus 4 champs cachés
+pour les comptes Events (eventCountry, eventArea, eventStartDate, eventEndDate).
+
+### Features legacy sans équivalent v2
+
+| Feature | Ce qu'elle fait | Où elle vit | Pourquoi pas d'équivalent | Effort | Recommandation |
+|---|---|---|---|---|---|
+| **Colonne COUNTRY** (avec drapeau) | Le pays du compte, en clair, dans la liste — `FR 🇫🇷` | `common.js:3369` | **Oubli.** v2 a remplacé les colonnes par Ref/Name/Type/Email/POC phone/Billing : le pays n'apparaît plus **nulle part** dans la liste, seulement dans le dialogue d'édition | **Faible** — une colonne, la donnée est déjà dans la réponse (`countryCode`) | **À porter.** C'est la seule info de facturation/localisation qu'on ne peut plus lire sans ouvrir chaque fiche |
+| **Colonne POC** (nom du contact) | Le nom du contact sur place, à côté de son téléphone | `common.js:3372` | **Oubli.** v2 garde « POC phone » mais a perdu le nom qui va avec — on voit un numéro sans savoir à qui il est | **Faible** — une colonne, `pocName` est déjà renvoyé | **À porter.** Même remarque que le tooltip POC de `/bookings` : c'est l'information qu'on cherche dans l'urgence |
+| **Dates de l'événement sur la ligne** | Pour un compte Events : `Events: <nom> (<début> → <fin>)` en gris sous le nom | `common.js:3358-3360` | **Oubli.** v2 affiche « Events » dans la colonne Type mais jamais les dates | **Faible** | À porter avec les deux précédentes, même cellule |
+| **Acronyme : validation live** | Champ surligné orange et bouton `Create` **désactivé** avec l'infobulle « Acronym must be 4 letters max » | `clients.html:500-508` | **Écart d'UX assumé ici** : v2 affiche le message au submit. Jusqu'à cette passe v2 n'affichait *rien* (bug #7 du rapport QA) ; c'est désormais réparé | — | Sans objet — la règle est portée, sa restitution diffère |
+| **Auto-synchro « POC Full Name »** | Le POC se remplit tout seul depuis Prénom + Nom tant qu'on n'y a pas touché (`pocNameAutoSynced`) | `clients.html:470-498` | v2 le fait **côté serveur** (`pocName` retombe sur le nom du contact, audit §3.7) mais pas en direct dans le formulaire | Faible | Sans objet — le résultat enregistré est le même |
+
+### Écarts de règle sur des contrôles présents des deux côtés
+
+| Contrôle | Legacy | v2 | Verdict |
+|---|---|---|---|
+| Libellés du contact | « POC Surname » / « POC Name » pour `contactFirstName` / `contactLastName` | « First name » / « Last name » | v2 plus clair, mêmes colonnes. Aucun écart métier |
+| « Invoice recipient » | libellé du champ email de facturation | « Email » | Cosmétique |
+| Désactivation | dans la popup d'édition (`deleteLabel: 'Deactivate Client'`) | bouton sur la ligne | Équivalent, plus direct |
+| Suppression définitive | popup d'édition, derrière le mot de passe Manager | dialogue d'édition, derrière `record:delete` | Porté (§15) — **revu, non touché** |
+| Tri | actifs puis `ref` | actifs puis `createdAt` | **Écart assumé** (§15) — **revu, non touché** |
+
+### Ajouts v2 sans équivalent legacy
+
+Recherche plein texte, filtre par Type, case « Show deactivated », **pagination serveur**, bouton
+« New booking » pré-remplissant le compte, et réactivation depuis la ligne. Le legacy chargeait et
+affichait la totalité des comptes d'un bloc.
+
+**Bilan `/clients` : 3 features legacy manquantes**, toutes de l'affichage de liste (Country, POC,
+dates d'événement), toutes de faible effort, toutes recommandées au portage.
+

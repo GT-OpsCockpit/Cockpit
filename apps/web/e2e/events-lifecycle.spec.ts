@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { fillArea } from './helpers'
+import { fillAddress, fillArea } from './helpers'
 
 /**
  * Covers the /events vertical (docs/handoff/2026-08-27-frontend-events.md):
@@ -54,8 +54,8 @@ async function fillBookingForm(page: Page, dialog: Locator, passengerName: strin
   await dialog.locator('input[type="time"]').fill('10:00')
   await selectFromDropdown(page, dialog, 'Vehicle', 'Business')
   await dialog.getByLabel('Pax Name').fill(passengerName)
-  await dialog.getByLabel('PU', { exact: true }).fill('Nice Airport')
-  await dialog.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
+  await fillAddress(page, dialog, 'PU', 'Nice Airport')
+  await fillAddress(page, dialog, 'DO', 'Hotel Negresco')
   await dialog.getByLabel('POC Mobile').fill('+33612345678')
 }
 
@@ -134,9 +134,13 @@ test.describe('Events — select/create event, bulk-create bookings', () => {
     await page.getByPlaceholder('Search event name…').fill(eventName)
 
     // --- Chaining rule: day 1 as typed, day 2 stays put, last day forced to ASD ---
-    await expect(page.getByText('Nice Airport → Hotel Negresco')).toHaveCount(2) // the single trip + bulk day 1
-    await expect(page.getByText('Hotel Negresco → Hotel Negresco')).toBeVisible() // bulk day 2
-    await expect(page.getByText('Hotel Negresco → ASD (4h)')).toBeVisible() // bulk day 3 (last)
+    // Matched loosely on purpose: since shortPlaceLabel was restored
+    // (2026-08-29, §15 of the parity audit) a single-segment address is
+    // prefixed with its timezone city — "Paris, Nice Airport". What this test
+    // is about is the chaining rule, not the label format.
+    await expect(page.getByText(/Nice Airport → .*Hotel Negresco/)).toHaveCount(2) // the single trip + bulk day 1
+    await expect(page.getByText(/Hotel Negresco → .*Hotel Negresco/)).toBeVisible() // bulk day 2
+    await expect(page.getByText(/Hotel Negresco → ASD \(4h\)/)).toBeVisible() // bulk day 3 (last)
 
     // One of the bulk legs carries the reference in its Info field — spot-check via the edit dialog.
     const bulkDay2Row = page.getByRole('row').filter({ hasText: 'Hotel Negresco → Hotel Negresco' })

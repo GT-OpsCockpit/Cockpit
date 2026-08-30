@@ -77,6 +77,13 @@ export function RecordFormDialog<TValues extends FieldValues>({
           <form
             className={scrolls ? 'flex min-h-0 flex-1 flex-col gap-4' : 'grid gap-4'}
             onSubmit={record.onSubmit}
+            // The zod resolver owns validation here (shouldUseNativeValidation
+            // is off, its default). Without this the browser checks `type=email`
+            // / `min` / `max` first and aborts the submit before the resolver
+            // runs: no message written, none cleared — fields the user had
+            // since corrected kept their stale error — and the only feedback
+            // was a browser bubble, in the browser's language, not the app's.
+            noValidate
           >
             {scrolls ? (
               // `px-2` is not decoration: it absorbs both the focus ring an edge

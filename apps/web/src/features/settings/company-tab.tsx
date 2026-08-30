@@ -120,7 +120,7 @@ export function CompanyTab() {
       <CardContent>
         <p className="text-muted-foreground mb-4 text-sm">All fields are required.</p>
         <Form {...form}>
-          <form className="grid gap-4" onSubmit={onSubmit}>
+          <form className="grid gap-4" onSubmit={onSubmit} noValidate>
             <CompanyFormFields form={form} />
             <div className="flex justify-end gap-2">
               {editing && (

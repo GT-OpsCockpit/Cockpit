@@ -204,6 +204,9 @@ export function ClientFormFields({
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
+                {/* The 4-character cap (restored 2026-08-29) had nowhere to
+                    report itself, so a longer acronym made Create do nothing. */}
+                <FormMessage />
               </FormItem>
             )}
           />

@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { API_BASE_URL, dispatcherAuthFile } from './config'
-import { fillArea } from './helpers'
+import { fillArea, fillPartnerCompany } from './helpers'
 
 /**
  * Covers the /vehicles vertical end-to-end: internal vs. external creation
@@ -21,8 +21,11 @@ function toast(page: Page, textOrPattern: string | RegExp) {
   return page.getByText(textOrPattern).first()
 }
 
+// Matched on the ref cell, exactly — an accessible-name match is a substring
+// one, and this database is never truncated between runs (playwright.config.ts),
+// so a ref like "F8" also matches the "F80" a later run created.
 function row(page: Page, text: string) {
-  return page.getByRole('row', { name: text })
+  return page.getByRole('row').filter({ has: page.getByRole('cell', { name: text, exact: true }) })
 }
 
 async function selectOption(page: Page, dialog: Locator, label: string, optionName: string) {
@@ -69,7 +72,7 @@ test.describe('Vehicles — lifecycle (ADMIN)', () => {
     await page.getByPlaceholder('Search country…').fill('France')
     await page.getByRole('option', { name: 'France (FR)' }).click()
     await fillArea(page, dialog, 'Paris')
-    await dialog.getByLabel('Partner', { exact: true }).fill(`E2E Partner ${stamp}`)
+    await fillPartnerCompany(page, dialog, `E2E Partner ${stamp}`)
     await dialog.getByRole('button', { name: 'Create' }).click()
     const externalToast = toast(page, /^Vehicle (\S+) created\.$/)
     await expect(externalToast).toBeVisible()
@@ -116,7 +119,9 @@ test.describe('Vehicles — lifecycle (ADMIN)', () => {
     await expect(row(page, internalRef)).toBeVisible()
     await expect(row(page, internalRef)).toHaveClass(/opacity-50/)
 
-    await row(page, internalRef).getByRole('button', { name: 'Reactivate' }).click()
+    // `exact`: the disabled pencil beside it is titled "Reactivate this vehicle
+    // to edit it" (added 2026-08-29, `c0f38d0`), which a substring match also hits.
+    await row(page, internalRef).getByRole('button', { name: 'Reactivate', exact: true }).click()
     await expect(toast(page, `Vehicle ${internalRef} reactivated.`)).toBeVisible()
     await expect(row(page, internalRef)).not.toHaveClass(/opacity-50/)
     await page.getByLabel('Show deactivated', { exact: true }).uncheck()
@@ -207,7 +212,7 @@ test.describe('Vehicles — lifecycle (ADMIN)', () => {
     await page.getByPlaceholder('Search country…').fill('Monaco')
     await page.getByRole('option', { name: 'Monaco (MC)' }).click()
     await fillArea(page, dialog, 'Monaco')
-    await dialog.getByLabel('Partner', { exact: true }).fill(`E2E Events Partner ${stamp}`)
+    await fillPartnerCompany(page, dialog, `E2E Events Partner ${stamp}`)
 
     await dialog.getByLabel('Events-only vehicle (linked to a single Event account)').check()
     await expect(dialog.getByLabel('Event country', { exact: true })).toHaveValue('MC')

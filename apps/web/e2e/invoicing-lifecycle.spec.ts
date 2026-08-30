@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { fillArea } from './helpers'
+import { fillAddress, fillArea } from './helpers'
 
 /**
  * Covers the /invoicing Customer tab (docs/handoff/2026-08-27-frontend-invoicing.md):
@@ -72,8 +72,8 @@ test.describe('Invoicing — Customer tab lifecycle', () => {
     await selectFromDropdown(page, form, 'Vehicle', 'Business')
     await selectInDialog(page, form, 'Customer', clientName, clientName)
     await form.getByLabel('Pax Name').fill('E2E Invoicing Passenger')
-    await form.getByLabel('PU', { exact: true }).fill('Nice Airport')
-    await form.getByLabel('DO', { exact: true }).fill('Cannes')
+    await fillAddress(page, form, 'PU', 'Nice Airport')
+    await fillAddress(page, form, 'DO', 'Cannes')
     await form.getByLabel('POC Mobile').fill('+33612345678')
     await form.getByLabel('Retail net').fill('100')
 
@@ -194,8 +194,8 @@ test.describe('Invoicing — Events mode', () => {
     await bookingDialog.locator('input[type="time"]').fill('10:00')
     await selectFromDropdown(page, bookingDialog, 'Vehicle', 'Business')
     await bookingDialog.getByLabel('Pax Name').fill(`E2E Inv Event Pax ${stamp}`)
-    await bookingDialog.getByLabel('PU', { exact: true }).fill('Nice Airport')
-    await bookingDialog.getByLabel('DO', { exact: true }).fill('Hotel Negresco')
+    await fillAddress(page, bookingDialog, 'PU', 'Nice Airport')
+    await fillAddress(page, bookingDialog, 'DO', 'Hotel Negresco')
     await bookingDialog.getByLabel('POC Mobile').fill('+33612345678')
     await bookingDialog.getByLabel('Retail net').fill('250')
     await bookingDialog.getByRole('button', { name: 'Create', exact: true }).click()
