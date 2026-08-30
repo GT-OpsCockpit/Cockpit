@@ -329,3 +329,212 @@ l'identique.
 
 **Bilan `/invoicing` : aucun écart.**
 
+
+## `/finance` ↔ `/finance.html`
+
+Legacy comparé : `http://localhost:4100/finance.html` (+ `public/finance.html:33-36`).
+État de données : aucun — la page n'en lit aucune.
+
+**Inventaire legacy** : la barre de navigation, un titre `Finance`, et
+`<div class="empty">Coming soon.</div>`. Rien d'autre : aucun champ, aucun bouton, aucun appel réseau.
+
+### Features legacy sans équivalent v2
+
+**Aucune.** v2 rend exactement la même chose — titre `Finance` + « Coming soon. » — et le lien de
+nav porte bien l'état actif.
+
+### Écarts de règle sur des contrôles présents des deux côtés
+
+Aucun contrôle des deux côtés. Le seul écart de la page est celui de la **barre de navigation**,
+commun à tous les écrans, relevé ici une fois pour toutes :
+
+| Lien legacy | Lien v2 | Verdict |
+|---|---|---|
+| Bookings | Bookings | — |
+| **Customers** | **Clients** | Cosmétique |
+| **Drivers & Partners** | **Drivers** | Cosmétique — les deux tableaux sont bien là |
+| Vehicles | Vehicles | — |
+| **Drivers planning** + **Vehicles planning** (2 liens) | **Planning** (1 lien + bascule) | Fusion actée (journal du 2026-08-27) — **revue, non touchée** |
+| Events / Invoicing / Finance | idem | — |
+| **Owner** | **Settings** | Cosmétique ; le contenu est comparé ci-dessous |
+
+**Bilan `/finance` : aucun écart.**
+
+## `/settings` ↔ `/owner.html`
+
+Legacy comparé : `http://localhost:4100/owner.html`, **ouvert en contexte isolé** et déverrouillé
+avec `OWNER_PASSWORD` (+ `public/owner.html:33-165`, `:299-311`, `:340-410`,
+`server.js:251-290`, `:788-801`).
+État de données : le compte admin du `.env` legacy ; la table Access démarre vide
+(« No access created yet »), les libellés de colonnes et le formulaire de création sont rendus
+indépendamment des données, la ligne et ses deux actions ont été lues dans `owner.html:350-364`.
+
+**Inventaire legacy** : la page entière est derrière une **porte mot de passe** (panneau
+« 🔒 This page is password-protected. » + bouton `Enter password`, popup ouverte automatiquement au
+chargement, vérifiée par `POST /api/owner/verify-password`). Une fois ouverte : panneau **Company**
+(Name, Legal Name, Street, Zip Code, City, Country, VAT Nbr, Email, Website, Owner surname, Owner
+name, Mobile, Owner email address + `Save`, puis ✏️ / ✅ une fois enregistrée) et panneau **Access**
+(formulaire *inline* Surname, Name, Mobile, Email, Role[`Dispatch`|`Admin`] + `Create` ; table
+REF / SURNAME / NAME / MOBILE / EMAIL / ROLE / ACTIVATED / ACTION avec ✏️ et ❌ par ligne, grisés
+sur un compte désactivé).
+
+### Features legacy sans équivalent v2
+
+| Feature | Ce qu'elle fait | Où elle vit | Pourquoi pas d'équivalent | Effort | Recommandation |
+|---|---|---|---|---|---|
+| **Référence lisible du compte d'accès** | `createAccess` attribue `O-001`, `O-002`… à un Admin et `D-001`, `D-002`… à un Dispatch — la colonne REF donne le rôle et le rang d'un coup d'œil, et se cite au téléphone | `server.js:788-801`, colonne rendue en `owner.html:353` | **Oubli.** v2 n'a pas de colonne `ref` sur `User` : la colonne « Ref » de l'onglet Users affiche `user.id.slice(0, 8)` (`users-table.tsx:49`), soit les 8 premiers caractères d'un cuid — `cmtanuan`, `cmtb9fzc`. Illisible, non citable, et sans rapport avec le rôle | **Moyen** — une colonne `ref` sur `User`, un compteur par préfixe (le mécanisme existe déjà : `RefCounter` + `TripRefService`), une migration donnant une ref aux 6 comptes en place | **À trancher par Romain.** Aucune perte fonctionnelle — rien dans v2 ne s'adresse à un utilisateur par sa ref — mais la colonne telle qu'elle est n'apporte rien à personne : soit on lui donne une vraie ref, soit on retire la colonne |
+| **Porte mot de passe Owner sur la page** | Toute la page reste masquée tant que `OWNER_PASSWORD` n'est pas saisi, à chaque visite | `owner.html:299-311` | **Tranché** : audit §1.2 🟠 — « toutes les portes mot de passe Manager/Owner deviennent des permissions de rôle », `company:edit` et `user:manage` | — | **Revu, non touché** |
+| **❌ « Delete » sur un compte d'accès** | Confirmation + porte mot de passe, puis… `PATCH /api/access/:ref/deactivate` | `owner.html:400-407`, `server.js:284-290` | **Sans objet** : le bouton s'appelle « Delete » mais ne fait qu'une désactivation douce. v2 expose la même opération sous son vrai nom, « Deactivate » | — | Sans objet — v2 est plus honnête que le legacy |
+
+### Écarts de règle sur des contrôles présents des deux côtés
+
+| Contrôle | Legacy | v2 | Verdict |
+|---|---|---|---|
+| Mise en page | deux panneaux empilés sur une page | deux **onglets** Company / Users | Présentation. Aucun contrôle perdu |
+| Champs Company | 13 champs | **les mêmes 13**, `VAT Nbr`→`VAT number`, ordre Email/Website inversé | Cosmétique |
+| Édition de la fiche société | ✏️ + mot de passe Owner, rouvrable indéfiniment | bouton « Edit company info » + `company:edit`, rouvrable indéfiniment | Porté (§15, **B3 corrigé**) — **revu, non touché** |
+| Création d'un compte | formulaire **inline** sous le titre Access | **dialogue** « New user » | Présentation |
+| Champs du compte | Surname, Name, Mobile, Email, Role | idem **+ `Password` requis (min 8)** | **Écart assumé** (audit §1.5 🟠) — **revu, non touché** |
+| Rôles | `Dispatch` / `Admin` | `Dispatch` / `Admin` | Aucun écart |
+| Édition d'un compte | popup générique cellule par cellule, Discard / Confirm | dialogue « Edit user — `<email>` », Cancel / Confirm | Présentation |
+| Compte désactivé | ✏️ et ❌ grisés, sous-ligne rouge « Deactivated `<date>` » | **identique** — actions désactivées, « Deactivated `<date>` » sous la date d'activation | Aucun écart |
+| Téléphone dans la liste | `intlPhone(a.mobile)` | `formatPhoneDisplay` — vérifié à l'écran : `+33 6 12 34 50 00` | Aucun écart |
+
+### Ajouts v2 sans équivalent legacy
+
+**« Set a new password »** par ligne (`PATCH /users/:id/password`) — le legacy n'avait aucun mot de
+passe par compte, donc rien à changer ; côté v2 c'est le trou déjà comblé et consigné dans l'audit
+(§ « Trou propre à v2, comblé »). La fiche société est aussi affichée **en lecture seule** avant
+édition, ce que le legacy ne faisait pas (ses champs étaient des `<input disabled>`).
+
+**Bilan `/settings` : 1 feature legacy manquante** (la référence lisible d'un compte d'accès),
+à trancher par Romain ; les deux autres écarts relevés sont l'un déjà tranché, l'autre sans objet.
+
+## `/driver/:ref` ↔ `/chauffeur.html?ref=…`
+
+Legacy comparé : `http://localhost:4100/chauffeur.html?ref=R-CI2-26-1` (+ `public/chauffeur.html:37-115`).
+État de données créé à la main côté legacy : un compte `CI2` (Hélène D'Arcy), un chauffeur
+`D•FR•INT•2` (Karim Haddad), et une course `R-CI2-26-1` Nice → Negresco assignée à ce chauffeur —
+sans quoi la page ne rend rien.
+Côté v2 : `R-CI22-26-1`, la course créée pour le flux §5, **ouverte en fenêtre déconnectée**
+(contexte navigateur isolé, `document.cookie` vide).
+
+**Inventaire legacy** : bandeau `REF <ref>` + `Hello <driverName || 'Driver'>` ; bandeau d'erreur
+(`lastError`) ; bandeau d'avertissement quand `tracking === false` ; bloc d'infos Account /
+Passenger (`· N pax`) / POC WhatsApp / Date+heure / Pickup / Destination / Vehicle ; deux étapes
+automatiques (`Sent to driver`, `Received by driver`, sans bouton, « Automatic » tant qu'elles ne
+sont pas horodatées) ; cinq étapes à bouton (`Accepted by driver`, `On the way`, `In position`,
+`Passenger on board`, `Drop-off completed`) ; note de pied de page.
+
+### Features legacy sans équivalent v2
+
+**Aucune.** Tout est porté, y compris ce qui ne se voit qu'en mode dégradé et qui a été lu dans le
+code des deux côtés :
+
+| Règle legacy | Où | v2 |
+|---|---|---|
+| `tracking === false` → bandeau « Tracking disabled for this trip: steps are recorded but no WhatsApp message is sent. » | `chauffeur.html:101` | `driver-page.tsx:93` |
+| `tracking === false` → la ligne **POC WhatsApp est masquée** | `chauffeur.html:104` | `driver-page.tsx:105` |
+| Libellé du bouton : `Resend` si l'étape est faite, sinon `Notify` (tracking) ou `Mark` (sans tracking) | `chauffeur.html:90-91` | `driver-page.tsx:130` |
+| Horodatage : « Sent at » avec tracking, « Marked at » sans | `chauffeur.html:88` | `driver-page.tsx:139` |
+| Ref inconnue → « Trip not found for ref … » | `chauffeur.html` | vérifié à l'écran sur `/driver/R-NOPE-99-9` |
+
+### Écarts de règle sur des contrôles présents des deux côtés
+
+| Contrôle | Legacy | v2 | Verdict |
+|---|---|---|---|
+| **Format de la date** | `2026-09-05 at 09:15 (local time)` — la chaîne ISO brute stockée sur la course | `05/09/2026 at 09:15 (local time)` | **Écart réel, cosmétique.** v2 applique le format `dd/MM/yyyy` qu'il utilise partout ailleurs. **Recommandation : ne rien changer** — l'ISO était un effet de bord du stockage legacy (`pickupDate` était une chaîne), pas une intention |
+| **Téléphone du POC** | `33612345678` brut | `+33 6 12 34 56 78` | Ajout v2 |
+| Icônes d'étape | emoji (`✈️ 📨 👍 🚗 📍 🧍 🏁`), remplacés par `✓` une fois faits | icônes lucide, même progression | Présentation |
+| Note de pied de page | « …sends a WhatsApp message to the POC **via Twilio** — no further action required. » | « …sends a WhatsApp message to the POC — no further action required. » | Cosmétique (v2 ne nomme pas son transporteur à un chauffeur) |
+| Rafraîchissement | polling 5 s | SSE — **vérifié en direct** pendant le flux §5 | Modernisation actée (§ audit 🔵) — **revue, non touchée** |
+
+**Bilan `/driver/:ref` : aucune feature legacy manquante.**
+
+## `/track/:ref` ↔ `/dashboard.html?ref=…`
+
+Legacy comparé : `http://localhost:4100/dashboard.html?ref=R-CI2-26-1` (+ `public/dashboard.html:29-70`),
+même jeu de données créé à la main que ci-dessus. Côté v2 : `/track/R-CI22-26-1` et
+`/track/R-CC1-26-1`, **en fenêtre déconnectée**.
+
+**Inventaire legacy** : bandeau `● REF <ref> — live tracking` ; titre = nom du passager (à défaut le
+compte) ; bloc Account / **Driver** (`driverName || 'To be confirmed'`) / Date+heure / Pickup /
+Destination / Vehicle ; quatre étapes **sans bouton** (`Trip accepted`, `In position`,
+`Passenger picked up`, `Dropped off`), horodatées « Confirmed at `hh:mm` » une fois faites ; note de
+pied de page.
+
+### Features legacy sans équivalent v2
+
+**Aucune.** Même bloc d'infos, mêmes quatre étapes, même wording « Confirmed at », même repli
+« To be confirmed », même message pour une ref inconnue. Les étapes intermédiaires que la page
+chauffeur affiche (`Sent to driver`, `Received by driver`, `On the way`) sont volontairement
+**absentes des deux côtés** : le passager n'a pas à les voir.
+
+### Écarts de règle sur des contrôles présents des deux côtés
+
+| Contrôle | Legacy | v2 | Verdict |
+|---|---|---|---|
+| Format de la date | ISO brut | `dd/MM/yyyy` | Même écart que la page chauffeur, même recommandation |
+| Note de pied de page | « This page refreshes automatically every 5 seconds. » | « Updates live — no need to refresh this page. » | **La phrase suit le mécanisme** : v2 est en SSE, la note ne pouvait pas rester. Modernisation actée — **revue, non touchée** |
+| `paxCount` | non affiché | non affiché | Aucun écart |
+
+### Corrigé au passage sur ces deux pages
+
+`df33a51` — un partenaire enregistré comme **société sans personne nommée** (`Uber`,
+`Manual Test Partners` en base de dev) n'avait plus de nom du tout dans la projection publique :
+`toPublicTrip` composait `driverName` avec `driverDisplayName` (prénom + nom), vide sur ces
+enregistrements. `/track/R-CC1-26-1` affichait donc « Driver — **To be confirmed** » sur une course
+pourtant confiée à Uber, et le message WhatsApp au POC sortait en « this is **, the driver** ».
+Ce n'est **pas** un écart avec le legacy — le legacy stockait son partenaire en texte libre et
+n'affichait rien non plus — mais un bug propre à v2, dont le modèle *prévoit* d'afficher le
+partenaire. Corrigé avec `driverLabel` (nom → société → ref).
+
+## Synthèse
+
+**14 features legacy sans équivalent v2** ont été relevées sur les douze écrans. Elles se
+répartissent ainsi :
+
+| Sort | Nombre | Lesquelles |
+|---|---|---|
+| **Déjà tranchées dans l'audit — revues, non touchées** | 4 | popups d'édition rapide des 6 cellules (`/bookings`), `offerEventReactivation` (`/events`), porte mot de passe Owner (`/settings`), portes mot de passe Manager sur la suppression définitive (`/clients`, `/drivers`, `/vehicles`) |
+| **Sans objet en v2** | 4 | résumé « Flight info » cliquable et icône 📤 du badge (`/bookings`), auto-synchro du POC Full Name et validation live de l'acronyme (`/clients`), ❌ « Delete » d'un compte d'accès (`/settings`) — comptés comme un seul item chacun |
+| **Oublis à porter, effort faible** | 5 | tooltip POC de `/bookings` ; colonnes **Country** de `/clients` et de `/drivers` ; colonne **POC** et **dates d'événement** de `/clients` |
+| **À trancher par Romain** | 3 | **Country requis** sur le formulaire chauffeur (validation perdue) ; colonne **Company / « In-house »** de `/drivers` ; **référence lisible** d'un compte d'accès (`/settings`) |
+
+Cinq écrans n'ont **aucune feature manquante** : `/login`, `/vehicles`, `/planning`, `/invoicing`,
+`/finance`, plus les deux pages publiques `/driver/:ref` et `/track/:ref`.
+
+### Les trois plus coûteuses à laisser tomber
+
+1. **`offerEventReactivation`** (`/events`, `common.js:3905-3980`). Sans elle, un événement
+   récurrent — le Grand Prix, un festival, une régate qui revient chaque année au même endroit —
+   impose de re-saisir toute son équipe : chaque chauffeur `eventsOnly` et chaque véhicule
+   `eventsOnly` de l'édition précédente reste dormant et doit être rouvert un par un pour être
+   relié au nouveau compte Events. Le coût est proportionnel à la taille de l'équipe, et il tombe
+   exactement au pire moment, la veille de l'événement. **Le mécanisme de détection existe déjà
+   côté v2** (`outsideEventWindowFilter`, `assignability.ts:56-69`, écrit pour ça et aujourd'hui
+   inutilisé) : il ne manque que la popup et un `PATCH` par enregistrement retenu. C'est la plus
+   coûteuse des quatorze, et la moins chère à rattraper.
+2. **Le tooltip POC de `/bookings`** (`common.js:3108`). C'est la seule information de la ligne
+   qu'on ne peut plus obtenir sans ouvrir le dialogue d'édition — et c'est celle qu'on cherche
+   quand un passager n'est pas au point de rendez-vous. Le legacy la donnait au survol. Effort :
+   un `<Tooltip>` sur la cellule passager, les données sont déjà chargées.
+3. **Les colonnes Country de `/clients` et de `/drivers`** (`common.js:3369`, `:3531`). Prises
+   isolément ce sont deux colonnes ; prises ensemble elles font que **le pays d'un compte ou d'un
+   chauffeur n'est plus lisible nulle part dans une liste** — il faut ouvrir chaque fiche. Or le
+   pays commande la devise de facturation, l'éligibilité chauffeur et le format de référence. Même
+   effort minimal, même angle mort : les deux listes ont été redessinées sans lui.
+
+Deux points de méthode, valables au-delà de cette passe :
+
+- **Les commentaires du legacy contredisent son code à trois reprises** — le lien véhicule↔chauffeur
+  « éditable » qui ne l'est pas (`vehicles.html:497-498`), la période de facturation « mois courant »
+  qui est le mois précédent (`invoicing.html:220-233`), et le format de référence chauffeur
+  « FR-INT-001 » qui est en réalité `FR•INT•1` (`server.js:511-515`). v2 a suivi le **code** dans
+  les deux premiers cas et le **commentaire** dans le troisième. Ne pas se fier aux commentaires du
+  legacy sans vérifier le code en face.
+- Ce relevé **confirme** le §15 de `docs/LEGACY_PARITY_AUDIT.md` partout où il a été recoupé, à une
+  exception près : le §1.3 affirme que les endpoints `DELETE` « ne sont protégés par aucune
+  permission (un DISPATCHER peut supprimer) ». C'est **faux aujourd'hui** — `record:delete` est
+  `[ADMIN]` seul dans `permissions.ts` et la vérification au `curl` l'a confirmé (voir le rapport
+  QA). Cette ligne de l'audit est périmée.
