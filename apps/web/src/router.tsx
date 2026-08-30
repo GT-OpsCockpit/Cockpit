@@ -12,6 +12,7 @@ import { EventsPage } from '@/features/events/events-page'
 import { InvoicingPage } from '@/features/invoicing/invoicing-page'
 import { FinancePage } from '@/features/finance/finance-page'
 import { SettingsPage } from '@/features/settings/settings-page'
+import { NotFoundPage } from '@/features/not-found/not-found-page'
 import { DriverPage } from '@/features/public-tracking/driver-page'
 import { TrackPage } from '@/features/public-tracking/track-page'
 
@@ -59,6 +60,9 @@ export const router = createBrowserRouter([
       { path: 'invoicing', element: <InvoicingPage /> },
       { path: 'finance', element: <FinancePage /> },
       { path: 'settings', element: <SettingsPage /> },
+      // Anything else, inside the shell so the nav and the way back survive.
+      // Without it React Router renders its own developer error screen.
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ])
