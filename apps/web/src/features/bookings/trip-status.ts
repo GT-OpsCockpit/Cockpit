@@ -15,8 +15,8 @@ import type { TripEntity } from '@cockpit/shared/api'
 export const STEP_ORDER = TRIP_STEP_ORDER as readonly TripStepEntityStep[]
 
 // Text only — the leading emoji the legacy used are lucide icons now, rendered
-// alongside the label by StatusBadge (see docs/UI_REFRESH_PLAN.md). Keeping the
-// labels plain also keeps them usable outside React (the invoice Excel export).
+// alongside the label by StatusBadge. Keeping the labels plain also keeps
+// them usable outside React (the invoice Excel export).
 export const STEP_LABELS: Record<TripStepEntityStep, string> = {
   TRANSMITTED: 'Sent',
   RECEIVED: 'Received',

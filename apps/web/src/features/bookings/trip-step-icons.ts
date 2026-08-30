@@ -14,7 +14,7 @@ import {
  * One lucide icon per trip step, shared by every surface that shows a step —
  * the dispatcher's status badge and both public tracking pages — so the same
  * step never gets two different glyphs. Replaces the emoji the labels used to
- * carry (see docs/UI_REFRESH_PLAN.md).
+ * carry.
  */
 export const STEP_ICONS: Record<string, LucideIcon> = {
   TRANSMITTED: Send,

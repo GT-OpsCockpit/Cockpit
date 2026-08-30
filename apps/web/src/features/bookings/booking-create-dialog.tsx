@@ -84,7 +84,7 @@ function withPrefill(base: TripFormValues, prefill?: BookingPrefill): TripFormVa
  * (Events has its own EventCreateDialog — locked Customer field, "Create bulk" instead
  * of "Create & Dispatch", no driver/vehicle wiring). Opening it from a Clients/Drivers/
  * Vehicles row seeds the matching field via `prefill` — a convenience starting point,
- * never locked. See docs/feature-requests/booking-creation-modal.md.
+ * never locked.
  */
 export function BookingCreateDialog({
   open,

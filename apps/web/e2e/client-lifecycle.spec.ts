@@ -3,8 +3,8 @@ import { API_BASE_URL } from './config'
 import { fillArea } from './helpers'
 
 /**
- * Covers the paths the handoff (docs/handoff/2026-08-27-frontend-clients.md)
- * flagged as never exercised end-to-end: Company/Events creation, editing an
+ * Covers the paths flagged as never exercised end-to-end during the initial
+ * build: Company/Events creation, editing an
  * existing account (prefill + save), deactivate/reactivate, and the filters
  * bar. Individual creation (incl. validation errors) was already verified in
  * that session — not repeated here.

@@ -3,9 +3,9 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fillAddress, fillArea, fillPocName } from './helpers'
 
 /**
- * Transcribes the manual browser walkthrough from
- * docs/handoff/2026-08-27-frontend-bookings-6.md: create & dispatch a trip,
- * advance it through every status step to Done, upload a nameboard, then
+ * Transcribes the manual browser walkthrough for the full booking lifecycle:
+ * create & dispatch a trip, advance it through every status step to Done,
+ * upload a nameboard, then
  * cancel it. Runs against `cockpit_test` (see playwright.config.ts) so the
  * fixtures below (Marc Dubois / CI1, driver Julien Petit, vehicle AA-001-BC)
  * come from apps/api/prisma/seed-data.ts's seedFixtures(), not hand-picked
@@ -20,9 +20,8 @@ const ADVANCE_STEP_COUNT = 6 // Sent -> Received -> Confirmed -> OTW -> IP -> PO
 
 // Country/Customer/Driver use a custom SearchCombobox (Popover + Command). Its trigger's
 // accessible name now comes from the associated <FormLabel> (search-combobox.tsx forwards
-// FormControl's id/aria-* the same way shadcn's <SelectTrigger> already did — see
-// docs/handoff/2026-08-27-frontend-bookings-10.md), so a plain accessible-name lookup works
-// here now, same as selectFromDropdown below.
+// FormControl's id/aria-* the same way shadcn's <SelectTrigger> already did), so a plain
+// accessible-name lookup works here now, same as selectFromDropdown below.
 // `scope` is the dialog, not the page: the Bookings filter card behind it now labels its own
 // Customer / Driver / Vehicle type / Service fields, so a page-wide lookup matches those too.
 // The popover the trigger opens is portalled to <body>, so the search box and the options

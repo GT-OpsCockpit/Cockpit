@@ -373,7 +373,7 @@ export class TripsService {
   // Lightweight counterpart to update() for the Planning Gantt's drag&drop:
   // patches only driverRef and/or fleetRegNbr, deliberately kept independent
   // from update()'s much larger flow (client/price/ref regeneration, etc.)
-  // rather than extracted from it — see docs/handoff for the Planning session.
+  // rather than extracted from it.
   async assign(
     ref: string,
     dto: AssignTripDto,

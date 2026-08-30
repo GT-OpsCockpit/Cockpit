@@ -1,42 +1,94 @@
+<div align="center">
+
 # Cockpit v2
 
-Réécriture de l'app de dispatching VTC "Cockpit" (legacy : `suivi-chauffeur-twilio`, prototype Node/Express en mémoire, non touché, gardé comme référence).
+**Dispatching VTC** — réécriture de l'app "Cockpit" (legacy : `suivi-chauffeur-twilio`,
+prototype Node/Express en mémoire, gardé en lecture seule comme référence).
 
-## Documents fondateurs
+[![CI](https://github.com/GT-OpsCockpit/Cockpit/actions/workflows/ci.yml/badge.svg)](https://github.com/GT-OpsCockpit/Cockpit/actions/workflows/ci.yml)
+![Legacy parity](https://img.shields.io/badge/legacy_parity-complete-brightgreen?style=flat-square)
+![WhatsApp CTA](https://img.shields.io/badge/WhatsApp_CTA-planned-yellow?style=flat-square)
 
-Avant tout code, la direction du projet est posée dans 4 documents vivants (mis à jour en journal, jamais réécrits par-dessus leur historique) :
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat-square&logo=nestjs&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=flat-square&logo=prisma&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
 
-- [`docs/LEGACY_FEATURES.md`](docs/LEGACY_FEATURES.md) — inventaire exhaustif de l'app legacy (modèles, routes, règles métier, pages, dette technique).
-- [`docs/BACKEND_PLAN.md`](docs/BACKEND_PLAN.md) — architecture NestJS + modèles de données PostgreSQL/Prisma.
-- [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) — architecture React + TypeScript + Tailwind.
-- [`docs/DEVOPS_PLAN.md`](docs/DEVOPS_PLAN.md) — Docker, CI/CD, infra.
+</div>
+
+---
 
 ## État du projet
 
-Phase actuelle : base technique + CI/CD scaffoldés. `apps/api` (NestJS + Prisma 7/PostgreSQL via `@prisma/adapter-pg`), `apps/web` (Vite + React + TypeScript + Tailwind v4) et `packages/shared` sont scaffoldés en monorepo pnpm ; aucun endpoint métier ni logique n'a encore été ajouté.
+Toutes les pages authentifiées et publiques du plan initial sont construites et en parité de
+logique métier avec le legacy (voir [`docs/LEGACY_PARITY_AUDIT.md`](docs/LEGACY_PARITY_AUDIT.md)).
+Il ne reste qu'un chantier non démarré : l'intégration WhatsApp à boutons CTA, cadrée dans
+[`docs/WHATSAPP_CTA_PLAN.md`](docs/WHATSAPP_CTA_PLAN.md).
 
-### Lancer en dev (hot-reload)
+| Composant | Stack | Rôle |
+|---|---|---|
+| `apps/api` | NestJS · Prisma 7 · PostgreSQL (`@prisma/adapter-pg`) | API métier, auth, permissions, notifications |
+| `apps/web` | Vite · React · TypeScript · Tailwind v4 · shadcn/ui | Interface dispatcher |
+| `packages/shared` | TypeScript / JS partagé | Schémas, validation, calculs métier partagés front/back |
+| Infra | Docker Compose · MinIO (S3) · GitHub Actions | Dev + CI/CD, uploads en stockage compatible S3 |
+
+## Démarrage rapide
 
 ```bash
 cp .env.example .env   # ajuster si besoin
 docker compose up --build
 ```
 
-`docker compose` charge automatiquement `docker-compose.yml` + `docker-compose.override.yml` : build local (cible `dev` du Dockerfile), bind-mounts sur les sources → les changements sur `apps/api/src`, `apps/web/src`, etc. sont pris en compte à chaud (Nest `--watch` / Vite HMR), sans rebuild.
+`docker compose` charge automatiquement `docker-compose.yml` + `docker-compose.override.yml` :
+build local (cible `dev` du Dockerfile), bind-mounts sur les sources → les changements sur
+`apps/api/src`, `apps/web/src`, etc. sont pris en compte à chaud (Nest `--watch` / Vite HMR),
+sans rebuild.
 
-- API : http://localhost:3000
-- Web : http://localhost:5173
-- Postgres : localhost:5432 (user/db `cockpit`)
-- MinIO (stockage des fichiers uploadés) : API S3 sur localhost:9000, console web sur http://localhost:9001 (`minioadmin`/`minioadmin`)
+| Service | URL |
+|---|---|
+| API | http://localhost:3000 |
+| Web | http://localhost:5173 |
+| Postgres | `localhost:5432` (user/db `cockpit`) |
+| MinIO (uploads) | API S3 sur `:9000`, console sur http://localhost:9001 (`minioadmin`/`minioadmin`) |
 
-### CI/CD
+Pièges connus (régénération après un changement de schéma/DTO, outillage navigateur, comparaison
+avec le legacy) : [`docs/agents/dev-environment.md`](docs/agents/dev-environment.md).
 
-Trois workflows dans `.github/workflows/` (détail dans `docs/DEVOPS_PLAN.md`) :
+## Vérifier avant de livrer
 
-- `ci.yml` — lint/build/test sur PR et push `main`, déjà fonctionnel.
-- `build-push.yml` — build les images cible `prod` et les pousse sur Docker Hub (`gtopscockpit/cockpit-api`, `gtopscockpit/cockpit-web`) sur push `main`.
-- `deploy.yml` — déploiement manuel sur le VPS par SSH.
+```bash
+cd apps/api && pnpm exec tsc --noEmit -p tsconfig.json && pnpm exec eslint "src/**/*.ts" "test/**/*.ts" && pnpm exec jest && pnpm test:e2e
+cd apps/web && pnpm exec tsc --noEmit -p tsconfig.app.json && pnpm exec vitest run && pnpm exec playwright test
+```
 
-**Ces deux derniers ne peuvent pas encore tourner** : il manque les secrets/vars GitHub (`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_KEY`) et le VPS lui-même n'est pas provisionné. `docker-compose.yml` (sans l'override, celui utilisé en prod) attend un dossier `~/cockpit` sur le VPS avec ce fichier + un `.env` réel.
+Méthode "rouge d'abord" et politique zéro test mort/désactivé : [`docs/agents/testing.md`](docs/agents/testing.md).
 
-Prochaine étape : implémenter le modèle de données Prisma et les premiers modules NestJS décrits dans `docs/BACKEND_PLAN.md`.
+## CI/CD
+
+Trois workflows dans `.github/workflows/` :
+
+| Workflow | Déclencheur | Rôle |
+|---|---|---|
+| `ci.yml` | PR + push `main` | Lint, build, tests |
+| `build-push.yml` | push `main` | Build les images `prod` et les pousse sur Docker Hub (`gtopscockpit/cockpit-api`, `gtopscockpit/cockpit-web`) |
+| `deploy.yml` | manuel | Déploiement SSH sur le VPS (secrets requis : voir les commentaires du fichier) |
+
+## Pour un agent qui reprend ce repo
+
+Commencer par [`CLAUDE.md`](CLAUDE.md) — c'est le point d'entrée : règles de code, workflow, et
+pointeurs vers le reste. En particulier :
+
+- [`docs/LEGACY_PARITY_AUDIT.md`](docs/LEGACY_PARITY_AUDIT.md) — le référentiel vivant de tout
+  écart de logique métier entre le legacy et v2 : ce qui est une régression (à corriger), ce qui
+  est un écart assumé, ce qui est une modernisation documentée.
+- [`docs/LEGACY_FEATURES.md`](docs/LEGACY_FEATURES.md) — inventaire exhaustif de l'app legacy
+  (modèles, routes, règles métier, pages, dette technique), utile pour toute question "que faisait
+  le legacy ici".
+- [`docs/WHATSAPP_CTA_PLAN.md`](docs/WHATSAPP_CTA_PLAN.md) — le seul chantier encore devant nous.
+- [`docs/adr/`](docs/adr/) — décisions d'architecture qui ne se redécident pas à chaque session
+  (pagination, devises, stockage, encapsulation WhatsApp, règles métier côté serveur).
+- [`docs/agents/`](docs/agents/) — domaine, permissions, tests, environnement de dev, prompt de
+  passe QA.

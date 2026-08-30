@@ -13,8 +13,8 @@ export const NAMEBOARD_URL_PREFIX = `/uploads/${NAMEBOARD_KEY_PREFIX}`;
 
 /**
  * Replaces the legacy's base64 blob stored inline on the trip record with an
- * object in S3-compatible storage — see docs/BACKEND_PLAN.md and
- * docs/DEVOPS_PLAN.md. Memory storage, not disk: the buffer is handed straight
+ * object in S3-compatible storage — see ADR-0004. Memory storage, not disk:
+ * the buffer is handed straight
  * to StorageService, nothing ever touches the container filesystem.
  */
 export const nameboardMulterOptions: MulterOptions = {

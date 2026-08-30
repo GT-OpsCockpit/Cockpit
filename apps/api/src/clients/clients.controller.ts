@@ -29,8 +29,8 @@ export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   // Filtering/pagination happen server-side (search/type/includeInactive/page/limit)
-  // — see ClientsService.list() and docs/FRONTEND_PLAN.md's 2026-08-27 journal entry
-  // for why this isn't a plain findMany()-then-filter-in-the-browser like it used to be.
+  // — see ClientsService.list(). Not a plain findMany()-then-filter-in-the-browser
+  // like it used to be — see ADR-0001 for the one documented exception to this rule.
   @Get()
   list(@Query() query: ListClientsQueryDto): Promise<ClientListEntity> {
     return this.clientsService.list(query);

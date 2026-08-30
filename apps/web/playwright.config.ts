@@ -3,8 +3,8 @@ import { API_PORT, WEB_PORT } from './e2e/config'
 
 /**
  * e2e tests never touch the dev stack on :5173/:3000 (already running under
- * `docker compose` throughout local dev, seeded with hand-curated demo data
- * — see docs/handoff). They run against a dedicated Vite server + API
+ * `docker compose` throughout local dev, seeded with hand-curated demo data).
+ * They run against a dedicated Vite server + API
  * instance on these ports, backed by apps/api/.env.test's `cockpit_test`
  * database (same local Postgres as dev, separate DB — see .env.test).
  */

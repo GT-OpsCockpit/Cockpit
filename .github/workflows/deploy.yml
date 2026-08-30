@@ -1,11 +1,10 @@
 name: Deploy to VPS
 
-# Manual for now (per docs/DEVOPS_PLAN.md): trigger by hand from the Actions tab,
-# optionally pinning an image tag. Also fires on a `v*` tag push once that's the
-# preferred release flow. Requires these repo secrets, none of which exist yet:
+# Manual for now: trigger by hand from the Actions tab, optionally pinning an
+# image tag. Also fires on a `v*` tag push once that's the preferred release
+# flow. Requires these repo secrets:
 #   VPS_HOST, VPS_USERNAME, VPS_SSH_KEY, VPS_PORT (optional, defaults to 22)
-# and the VPS itself needs docker-compose.yml + a populated .env in ~/cockpit
-# (see docs/DEVOPS_PLAN.md) — none of that is provisioned yet either.
+# and the VPS itself needs docker-compose.yml + a populated .env in ~/cockpit.
 on:
   workflow_dispatch:
     inputs:

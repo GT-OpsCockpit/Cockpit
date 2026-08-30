@@ -4,7 +4,7 @@
 
 ## Pourquoi ce document
 
-L'intégration WhatsApp actuelle (`NotificationsModule`, voir `BACKEND_PLAN.md` § Notifications) n'envoie que du **texte libre, à sens unique** : le dispatcher clique sur un bouton dans Cockpit, un message part vers le POC ou le chauffeur, et c'est tout — personne ne peut répondre, aucun webhook entrant n'existe. C'est un portage 1:1 du comportement du legacy (`suivi-chauffeur-twilio/server.js`), qui avait la même limite.
+L'intégration WhatsApp actuelle (`NotificationsModule`, voir ADR-0002) n'envoie que du **texte libre, à sens unique** : le dispatcher clique sur un bouton dans Cockpit, un message part vers le POC ou le chauffeur, et c'est tout — personne ne peut répondre, aucun webhook entrant n'existe. C'est un portage 1:1 du comportement du legacy (`suivi-chauffeur-twilio/server.js`), qui avait la même limite.
 
 Une "vraie" intégration WhatsApp business veut dire :
 
@@ -14,7 +14,7 @@ Une "vraie" intégration WhatsApp business veut dire :
 4. Un **webhook entrant** pour recevoir les taps sur les boutons, avec vérification de signature.
 5. Le **paramétrage côté Meta Business Manager**, qui est un préalable obligatoire et qui n'est pas du ressort du développeur (vérification d'entreprise, création du compte WhatsApp Business, écriture et soumission des templates, facturation).
 
-Décision d'architecture qui reste valable et n'est **pas remise en cause** ici (cf. `BACKEND_PLAN.md` § Points d'attention) : on garde **Twilio comme BSP** (Business Solution Provider), encapsulé derrière `WhatsAppProvider`. Twilio reste la couche technique qui parle à l'API Meta Cloud à notre place ; côté Meta, la différence avec du "direct Cloud API" est mineure (le WABA existe toujours chez Meta, Twilio ne fait qu'y être connecté en tant que BSP). Ne pas basculer vers Meta Cloud API en direct sans repasser par une session de cadrage — ça casserait l'encapsulation déjà décidée.
+Décision d'architecture qui reste valable et n'est **pas remise en cause** ici (cf. ADR-0002) : on garde **Twilio comme BSP** (Business Solution Provider), encapsulé derrière `WhatsAppProvider`. Twilio reste la couche technique qui parle à l'API Meta Cloud à notre place ; côté Meta, la différence avec du "direct Cloud API" est mineure (le WABA existe toujours chez Meta, Twilio ne fait qu'y être connecté en tant que BSP). Ne pas basculer vers Meta Cloud API en direct sans repasser par une session de cadrage — ça casserait l'encapsulation déjà décidée.
 
 ---
 
@@ -87,7 +87,7 @@ Soit ~11 templates au total. Chaque a son env var dédié (`TWILIO_TEMPLATE_DISP
 
 Nouveau module `WebhooksModule` (ou sous-dossier de `NotificationsModule`) :
 
-- `POST /webhooks/whatsapp/inbound` — **route publique** (pas de `SessionAuthGuard`, Twilio ne porte pas de cookie de session) mais protégée par vérification de signature Twilio (`X-Twilio-Signature` + l'URL publique exacte + le body — attention si un reverse proxy réécrit l'URL, cf. `DEVOPS_PLAN.md`). Rejeter en 403 toute requête à la signature invalide.
+- `POST /webhooks/whatsapp/inbound` — **route publique** (pas de `SessionAuthGuard`, Twilio ne porte pas de cookie de session) mais protégée par vérification de signature Twilio (`X-Twilio-Signature` + l'URL publique exacte + le body — attention si un reverse proxy réécrit l'URL). Rejeter en 403 toute requête à la signature invalide.
 - Parser le payload, extraire `MessageSid` (déduplication), `From` (numéro E.164), et `ButtonPayload` s'il existe.
 - **Idempotence** : nouvelle table Prisma `WhatsAppInboundEvent` (`messageSid` unique, `from`, `payload Json`, `processedAt`, `createdAt`) — Twilio peut renvoyer le même webhook plusieurs fois ; si `messageSid` déjà vu, répondre 200 sans rejouer l'action métier.
 - **Résolution métier** : le payload bouton encode `<ACTION>:<ref>` (ex. `ENROUTE:C00123`), jamais juste `<ACTION>` seul — pour ne pas dépendre de "le dernier message envoyé à ce numéro". Vérifier aussi que le numéro `From` correspond bien au chauffeur/partner assigné à cette course avant d'agir (anti-spoofing basique en plus de la signature Twilio).
@@ -114,9 +114,9 @@ Nouveau module `WebhooksModule` (ou sous-dossier de `NotificationsModule`) :
 
 ### 7. Déploiement / environnement
 
-- Le webhook exige une **URL publique HTTPS** — inutilisable en local sans tunnel (ex. `ngrok`, ou ne pas tester le webhook réel en local et se contenter du simulateur ci-dessous). À documenter dans `DEVOPS_PLAN.md` une fois le VPS provisionné (le webhook Twilio pointera vers `https://<domaine prod>/api/webhooks/whatsapp/inbound`).
+- Le webhook exige une **URL publique HTTPS** — inutilisable en local sans tunnel (ex. `ngrok`, ou ne pas tester le webhook réel en local et se contenter du simulateur ci-dessous). À documenter une fois le VPS provisionné (le webhook Twilio pointera vers `https://<domaine prod>/api/webhooks/whatsapp/inbound`).
 - Ajouter un moyen de **simuler un tap de bouton en dev** sans dépendre de l'approbation Meta (qui peut prendre des jours) : soit un endpoint dev-only protégé par `NODE_ENV !== 'production'`, soit un test e2e qui appelle directement le handler du webhook avec un payload construit à la main. Objectif : que tout le flux (accept/decline → changement d'état → event realtime → UI) soit démontrable avant même que les templates soient approuvés par Meta.
-- Une fois en prod, mettre à jour `BACKEND_PLAN.md` § Journal avec la décision finale (catégories de template retenues, gestion du refus, etc.) — convention déjà en place dans ce repo.
+- Une fois en prod, consigner la décision finale (catégories de template retenues, gestion du refus, etc.) dans un ADR dédié sous `docs/adr/` — convention déjà en place dans ce repo.
 
 ---
 

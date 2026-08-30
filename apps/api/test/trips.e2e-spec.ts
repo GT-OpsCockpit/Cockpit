@@ -713,7 +713,7 @@ describe('Trips (e2e)', () => {
     // Single source of truth for "what's on the Bookings board" moved from
     // apps/web's trip-status.ts (isPastDay/periodMatches/baseVisibility,
     // recomputed client-side against a full unfiltered fetch) into
-    // TripsService.list() — see docs/handoff for the 2026-08-27 session.
+    // TripsService.list() — see ADR-0005.
     function isoOffsetDays(days: number): string {
       const d = new Date();
       d.setUTCDate(d.getUTCDate() + days);

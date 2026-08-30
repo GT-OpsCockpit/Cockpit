@@ -2,8 +2,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fillAddress, fillArea } from './helpers'
 
 /**
- * Covers the /invoicing Customer tab (docs/handoff/2026-08-27-frontend-invoicing.md):
- * search a pending trip, turn it into an invoice, then exercise every action
+ * Covers the /invoicing Customer tab: search a pending trip, turn it into an
+ * invoice, then exercise every action
  * on the resulting Invoiced row (PDF/Excel downloads, Send, Correct stub).
  * Also smoke-tests the other three tabs (Partner log renders, Driver
  * log/History are still the intentional placeholders).

@@ -2,8 +2,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fillAddress, fillArea } from './helpers'
 
 /**
- * Covers the /events vertical (docs/handoff/2026-08-27-frontend-events.md):
- * create an Events-type client via the page's own "New" flow, confirm it
+ * Covers the /events vertical: create an Events-type client via the page's
+ * own "New" flow, confirm it
  * (locking the Customer field), create a plain booking, then Create bulk
  * over a 3-day range and verify the chaining rule from bulk-create.ts (day 1
  * uses the typed PU/DO, middle days stay put at day 1's drop-off, the last

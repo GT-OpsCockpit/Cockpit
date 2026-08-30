@@ -1,7 +1,7 @@
 # Driver log & History — design notes before building either
 
 Both tabs on `/invoicing` are pure `Coming soon` placeholders, in the legacy
-and in Cockpit v2 (added 2026-08-27, see `docs/handoff/2026-08-27-frontend-invoicing.md`).
+and in Cockpit v2 (added 2026-08-27).
 The legacy's only trace of intent is two one-line comments:
 
 - Driver log: *"per-driver export with costs + total"*
@@ -53,8 +53,9 @@ needed.** What's missing is purely on the read side:
   Customer tab's Invoiced panel (which already narrows by client/event/period
   client-side over that same unbounded call, see `apps/web/src/features/invoicing/customer-filters.ts`),
   but not acceptable as System-wide History per this repo's standing rule
-  that no list endpoint ships without a bound (`docs/FRONTEND_PLAN.md` journal,
-  2026-08-27 "Plus rien sans pagination").
+  that no list endpoint ships without a bound ("Plus rien sans pagination,"
+  2026-08-27 — see ADR-0001 and ADR-0005 for the rule and its one documented
+  exception).
 - Building History for real means: add `search`/`clientRef`/`period`/`refPo`
   query params + pagination to `GET /invoices` (same shape as
   `GET /clients`/`GET /drivers`), then a straightforward paginated table on
@@ -84,9 +85,8 @@ same as Partner log. Add a totals summary purely on the frontend (sum
 Some legitimately different question — "show me everything that happened to
 trip R-CI1-26-3, including reassignments and who cancelled what" — is *not*
 answerable from current-state tables, because updates overwrite fields in
-place. If that ever becomes an actual ask (not anticipated by anything in
-`docs/FRONTEND_PLAN.md` today), the right shape is still not full event
-sourcing:
+place. If that ever becomes an actual ask (not anticipated by anything on
+the roadmap today), the right shape is still not full event sourcing:
 
 - A narrow, append-only `ActivityEvent` table (`id`, `type`, `occurredAt`,
   `actorUserId`, a handful of nullable FKs — `tripId`/`invoiceId`/`clientId`/
