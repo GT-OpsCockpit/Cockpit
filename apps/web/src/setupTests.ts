@@ -16,3 +16,10 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
 if (typeof Element.prototype.scrollIntoView === 'undefined') {
   Element.prototype.scrollIntoView = () => {}
 }
+
+// jsdom doesn't implement elementFromPoint — input-otp polls it on a timer to
+// keep its fake caret aligned, so any test that renders the OTP field throws
+// an *uncaught* TypeError from that timer, after the test itself has passed.
+if (typeof document.elementFromPoint === 'undefined') {
+  document.elementFromPoint = () => null
+}

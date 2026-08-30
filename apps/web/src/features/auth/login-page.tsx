@@ -72,9 +72,18 @@ export function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {step.kind === 'credentials' ? (
-            <CredentialsForm onCodeSent={setStep} />
-          ) : (
+          {/* Hidden rather than unmounted: the OTP step is where a mistyped
+              address is noticed, and "Back" used to hand back an empty form
+              because CredentialsForm's state died with it. Keeping it mounted
+              also keeps the password inside the component that collected it,
+              instead of lifting it into LoginPage for the whole OTP step.
+              The `hidden` attribute rather than a class: it also takes the
+              fields out of the tab order and the accessibility tree, which a
+              bare display:none would only do by side effect. */}
+          <div hidden={step.kind !== 'credentials'}>
+            <CredentialsForm visible={step.kind === 'credentials'} onCodeSent={setStep} />
+          </div>
+          {step.kind === 'otp' && (
             <OtpForm
               email={step.email}
               devCode={step.devCode}
@@ -88,13 +97,26 @@ export function LoginPage() {
   )
 }
 
-function CredentialsForm({ onCodeSent }: { onCodeSent: (step: Step) => void }) {
+function CredentialsForm({
+  visible,
+  onCodeSent,
+}: {
+  /** False while the OTP step is up — the form stays mounted, just out of the way. */
+  visible: boolean
+  onCodeSent: (step: Step) => void
+}) {
   const [passwordVisible, setPasswordVisible] = useState(false)
   const form = useForm({
     resolver: zodResolver(credentialsSchema),
     defaultValues: { email: '', password: '' },
   })
   const login = useAuthControllerLogin()
+
+  // Replaces the email field's autoFocus, which only ever fired on mount and
+  // so did nothing on the way back from the OTP step.
+  useEffect(() => {
+    if (visible) form.setFocus('email')
+  }, [visible, form])
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
@@ -115,7 +137,7 @@ function CredentialsForm({ onCodeSent }: { onCodeSent: (step: Step) => void }) {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="email" autoComplete="email" autoFocus {...field} />
+                <Input type="email" autoComplete="email" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

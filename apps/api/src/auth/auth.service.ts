@@ -103,15 +103,21 @@ export class AuthService {
     if (!otp || otp.expiresAt < new Date()) {
       throw new BadRequestException('No pending verification code');
     }
-    if (otp.attempts >= OTP_MAX_ATTEMPTS) {
-      throw new HttpException(
-        'Too many attempts, request a new code',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
     const valid = await argon2.verify(otp.codeHash, code);
     if (!valid) {
+      // The last allowed failure retires the code instead of leaving it to
+      // live out its TTL: a code nobody can use any more has no business
+      // sitting in the table, and the legacy said so too ("please log in
+      // again"). Past this point there is nothing left to be "too many
+      // attempts" against, so a later try gets the same "no pending code"
+      // as any other stale verify.
+      if (otp.attempts + 1 >= OTP_MAX_ATTEMPTS) {
+        await this.prisma.otpCode.deleteMany({ where: { userId: user.id } });
+        throw new HttpException(
+          'Too many attempts, please log in again',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
       await this.prisma.otpCode.update({
         where: { id: otp.id },
         data: { attempts: { increment: 1 } },

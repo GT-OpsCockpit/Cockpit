@@ -60,23 +60,36 @@ describe('Auth (e2e)', () => {
     expect(setCookie[0]).toMatch(/^session=.+; Max-Age=\d+;.*HttpOnly/);
   });
 
-  it('rejects verify with a wrong code and eventually locks out after 5 attempts', async () => {
+  it('rejects verify with a wrong code, then purges the code on the 5th attempt', async () => {
     await request(server())
       .post('/api/auth/login')
       .send({ email: TEST_ADMIN.email, password: TEST_ADMIN.password })
       .expect(201);
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
       await request(server())
         .post('/api/auth/verify')
         .send({ email: TEST_ADMIN.email, code: '000000' })
         .expect(401);
     }
 
-    await request(server())
+    // The 5th failure is the last one the code survives: rather than leave a
+    // dead code sitting in the table until it expires, it is deleted and the
+    // operator is told to start the whole login over (legacy server.js).
+    const locked = await request(server())
       .post('/api/auth/verify')
       .send({ email: TEST_ADMIN.email, code: '000000' })
       .expect(429);
+    expect((locked.body as { error: string }).error).toMatch(/log in again/i);
+
+    expect(await prisma.otpCode.count()).toBe(0);
+
+    // Nothing is left to be "too many attempts" against — a later try is the
+    // same "no pending code" any stale verify gets.
+    await request(server())
+      .post('/api/auth/verify')
+      .send({ email: TEST_ADMIN.email, code: '000000' })
+      .expect(400);
   });
 
   it('rejects verify when there is no pending code', async () => {

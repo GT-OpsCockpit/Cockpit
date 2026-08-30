@@ -12,6 +12,58 @@ Contexte qui simplifie tout : **le legacy n'a jamais été mis en production**. 
 donnée réelle à migrer — seulement la base de dev, dont les enregistrements bancals sont des restes
 de sessions de test manuelles.
 
+## Décisions arrêtées avant implémentation (2026-08-30, session /grill-me)
+
+Chaque point ouvert du plan a été passé en revue avec Romain avant d'écrire une ligne. Ce qui suit
+remplace le plan là où les deux divergent.
+
+**Faits qui contredisent le plan, vérifiés dans le code :**
+
+| Le plan dit | Le code dit |
+|---|---|
+| Ajouter `<Tooltip>` shadcn (2.1) | Il existe déjà — `components/ui/tooltip.tsx` |
+| Code pays seul, « les emoji rendent mal » (1.1) | `CountryFlag` est un sprite CSS, pas un emoji ; `CountryLabel` est la convention de `/vehicles` |
+| `NAV_ITEMS` alimente les `<PageTitle>` (5) | Il n'en fournissait que l'**icône** ; les `<h1>` étaient en dur |
+| Vérifier les Playwright qui naviguent par `getByRole('link')` (5) | Aucun — tous font `page.goto()` |
+| 6.2 « purement de la cohérence » | `<FormMessage/>` exige `useFormContext` : conversion react-hook-form complète |
+| Supprimer `MAN`/`UBE` (3.1) | `RAC-001` est sous-traitant de `R-CE5-26-2`, `MAN-001` détient `F4` |
+| 3.1 « effort faible » | **33 créations de chauffeurs** cassées dans 5 specs API, plus Playwright |
+| `PATCH /drivers/:ref` (8) | C'est un `PUT`, et `update()` valide le DTO **brut**, non fusionné |
+| `outsideEventWindowFilter` « utilisé nulle part » (8) | Utilisé par `ClientsService.listReactivationCandidates()` |
+| **`offerEventReactivation` non portée** (Lot 8, §4.4 de l'audit) | **Portée le 28/08** — commit `408f5ff`, avec ses tests. Voir plus bas |
+
+**Décisions, lot par lot :**
+
+- **1** — `CountryLabel` réutilisé tel quel (drapeau + nom + code). Colonnes insérées sans déplacer
+  les existantes : `Ref | Country | Name | Type | Email | POC | POC phone | Billing | Action`.
+  Dates d'événement en ligne grise 10px sous le nom, via `formatDate`.
+- **2** — Tooltip POC dès que le POC diffère du passager. Auto-synchro POC limitée aux comptes
+  **Individual**, seuls à porter `contactFirstName`/`contactLastName`.
+- **3** — Base d'abord : `D-FR-INT-003` → `FR` ; `D-XX-XX-RAC-001` → `FR/Cannes` + relien sur `CE5`
+  (aujourd'hui inéditable : `eventCountry=MC` avec `countryCode=NULL`) ; `UBE-001` supprimé ;
+  `MAN-001` supprimé après avoir délié `F4`. Le churn de tests est absorbé par un helper dans
+  `apps/api/test/utils/`. Email activé si `eventsOnly || isPartner`, **et** vidage automatique
+  conditionné à `!eventsOnly`. `<FormMessage/>` ajouté sous le champ Country, absent aujourd'hui.
+- **4** — Purge de l'OTP au 5ᵉ échec, 429 « please log in again » sur cet appel, 400 générique
+  ensuite. `CredentialsForm` masqué au lieu d'être démonté : le mot de passe ne sort pas de son
+  composant.
+- **5** — Nav **et** `<h1>` renommés ; les sous-tables « Drivers » / « Partners » ne bougent pas.
+  `<PageTitle>` dérive désormais son libellé de `NAV_ITEMS` comme il dérivait déjà son icône.
+- **6** — Une migration SQL manuelle : colonne, backfill par `role` + `createdAt` (désactivés
+  compris), `NOT NULL` + `UNIQUE`, et amorçage de `RefCounter` (`user:O`, `user:D`). Le ref ne suit
+  pas un changement de rôle — déjà tranché par `server.js:786`, pas rouvert. `UserPasswordDialog`
+  converti en react-hook-form + zod.
+- **7** — `acronym ?? regNbr ?? '—'`, et la phrase du bulk réécrite pour dire l'ASD 4 h.
+- **8** — **Sans objet : la feature existe.** `EventReactivationDialog`, `GET
+  /clients/:ref/reactivation-candidates` et `POST /clients/:ref/reactivate` sont en place depuis le
+  commit `408f5ff` (28/08), montés sur `/clients` **et** `/events`, tout coché par défaut, candidats
+  désactivés exclus, rattachement transactionnel. Couverts par `clients.e2e-spec.ts` et
+  `event-reactivation-dialog.test.tsx`. Ce qui reste vraiment à faire : corriger la §4.4 de
+  `docs/LEGACY_PARITY_AUDIT.md` et le relevé QA, qui la déclarent tous deux non portée.
+
+**Ordre retenu** : `4,5,7` → `1,2` → `3.1+fixtures` puis `3.2+3.3` → `6.1` → `6.2`. Un commit par
+étape, direct sur `main`, les 7 suites du §7.3 vertes avant de clore chacune.
+
 ## Ce qui a été écarté
 
 Pour mémoire, et pour ne pas le re-proposer : popups d'édition rapide des 6 cellules, `Area` non
