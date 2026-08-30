@@ -39,9 +39,9 @@ async function selectFromDropdown(page: Page, scope: Locator, name: string, opti
   await page.getByRole('option', { name: optionText, exact: true }).click()
 }
 
-// Sonner renders each toast twice (visible + aria-live announcer copy) — `.first()` avoids strict-mode.
+// Strict on purpose — see client-lifecycle.spec.ts: one toast, one node.
 function toast(page: Page, textOrPattern: string | RegExp) {
-  return page.getByText(textOrPattern).first()
+  return page.getByText(textOrPattern)
 }
 
 /** The New booking dialog's form, filled the same way for the single and the bulk run. */

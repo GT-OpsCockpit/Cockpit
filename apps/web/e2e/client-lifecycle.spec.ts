@@ -33,9 +33,11 @@ async function selectCountry(page: Page, label: string, query: string, optionTex
   await page.getByRole('option', { name: optionText }).click()
 }
 
-// Sonner renders each toast twice (visible + aria-live announcer copy) — `.first()` avoids strict-mode.
+// Strict on purpose: exactly one toast node carries the text. Two <Toaster/>
+// were mounted at once (App and AppShell) until 2861853, which put every toast
+// on screen twice — this is what would have caught it.
 function toast(page: Page, textOrPattern: string | RegExp) {
-  return page.getByText(textOrPattern).first()
+  return page.getByText(textOrPattern)
 }
 
 // Matched on the ref cell, exactly — an accessible-name match is a substring

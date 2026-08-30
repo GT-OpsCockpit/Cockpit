@@ -47,11 +47,9 @@ async function selectFromDropdown(page: Page, scope: Locator, name: string, opti
   await page.getByRole('option', { name: optionText, exact: true }).click()
 }
 
-// Sonner renders each toast twice (the visible one plus a visually-hidden
-// copy for its aria-live announcer region) — getByText alone hits Playwright
-// strict mode. `.first()` is fine, both nodes carry identical text.
+// Strict on purpose — see client-lifecycle.spec.ts: one toast, one node.
 function toast(page: Page, textOrPattern: string | RegExp) {
-  return page.getByText(textOrPattern).first()
+  return page.getByText(textOrPattern)
 }
 
 test.describe('Booking lifecycle', () => {
@@ -98,7 +96,9 @@ test.describe('Booking lifecycle', () => {
     for (let i = 0; i < ADVANCE_STEP_COUNT; i++) {
       await advanceButton.click()
       await page.getByRole('alertdialog', { name: 'Valid step?' }).getByRole('button', { name: 'Valid step' }).click()
-      await expect(toast(page, `Trip ${ref} moved to the next step.`)).toBeVisible()
+      // `.last()`, not the strict `toast()`: consecutive steps raise the same
+      // sentence, and the previous one is still on screen when the next lands.
+      await expect(page.getByText(`Trip ${ref} moved to the next step.`).last()).toBeVisible()
     }
     await expect(row.getByText('Done', { exact: true })).toBeVisible()
 
