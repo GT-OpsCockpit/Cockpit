@@ -1,7 +1,14 @@
 import { DateTime } from 'luxon';
 import { TripMessageContext } from '../common/constants/messages';
 
-import { driverDisplayName } from '@cockpit/shared';
+import { driverLabel } from '@cockpit/shared';
+interface DriverForMessage {
+  ref: string;
+  firstName: string | null;
+  lastName: string | null;
+  company: string | null;
+}
+
 export interface TripForMessage {
   ref: string;
   pocName: string | null;
@@ -11,8 +18,10 @@ export interface TripForMessage {
   pickupAt: Date;
   timezone: string | null;
   vehicleType: { name: string } | null;
-  driver: { firstName: string | null; lastName: string | null } | null;
-  partner: { firstName: string | null; lastName: string | null } | null;
+  // `ref` and `company` are what driverLabel falls back on: a partner may be
+  // a company with nobody named on it.
+  driver: DriverForMessage | null;
+  partner: DriverForMessage | null;
 }
 
 // Every message template says "(local time)", and the legacy meant it: it
@@ -32,9 +41,12 @@ export function buildTripMessageContext(
   return {
     ref: trip.ref,
     pocName: trip.pocName,
+    // driverLabel, not driverDisplayName: these templates put the name
+    // mid-sentence ("this is <driver>, the driver"), and a partner company
+    // with nobody named on file left a hole in it.
     driverName:
       trip.driver || trip.partner
-        ? driverDisplayName((trip.driver ?? trip.partner)!)
+        ? driverLabel((trip.driver ?? trip.partner)!)
         : null,
     passengerName: trip.passengerName,
     pickupLocation: trip.pickupLocation,

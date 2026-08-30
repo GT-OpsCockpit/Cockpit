@@ -1,6 +1,13 @@
-import { clientDisplayName, driverDisplayName } from '@cockpit/shared';
+import { clientDisplayName, driverLabel } from '@cockpit/shared';
 import { TripStepEntity } from './dto/trip.entity';
 import { PublicTripEntity } from './dto/public-trip.entity';
+
+interface DriverForDisplay {
+  ref: string;
+  firstName: string | null;
+  lastName: string | null;
+  company: string | null;
+}
 
 export interface TripForPublicView {
   ref: string;
@@ -22,8 +29,10 @@ export interface TripForPublicView {
     contactFirstName: string | null;
     contactLastName: string | null;
   };
-  driver: { firstName: string | null; lastName: string | null } | null;
-  partner: { firstName: string | null; lastName: string | null } | null;
+  // `ref` and `company` are what driverLabel falls back on: a partner may be
+  // a company with nobody named on it.
+  driver: DriverForDisplay | null;
+  partner: DriverForDisplay | null;
   steps: TripStepEntity[];
 }
 
@@ -37,9 +46,12 @@ export function toPublicTrip(
     assignmentCancelled: trip.assignmentCancelled,
     clientName: clientDisplayName(trip.client),
     clientRef: trip.client.ref,
+    // driverLabel, not driverDisplayName: a partner company with nobody named
+    // on file has no first/last name, and the passenger page then read
+    // "Driver — To be confirmed" on a booking that was very much assigned.
     driverName:
       trip.driver || trip.partner
-        ? driverDisplayName((trip.driver ?? trip.partner)!)
+        ? driverLabel((trip.driver ?? trip.partner)!)
         : null,
     passengerName: trip.passengerName,
     paxCount: trip.paxCount,

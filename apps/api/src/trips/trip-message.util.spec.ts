@@ -10,7 +10,12 @@ const BASE: TripForMessage = {
   pickupAt: new Date('2026-06-01T12:00:00.000Z'),
   timezone: 'Europe/Paris',
   vehicleType: { name: 'Business' },
-  driver: { firstName: 'Julien', lastName: 'Petit' },
+  driver: {
+    ref: 'D-FR-INT-002',
+    firstName: 'Julien',
+    lastName: 'Petit',
+    company: null,
+  },
   partner: null,
 };
 
@@ -45,8 +50,29 @@ describe('buildTripMessageContext', () => {
     const context = buildTripMessageContext({
       ...BASE,
       driver: null,
-      partner: { firstName: 'James', lastName: 'Whitfield' },
+      partner: {
+        ref: 'D-GB-CE-UBE-001',
+        firstName: 'James',
+        lastName: 'Whitfield',
+        company: 'Uber Elite London',
+      },
     });
     expect(context.driverName).toBe('James Whitfield');
+  });
+
+  // Every POC template puts this name mid-sentence ("this is <driver>, the
+  // driver"). A partner company with nobody named on file left a hole in it.
+  it('falls back to the partner company when nobody is named on it', () => {
+    const context = buildTripMessageContext({
+      ...BASE,
+      driver: null,
+      partner: {
+        ref: 'D-XX-XX-UBE-001',
+        firstName: null,
+        lastName: null,
+        company: 'Uber',
+      },
+    });
+    expect(context.driverName).toBe('Uber');
   });
 });
