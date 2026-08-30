@@ -227,5 +227,4 @@ describe('Users (e2e)', () => {
         .expect(404);
     });
   });
-
 });

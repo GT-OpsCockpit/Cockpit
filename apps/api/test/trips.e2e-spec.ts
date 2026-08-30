@@ -2123,5 +2123,4 @@ describe('Trips (e2e)', () => {
       ).toBeNull();
     });
   });
-
 });

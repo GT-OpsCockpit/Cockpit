@@ -289,7 +289,7 @@ describe('Invoices (e2e)', () => {
   // lists *active* types — so retiring a type silently blanked that column on
   // every invoice already issued with it. An invoice is immutable: it has to
   // carry the type it was billed with.
-  it('carries each billed trip\'s vehicle type, including one retired since', async () => {
+  it("carries each billed trip's vehicle type, including one retired since", async () => {
     const client = await createClient();
     const type = await request(server())
       .post('/api/vehicles')
@@ -334,5 +334,4 @@ describe('Invoices (e2e)', () => {
     )[0].trips[0].trip;
     expect(billed.vehicleType?.name).toBe('Retired Class');
   });
-
 });
