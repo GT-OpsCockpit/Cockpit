@@ -8,9 +8,10 @@ import { driverFormSchema, type DriverFormValues } from './driver-form-schema'
  * formats the schema owns on its own.
  */
 
+/** A driver's country is required whatever kind it is, so it is part of the base. */
 function base(overrides: Partial<DriverFormValues> = {}): DriverFormValues {
   return {
-    countryCode: '',
+    countryCode: 'FR',
     area: '',
     firstName: '',
     lastName: '',
@@ -42,6 +43,14 @@ describe('driverFormSchema — the shared rules reach the right fields', () => {
       { path: 'firstName', message: 'First name is required.' },
       { path: 'lastName', message: 'Last name is required.' },
       { path: 'phone', message: 'Phone is required.' },
+    ])
+  })
+
+  // Country is asked of every kind, so it lands on countryCode whatever the
+  // rest of the form says — including on an otherwise complete chauffeur.
+  it('marks the Country field when no country is picked', () => {
+    expect(issues(base({ countryCode: '', firstName: 'John', lastName: 'Smith', phone: '+33611111111' }))).toEqual([
+      { path: 'countryCode', message: 'Country is required.' },
     ])
   })
 

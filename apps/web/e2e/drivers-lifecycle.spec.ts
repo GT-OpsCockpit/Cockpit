@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { API_BASE_URL, dispatcherAuthFile } from './config'
-import { fillArea } from './helpers'
+import { fillArea, fillCountry } from './helpers'
 
 /**
  * Covers the /drivers vertical end-to-end: the four conditional-validation
@@ -92,9 +92,13 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
     await page.getByRole('button', { name: 'New driver' }).click()
     await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click()
     await expect(dialog.getByText('First name is required.')).toBeVisible()
+    // Country is asked of every kind of driver since the §3.1 port, in-house
+    // chauffeurs included — the legacy marked it required on its one form.
+    await expect(dialog.getByText('Country is required.')).toBeVisible()
     await dialog.getByLabel('First name', { exact: true }).fill(`E2E${stamp}`)
     await dialog.getByLabel('Last name', { exact: true }).fill('Internal')
     await dialog.getByLabel('Phone', { exact: true }).fill(mobile(stamp, 1))
+    await fillCountry(page, dialog, 'France', 'FR')
     await dialog.getByRole('button', { name: 'Create' }).click()
     const internalToast = toast(page, /^Driver (\S+) created\.$/)
     await expect(internalToast).toBeVisible()
@@ -107,6 +111,7 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
     // --- Partner company, no contact name: email only required ---
     const companyOnlyRef = await createDriverAndReadRef(page, async () => {
       await dialog.getByLabel('Company', { exact: true }).fill(`E2E Partner Co ${stamp}`)
+      await fillCountry(page, dialog, 'France', 'FR')
       await dialog.getByRole('button', { name: 'Create' }).click()
       await expect(dialog.getByText('Email is required for a partner company.')).toBeVisible()
       await dialog.getByLabel('Email', { exact: true }).fill(`partner${stamp}@example.test`)
@@ -120,6 +125,7 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
       await dialog.getByLabel('Company', { exact: true }).fill(`E2E Partner Named ${stamp}`)
       await dialog.getByLabel('Email', { exact: true }).fill(`named${stamp}@example.test`)
       await dialog.getByLabel('Phone', { exact: true }).fill(mobile(stamp, 2))
+      await fillCountry(page, dialog, 'France', 'FR')
     })
     await showOnly(page, namedPartnerRef)
     await expect(row(page, namedPartnerRef)).toBeVisible()
@@ -187,7 +193,7 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
         // E.164 since the phone port: @IsPhone rejects a national number
         // outright, there is no server-side guess (validation/phone.js).
         const res = await request.post(`${API_BASE_URL}/api/drivers`, {
-          data: { firstName: paginationPrefix, lastName: `${i}`, phone: mobile(stamp, 10 + i) },
+          data: { countryCode: 'FR', firstName: paginationPrefix, lastName: `${i}`, phone: mobile(stamp, 10 + i) },
         })
         expect(res.ok()).toBe(true)
         createdRefs.push(((await res.json()) as { ref: string }).ref)
@@ -247,9 +253,7 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
       // A driver can only be linked to an Event happening where it is, so its
       // own Country/Area come first — the Event country/area below just mirror
       // them, read-only, exactly as the legacy popup showed them.
-      await dialog.getByLabel('Country', { exact: true }).click()
-      await page.getByPlaceholder('Search country…').fill('Monaco')
-      await page.getByRole('option', { name: 'Monaco (MC)' }).click()
+      await fillCountry(page, dialog, 'Monaco', 'MC')
       await fillArea(page, dialog, 'Monaco')
 
       await dialog.getByLabel('Events-only driver (linked to a single Event account)').check()
@@ -300,6 +304,7 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
     await page.getByRole('button', { name: 'New driver' }).click()
     await dialog.getByLabel('Company', { exact: true }).fill(company)
     await dialog.getByLabel('Email', { exact: true }).fill(`ind${stamp}@example.test`)
+    await fillCountry(page, dialog, 'France', 'FR')
     const indCheckbox = dialog.getByLabel('Link a vehicle to this partner once created')
     await expect(indCheckbox).toBeEnabled()
     await indCheckbox.check()
@@ -327,9 +332,7 @@ test.describe('Drivers — lifecycle (ADMIN)', () => {
     await linkDialog.getByLabel('Acr.', { exact: true }).fill(`LNK${String(stamp).slice(-3)}`)
     // Country/Area aren't carried over from the driver form — same as the
     // legacy popup, only Partner is preseeded — so they still need filling.
-    await linkDialog.getByLabel('Country', { exact: true }).click()
-    await page.getByPlaceholder('Search country…').fill('France')
-    await page.getByRole('option', { name: 'France (FR)' }).click()
+    await fillCountry(page, linkDialog, 'France', 'FR')
     await fillArea(page, linkDialog, 'Paris')
     await linkDialog.getByRole('button', { name: 'Link' }).click()
 
@@ -387,7 +390,7 @@ test.describe('Drivers — reactivate RBAC (DISPATCHER)', () => {
   test('deactivate succeeds, reactivate is blocked (UI-disabled and API-rejected)', async ({ page, request }) => {
     const stamp = Date.now()
     const createResponse = await request.post(`${API_BASE_URL}/api/drivers`, {
-      data: { firstName: 'RBAC', lastName: `Test ${stamp}`, phone: mobile(stamp, 3) },
+      data: { countryCode: 'FR', firstName: 'RBAC', lastName: `Test ${stamp}`, phone: mobile(stamp, 3) },
     })
     expect(createResponse.ok()).toBe(true)
     const driver = (await createResponse.json()) as { ref: string }

@@ -108,6 +108,7 @@ describe('Drivers (e2e)', () => {
       .post('/api/drivers')
       .set('Cookie', cookie)
       .send({
+        countryCode: 'FR',
         firstName: 'John',
         lastName: 'Smith',
         phone: '+33 6 12 34 56 78',
@@ -133,7 +134,12 @@ describe('Drivers (e2e)', () => {
       await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({ firstName: 'John', lastName: 'Smith', phone })
+        .send({
+          countryCode: 'FR',
+          firstName: 'John',
+          lastName: 'Smith',
+          phone,
+        })
         .expect(400);
     }
   });
@@ -142,7 +148,7 @@ describe('Drivers (e2e)', () => {
     await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ company: 'Uber', email: 'ops@uber' })
+      .send({ countryCode: 'FR', company: 'Uber', email: 'ops@uber' })
       .expect(400);
   });
 
@@ -150,13 +156,23 @@ describe('Drivers (e2e)', () => {
     const first = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '+33612345678' })
+      .send({
+        countryCode: 'FR',
+        firstName: 'John',
+        lastName: 'Smith',
+        phone: '+33612345678',
+      })
       .expect(201);
 
     const second = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'Someone', lastName: 'Else', phone: '+33612345678' })
+      .send({
+        countryCode: 'FR',
+        firstName: 'Someone',
+        lastName: 'Else',
+        phone: '+33612345678',
+      })
       .expect(201);
 
     expect((second.body as DriverBody).ref).toBe(
@@ -174,7 +190,7 @@ describe('Drivers (e2e)', () => {
     await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ company: 'Uber' })
+      .send({ countryCode: 'FR', company: 'Uber' })
       .expect(400);
 
     const res = await request(server())
@@ -194,12 +210,12 @@ describe('Drivers (e2e)', () => {
     await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ company: 'Uber', email: 'ops@uber.test' })
+      .send({ countryCode: 'FR', company: 'Uber', email: 'ops@uber.test' })
       .expect(201);
     const second = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ company: 'Lyft', email: 'ops@lyft.test' })
+      .send({ countryCode: 'FR', company: 'Lyft', email: 'ops@lyft.test' })
       .expect(201);
     expect((second.body as DriverBody).ref).toBeDefined();
   });
@@ -208,19 +224,25 @@ describe('Drivers (e2e)', () => {
     await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ company: 'Uber', firstName: 'Bob' })
-      .expect(400);
-
-    await request(server())
-      .post('/api/drivers')
-      .set('Cookie', cookie)
-      .send({ company: 'Uber', firstName: 'Bob', email: 'bob@uber.test' })
+      .send({ countryCode: 'FR', company: 'Uber', firstName: 'Bob' })
       .expect(400);
 
     await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
       .send({
+        countryCode: 'FR',
+        company: 'Uber',
+        firstName: 'Bob',
+        email: 'bob@uber.test',
+      })
+      .expect(400);
+
+    await request(server())
+      .post('/api/drivers')
+      .set('Cookie', cookie)
+      .send({
+        countryCode: 'FR',
         company: 'Uber',
         firstName: 'Bob',
         email: 'bob@uber.test',
@@ -234,6 +256,7 @@ describe('Drivers (e2e)', () => {
       .post('/api/drivers')
       .set('Cookie', cookie)
       .send({
+        countryCode: 'FR',
         eventsOnly: true,
         company: 'Acme',
         firstName: 'A',
@@ -376,7 +399,12 @@ describe('Drivers (e2e)', () => {
     const created = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '+33612345678' })
+      .send({
+        countryCode: 'FR',
+        firstName: 'John',
+        lastName: 'Smith',
+        phone: '+33612345678',
+      })
       .expect(201);
     const ref = (created.body as DriverBody).ref;
 
@@ -411,22 +439,68 @@ describe('Drivers (e2e)', () => {
     expect((cleared.body as DriverBody).unavailability).toBeNull();
   });
 
+  // Where the driver is based decides three things v2 keys on: the ref prefix,
+  // the Area suggestions, and whether an Event link is allowed at all. The
+  // legacy marked the field `required` on its one driver form, for every kind
+  // (drivers.html:205); v2 had let it through on both paths.
+  it('refuses a driver with no country, on creation and on edit alike', async () => {
+    await request(server())
+      .post('/api/drivers')
+      .set('Cookie', cookie)
+      .send({ firstName: 'Sans', lastName: 'Pays', phone: '+33655000001' })
+      .expect(400);
+
+    const created = await request(server())
+      .post('/api/drivers')
+      .set('Cookie', cookie)
+      .send({
+        countryCode: 'FR',
+        firstName: 'Avec',
+        lastName: 'Pays',
+        phone: '+33655000002',
+      })
+      .expect(201);
+
+    // A PUT replaces the record outright, so dropping the country is the same
+    // thing as never having given one.
+    await request(server())
+      .put(`/api/drivers/${(created.body as DriverBody).ref}`)
+      .set('Cookie', cookie)
+      .send({ firstName: 'Avec', lastName: 'Pays', phone: '+33655000002' })
+      .expect(400);
+  });
+
   it("rejects a PUT that reuses another driver's phone number", async () => {
     await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '+33612345678' })
+      .send({
+        countryCode: 'FR',
+        firstName: 'John',
+        lastName: 'Smith',
+        phone: '+33612345678',
+      })
       .expect(201);
     const second = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'Jane', lastName: 'Doe', phone: '+33699999999' })
+      .send({
+        countryCode: 'FR',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        phone: '+33699999999',
+      })
       .expect(201);
 
     await request(server())
       .put(`/api/drivers/${(second.body as DriverBody).ref}`)
       .set('Cookie', cookie)
-      .send({ firstName: 'Jane', lastName: 'Doe', phone: '+33612345678' })
+      .send({
+        countryCode: 'FR',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        phone: '+33612345678',
+      })
       .expect(409);
   });
 
@@ -434,7 +508,12 @@ describe('Drivers (e2e)', () => {
     const created = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '+33612345678' })
+      .send({
+        countryCode: 'FR',
+        firstName: 'John',
+        lastName: 'Smith',
+        phone: '+33612345678',
+      })
       .expect(201);
     const ref = (created.body as DriverBody).ref;
     await request(server())
@@ -453,7 +532,12 @@ describe('Drivers (e2e)', () => {
     const created = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '+33612345678' })
+      .send({
+        countryCode: 'FR',
+        firstName: 'John',
+        lastName: 'Smith',
+        phone: '+33612345678',
+      })
       .expect(201);
     const ref = (created.body as DriverBody).ref;
 
@@ -484,7 +568,7 @@ describe('Drivers (e2e)', () => {
     const driver = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ company: 'Uber', email: 'ops@uber.test' })
+      .send({ countryCode: 'FR', company: 'Uber', email: 'ops@uber.test' })
       .expect(201);
     const ref = (driver.body as DriverBody).ref;
     expect((driver.body as DriverBody).fleetReserved).toBeNull();
@@ -536,6 +620,7 @@ describe('Drivers (e2e)', () => {
         .post('/api/drivers')
         .set('Cookie', cookie)
         .send({
+          countryCode: 'FR',
           firstName: 'Riviera',
           lastName: `Driver${i}`,
           phone: `+3361111000${i}`,
@@ -545,7 +630,12 @@ describe('Drivers (e2e)', () => {
     const other = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'Someone', lastName: 'Else', phone: '+33622220000' })
+      .send({
+        countryCode: 'FR',
+        firstName: 'Someone',
+        lastName: 'Else',
+        phone: '+33622220000',
+      })
       .expect(201);
     await request(server())
       .patch(`/api/drivers/${(other.body as DriverBody).ref}/active`)
@@ -637,7 +727,7 @@ describe('Drivers (e2e)', () => {
       const res = await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({ firstName: 'Inter', lastName: 'Nal', phone })
+        .send({ countryCode: 'FR', firstName: 'Inter', lastName: 'Nal', phone })
         .expect(201);
       return res.body as DriverBody;
     }
@@ -647,6 +737,7 @@ describe('Drivers (e2e)', () => {
         .post('/api/drivers')
         .set('Cookie', cookie)
         .send({
+          countryCode: 'FR',
           firstName: 'Part',
           lastName: 'Ner',
           phone,

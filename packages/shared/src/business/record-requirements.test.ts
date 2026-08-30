@@ -132,9 +132,9 @@ describe('missingFields — accounts', () => {
 })
 
 describe('missingFields — drivers', () => {
-  const ownChauffeur = { firstName: 'Julien', lastName: 'Petit', phone: '+33698765432' }
+  const ownChauffeur = { countryCode: 'FR', firstName: 'Julien', lastName: 'Petit', phone: '+33698765432' }
   const partnerChauffeur = { ...ownChauffeur, company: 'Riviera Cars', email: 'j@riviera.test' }
-  const partnerCompany = { company: 'Riviera Cars', email: 'contact@riviera.test' }
+  const partnerCompany = { countryCode: 'FR', company: 'Riviera Cars', email: 'contact@riviera.test' }
   const eventsDriver = {
     ...partnerChauffeur,
     eventsOnly: true,
@@ -173,6 +173,14 @@ describe('missingFields — drivers', () => {
     ['an Events driver with no country', { ...eventsDriver, eventCountry: '' }, ['Country is required to link an Event.']],
     ['an Events driver with no area', { ...eventsDriver, eventArea: '' }, ['Area is required to link an Event.']],
     ['an Events driver with no Event linked', { ...eventsDriver, eventRef: '' }, ['An Event must be selected.']],
+    // Where the driver is based — asked of every kind alike, and asked first,
+    // because it is not the discriminant that decides it. The legacy marked
+    // the field `required` on its one form (drivers.html:205), and v2's own
+    // ref prefix, Area suggestions and Event link all key on it.
+    ['an own chauffeur with no country', { ...ownChauffeur, countryCode: '' }, ['Country is required.']],
+    ['a partner chauffeur with no country', { ...partnerChauffeur, countryCode: '' }, ['Country is required.']],
+    ['a partner company with no country', { ...partnerCompany, countryCode: '' }, ['Country is required.']],
+    ['an Events driver with no country', { ...eventsDriver, countryCode: '' }, ['Country is required.']],
   ]
 
   it.each(cases)('names what is missing from %s', (_label, values, expected) => {
@@ -182,8 +190,11 @@ describe('missingFields — drivers', () => {
   // A Company turns an own chauffeur into a partner, and the phone stops
   // being required in the branch where no person is named at all.
   it('changes which fields apply as soon as a Company is typed', () => {
-    expect(messagesFor('driver', { company: 'Riviera Cars' })).toEqual(['Email is required for a partner company.'])
+    expect(messagesFor('driver', { countryCode: 'FR', company: 'Riviera Cars' })).toEqual([
+      'Email is required for a partner company.',
+    ])
     expect(messagesFor('driver', {})).toEqual([
+      'Country is required.',
       'First name is required.',
       'Last name is required.',
       'Phone is required.',

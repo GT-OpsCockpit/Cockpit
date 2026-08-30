@@ -121,6 +121,16 @@ function clientGaps(values) {
 function driverGaps(values) {
   const gaps = [];
 
+  // Where the driver is based — asked of every kind alike, so it comes before
+  // the discriminant rather than being repeated inside each branch (each of
+  // which returns early). The legacy marked the field `required` on its one
+  // driver form, for every kind (drivers.html:205), and v2 keys three things
+  // on it: the ref prefix, the Area suggestions, and whether an Event link is
+  // allowed at all (EventLinkService rejects a record whose country doesn't
+  // match its event's). A driver with no country is a record none of those
+  // three can answer for.
+  if (!has(values.countryCode)) gaps.push(gap(['countryCode'], 'Country is required.'));
+
   if (values.eventsOnly) {
     if (!has(values.company)) gaps.push(gap(['company'], 'Company is required for an Events driver.'));
     if (!has(values.firstName)) gaps.push(gap(['firstName'], 'First name is required for an Events driver.'));

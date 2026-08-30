@@ -18,6 +18,19 @@ export async function fillArea(page: Page, scope: Locator, value: string, label 
 }
 
 /**
+ * Picks a Country ("Country" or "Event country").
+ *
+ * A SearchCombobox like the Area field, so `fill()` on it fails the same way —
+ * the value is committed by clicking the option, whose label carries the code
+ * ("France (FR)").
+ */
+export async function fillCountry(page: Page, scope: Locator, name: string, code: string, label = 'Country') {
+  await scope.getByLabel(label, { exact: true }).click()
+  await page.getByPlaceholder('Search country…').fill(name)
+  await page.getByRole('option', { name: `${name} (${code})` }).click()
+}
+
+/**
  * Fills a PU / DO address field.
  *
  * Since the address search was restored (2026-08-29, `0308256`) these are

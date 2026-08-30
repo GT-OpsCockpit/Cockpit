@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from './utils/test-app';
+import { driverPayload } from './utils/driver-payload';
 import { resetDatabase, TEST_ADMIN } from './utils/reset-db';
 import { loginAs } from './utils/auth';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -273,7 +274,15 @@ describe('Fleet (e2e)', () => {
       const driver = await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({ company: 'Uber', email: 'ops@uber.test' })
+        .send(
+          driverPayload({
+            firstName: undefined,
+            lastName: undefined,
+            phone: undefined,
+            company: 'Uber',
+            email: 'ops@uber.test',
+          }),
+        )
         .expect(201);
 
       const vehicle = await request(server())
@@ -310,7 +319,15 @@ describe('Fleet (e2e)', () => {
       const driver = await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({ company: 'Uber', email: 'ops@uber.test' })
+        .send(
+          driverPayload({
+            firstName: undefined,
+            lastName: undefined,
+            phone: undefined,
+            company: 'Uber',
+            email: 'ops@uber.test',
+          }),
+        )
         .expect(201);
       const vehicle = await request(server())
         .post('/api/fleet-vehicles')
@@ -366,7 +383,13 @@ describe('Fleet (e2e)', () => {
       const driver = await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({ firstName: 'John', lastName: 'Smith', phone: '+33611111111' })
+        .send(
+          driverPayload({
+            firstName: 'John',
+            lastName: 'Smith',
+            phone: '+33611111111',
+          }),
+        )
         .expect(201);
       const local = await request(server())
         .post('/api/fleet-vehicles')
@@ -387,7 +410,15 @@ describe('Fleet (e2e)', () => {
       const driver = await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({ company: 'Uber', email: 'ops@uber.test' })
+        .send(
+          driverPayload({
+            firstName: undefined,
+            lastName: undefined,
+            phone: undefined,
+            company: 'Uber',
+            email: 'ops@uber.test',
+          }),
+        )
         .expect(201);
       const partnerFields = {
         isLocal: false,

@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from './utils/test-app';
+import { driverPayload } from './utils/driver-payload';
 import { resetDatabase, TEST_ADMIN } from './utils/reset-db';
 import { loginAs } from './utils/auth';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -100,7 +101,7 @@ describe('Permissions (e2e)', () => {
     const res = await request(server())
       .post('/api/drivers')
       .set('Cookie', adminCookie)
-      .send({ firstName: 'Bob', lastName: 'Driver', phone })
+      .send(driverPayload({ phone }))
       .expect(201);
     return res.body as { ref: string };
   }
@@ -298,7 +299,13 @@ describe('Permissions (e2e)', () => {
     const created = await request(server())
       .post('/api/drivers')
       .set('Cookie', adminCookie)
-      .send({ firstName: 'John', lastName: 'Smith', phone: '+33611112222' })
+      .send(
+        driverPayload({
+          firstName: 'John',
+          lastName: 'Smith',
+          phone: '+33611112222',
+        }),
+      )
       .expect(201);
     const ref = (created.body as { ref: string }).ref;
 

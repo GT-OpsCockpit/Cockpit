@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from './utils/test-app';
+import { driverPayload } from './utils/driver-payload';
 import { resetDatabase, TEST_ADMIN } from './utils/reset-db';
 import { loginAs } from './utils/auth';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -68,7 +69,7 @@ describe('Trips (e2e)', () => {
     const res = await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
-      .send({ firstName: 'Bob', lastName: 'Driver', phone })
+      .send(driverPayload({ phone }))
       .expect(201);
     return res.body as DriverBody;
   }
@@ -870,13 +871,15 @@ describe('Trips (e2e)', () => {
       const partner = await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({
-          firstName: 'Paul',
-          lastName: 'Partner',
-          phone: '+33699000042',
-          company: 'Riviera Cars',
-          email: 'paul.window@riviera.test',
-        })
+        .send(
+          driverPayload({
+            firstName: 'Paul',
+            lastName: 'Partner',
+            phone: '+33699000042',
+            company: 'Riviera Cars',
+            email: 'paul.window@riviera.test',
+          }),
+        )
         .expect(201);
       const plain = await request(server())
         .post('/api/trips')
@@ -921,11 +924,13 @@ describe('Trips (e2e)', () => {
         const driver = await request(server())
           .post('/api/drivers')
           .set('Cookie', cookie)
-          .send({
-            firstName: 'Julien',
-            lastName: 'Petit',
-            phone: '+33698765432',
-          })
+          .send(
+            driverPayload({
+              firstName: 'Julien',
+              lastName: 'Petit',
+              phone: '+33698765432',
+            }),
+          )
           .expect(201);
 
         const mk = async (body: Record<string, unknown>) => {
@@ -1001,13 +1006,15 @@ describe('Trips (e2e)', () => {
         const partner = await request(server())
           .post('/api/drivers')
           .set('Cookie', cookie)
-          .send({
-            firstName: 'Paul',
-            lastName: 'Partner',
-            phone: '+33699000077',
-            company: 'Riviera Cars',
-            email: 'paul.board@riviera.test',
-          })
+          .send(
+            driverPayload({
+              firstName: 'Paul',
+              lastName: 'Partner',
+              phone: '+33699000077',
+              company: 'Riviera Cars',
+              email: 'paul.board@riviera.test',
+            }),
+          )
           .expect(201);
         const farmedOut = await request(server())
           .post('/api/trips')
@@ -1061,13 +1068,15 @@ describe('Trips (e2e)', () => {
         const partner = await request(server())
           .post('/api/drivers')
           .set('Cookie', cookie)
-          .send({
-            firstName: 'Paul',
-            lastName: 'Partner',
-            phone: '+33633000012',
-            company: 'Riviera Cars',
-            email: 'paul.partnerref@riviera.test',
-          })
+          .send(
+            driverPayload({
+              firstName: 'Paul',
+              lastName: 'Partner',
+              phone: '+33633000012',
+              company: 'Riviera Cars',
+              email: 'paul.partnerref@riviera.test',
+            }),
+          )
           .expect(201);
         const partnerRef = (partner.body as DriverBody).ref;
 
@@ -1643,13 +1652,15 @@ describe('Trips (e2e)', () => {
       const driverRes = await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({
-          firstName: 'Res',
-          lastName: 'Erved',
-          phone: '+33699999999',
-          company: 'Uber Elite',
-          email: 'reserved@example.com',
-        })
+        .send(
+          driverPayload({
+            firstName: 'Res',
+            lastName: 'Erved',
+            phone: '+33699999999',
+            company: 'Uber Elite',
+            email: 'reserved@example.com',
+          }),
+        )
         .expect(201);
       const driver = driverRes.body as DriverBody;
 
@@ -1905,14 +1916,16 @@ describe('Trips (e2e)', () => {
       const res = await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({
-          firstName: 'Paul',
-          lastName: 'Partner',
-          phone: '+33699000001',
-          company: 'Riviera Cars',
-          email: 'paul@riviera.test',
-          ...overrides,
-        })
+        .send(
+          driverPayload({
+            firstName: 'Paul',
+            lastName: 'Partner',
+            phone: '+33699000001',
+            company: 'Riviera Cars',
+            email: 'paul@riviera.test',
+            ...overrides,
+          }),
+        )
         .expect(201);
       return res.body as { ref: string };
     }
@@ -2046,13 +2059,15 @@ describe('Trips (e2e)', () => {
       const partner = await request(server())
         .post('/api/drivers')
         .set('Cookie', cookie)
-        .send({
-          firstName: 'Paul',
-          lastName: 'Partner',
-          phone: '+33699100001',
-          company: 'Riviera Cars',
-          email: 'paul@riviera.test',
-        })
+        .send(
+          driverPayload({
+            firstName: 'Paul',
+            lastName: 'Partner',
+            phone: '+33699100001',
+            company: 'Riviera Cars',
+            email: 'paul@riviera.test',
+          }),
+        )
         .expect(201);
       const created = await request(server())
         .post('/api/trips')
