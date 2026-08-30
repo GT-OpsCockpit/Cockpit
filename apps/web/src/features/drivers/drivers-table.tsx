@@ -136,7 +136,12 @@ function DriverGroup({
                     </TableCell>
                     <TableCell className="text-xs">
                       {driver.name}
-                      {driver.company && <span className="text-muted-foreground text-[10px]"> ({driver.company})</span>}
+                      {/* The legacy's Company column said "In-house" when there
+                          was none (common.js:3531). Written here rather than as
+                          a column of its own: the cell already carries the
+                          company, and the question it answers — ours, or a
+                          sub-contractor's? — belongs next to the name. */}
+                      <span className="text-muted-foreground text-[10px]"> ({driver.company ?? 'In-house'})</span>
                       <InactivityBadge
                         reason={activity.reason}
                         unavailabilityLabel={unavailabilityLabel(driver.unavailability)}

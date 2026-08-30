@@ -118,8 +118,13 @@ export function DriverFormFields({
                       field.onChange(e)
                       // An address kept from when this was a partner would sit
                       // there greyed out and still get saved — the legacy
-                      // cleared it with the company (drivers.html:387).
-                      if (!e.target.value.trim()) form.setValue('email', '', { shouldDirty: true })
+                      // cleared it with the company (drivers.html:387). Not for
+                      // an Events driver, whose email stays required and whose
+                      // field stays enabled: clearing it there would wipe an
+                      // address the operator had just typed, without a word.
+                      if (!e.target.value.trim() && !eventsOnly) {
+                        form.setValue('email', '', { shouldDirty: true })
+                      }
                     }}
                   />
                 </FormControl>
@@ -152,12 +157,17 @@ export function DriverFormFields({
                 {/* Only a partner is ever emailed — the sub-contracting drafts
                     go to their address, and an in-house chauffeur is reached on
                     WhatsApp. The legacy disabled and cleared the field for one
-                    (drivers.html:385-387). */}
+                    (drivers.html:385-387).
+                    An Events driver is the exception the legacy got wrong:
+                    ticking "Events-only" put "Email is required for an Events
+                    driver" under a field the operator could not type in until
+                    a Company was filled. The rule is right; it was the field
+                    that had no business being greyed out. */}
                 <EmailInput
                   value={field.value ?? ''}
                   onChange={field.onChange}
-                  disabled={!isPartner}
-                  placeholder={isPartner ? undefined : 'Partner companies only'}
+                  disabled={!isPartner && !eventsOnly}
+                  placeholder={isPartner || eventsOnly ? undefined : 'Partner companies only'}
                 />
               </FormControl>
               <FormMessage />
@@ -188,6 +198,7 @@ export function DriverFormFields({
                     searchPlaceholder="Search country…"
                   />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />

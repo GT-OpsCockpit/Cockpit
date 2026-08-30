@@ -225,3 +225,25 @@ describe('DriversTable — Country', () => {
     expect(cell(1)).toHaveTextContent('—')
   })
 })
+
+// The legacy's Drivers list carried a Company column that wrote "In-house"
+// when there was none (common.js:3531). v2 put the company in parentheses
+// beside the name and wrote nothing for an in-house chauffeur, so the cell
+// that answers "is this ours or a sub-contractor's?" was blank exactly when
+// the answer was "ours".
+describe('DriversTable — In-house', () => {
+  // A driver carrying a Company is a partner, and lands in the second table.
+  const nameCell = (table: number) =>
+    within(within(screen.getAllByRole('table')[table]).getAllByRole('row')[1]).getAllByRole('cell')[2]
+
+  it('marks a driver with no company as In-house', () => {
+    render(<DriversTable drivers={[baseDriver({ company: null })]} canReactivate {...noop} />)
+    expect(nameCell(0)).toHaveTextContent('In-house')
+  })
+
+  it('names the company instead when there is one', () => {
+    render(<DriversTable drivers={[baseDriver({ company: 'Riviera Cars' })]} canReactivate {...noop} />)
+    expect(nameCell(1)).toHaveTextContent('Riviera Cars')
+    expect(nameCell(1)).not.toHaveTextContent('In-house')
+  })
+})

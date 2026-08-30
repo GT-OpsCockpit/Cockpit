@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { useForm } from 'react-hook-form'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { useForm, type UseFormReturn } from 'react-hook-form'
 import { Form } from '@/components/ui/form'
 
 const useClients = vi.fn(() => ({ data: { data: [] }, isFetching: false }))
@@ -29,14 +29,18 @@ afterEach(() => {
 function Harness({
   onValues,
   defaults,
+  onForm,
 }: {
   onValues: (values: DriverFormValues) => void
   defaults?: Partial<DriverFormValues>
+  /** Hands the caller the form instance, to drive validation state directly. */
+  onForm?: (form: UseFormReturn<DriverFormValues>) => void
 }) {
   const form = useForm<DriverFormValues>({
     defaultValues: { countryCode: 'FR', area: 'Nice', eventsOnly: false, ...defaults },
   })
   onValues(form.watch())
+  onForm?.(form)
   return (
     <Form {...form}>
       <DriverFormFields form={form} />
@@ -124,4 +128,70 @@ describe('DriverFormFields', () => {
     expect(latest?.email).toBe('')
   })
 
+})
+
+// Country is required of every kind of driver (record-requirements.js), but
+// its FormItem carried no <FormMessage/>: the schema rejected the submission
+// and the form said nothing, leaving the Create button looking broken.
+describe('DriverFormFields — Country', () => {
+  it('shows the validation message under the Country field', async () => {
+    let form: UseFormReturn<DriverFormValues> | undefined
+    render(<Harness onValues={() => {}} onForm={(f) => (form = f)} defaults={{ countryCode: '' }} />)
+
+    await act(async () => {
+      form!.setError('countryCode', { message: 'Country is required.' })
+    })
+
+    expect(screen.getByText('Country is required.')).toBeInTheDocument()
+  })
+})
+
+// Ticking "Events-only" put "Email is required for an Events driver" under a
+// field the operator could not type in: Email only enabled itself once a
+// Company was filled (drivers.html:385). The message was right — the rule does
+// demand an email — so it is the field that had to give.
+describe('DriverFormFields — the Events driver\'s email', () => {
+  const emailField = () => screen.getByLabelText('Email')
+
+  it('stays disabled for an in-house chauffeur, who is reached on WhatsApp', () => {
+    render(<Harness onValues={() => {}} defaults={{ company: '', eventsOnly: false }} />)
+    expect(emailField()).toBeDisabled()
+  })
+
+  it('enables itself as soon as Events-only is ticked, Company or not', () => {
+    render(<Harness onValues={() => {}} defaults={{ company: '', eventsOnly: true }} />)
+    expect(emailField()).toBeEnabled()
+  })
+
+  // Clearing the Company wipes the email, so that an address left over from
+  // when the record was a partner cannot be saved behind a greyed-out field.
+  // For an Events driver the field is not greyed out and the address is
+  // required, so wiping it would destroy what was just typed.
+  it('keeps an Events driver\'s email when the Company is cleared', () => {
+    let latest: DriverFormValues | undefined
+    render(
+      <Harness
+        onValues={(values) => (latest = values)}
+        defaults={{ company: 'Acme', email: 'a@b.test', eventsOnly: true }}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Company'), { target: { value: '' } })
+
+    expect(latest?.email).toBe('a@b.test')
+  })
+
+  it("still clears a partner's email when the Company is cleared", () => {
+    let latest: DriverFormValues | undefined
+    render(
+      <Harness
+        onValues={(values) => (latest = values)}
+        defaults={{ company: 'Acme', email: 'a@b.test', eventsOnly: false }}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Company'), { target: { value: '' } })
+
+    expect(latest?.email).toBe('')
+  })
 })
