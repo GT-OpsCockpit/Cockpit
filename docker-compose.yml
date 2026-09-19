@@ -26,7 +26,7 @@ services:
   # Never published on the host here: only the `api` service reaches it, over
   # the internal compose network. The dev override exposes its ports locally.
   minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     restart: unless-stopped
     command: server /data --console-address ':9001'
     environment:
