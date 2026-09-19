@@ -60,7 +60,13 @@ function ActionCell({
   return (
     <TableCell className="whitespace-nowrap">
       <div className="flex gap-1">
-        <Button variant="ghost" size="icon" title="New booking" onClick={() => onNewBooking(vehicle)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="New booking"
+          onClick={() => onNewBooking(vehicle)}
+          className="btn-validate-green"
+        >
           <CalendarPlus className="size-3.5" />
         </Button>
         {showUnavailability && (

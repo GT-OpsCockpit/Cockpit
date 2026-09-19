@@ -1,6 +1,8 @@
-import { Fragment } from 'react'
+import { Fragment, useEffect, useRef, type KeyboardEvent } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { LogOut } from 'lucide-react'
+import cockpitLogo from '@/assets/cockpit-logo.png'
+import cockpitPhoto from '@/assets/cockpit-photo.jpg'
 import { useAuthControllerLogout, useAuthControllerMe } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { cn } from '@/lib/utils'
@@ -27,6 +29,42 @@ export function AppShell() {
   // Already warmed by the route loader (requireAuth) — this reads the cache, no extra request.
   const { data: me } = useAuthControllerMe()
   const logout = useAuthControllerLogout()
+  const navRef = useRef<HTMLElement>(null)
+
+  // The nav can overflow its width once every section is added (or on
+  // narrower windows). A plain vertical mouse-wheel scroll doesn't move a
+  // horizontally-scrolling container by default, so translate it here; a
+  // native (non-passive) listener is required to preventDefault the page's
+  // own vertical scroll while the pointer is over the nav.
+  useEffect(() => {
+    const el = navRef.current
+    if (!el) return
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0 || el.scrollWidth <= el.clientWidth) return
+      el.scrollLeft += event.deltaY
+      event.preventDefault()
+    }
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [])
+
+  const handleNavKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    const el = navRef.current
+    if (!el) return
+    if (event.key === 'ArrowRight') {
+      el.scrollBy({ left: 120, behavior: 'smooth' })
+      event.preventDefault()
+    } else if (event.key === 'ArrowLeft') {
+      el.scrollBy({ left: -120, behavior: 'smooth' })
+      event.preventDefault()
+    } else if (event.key === 'Home') {
+      el.scrollTo({ left: 0, behavior: 'smooth' })
+      event.preventDefault()
+    } else if (event.key === 'End') {
+      el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' })
+      event.preventDefault()
+    }
+  }
 
   const handleLogout = async () => {
     await logout.mutateAsync()
@@ -45,22 +83,32 @@ export function AppShell() {
             the full-bleed bar gains, and each only appears once its margin is wide
             enough to hold it without overlapping the block. */}
         <div className="relative flex h-14 items-center">
-          <span className="font-wordmark text-foreground absolute left-4 hidden text-3xl leading-none 2xl:block">
-            Cockpit
+          <span className="absolute left-4 hidden items-center gap-2 2xl:flex">
+            <img
+              src={cockpitPhoto}
+              alt=""
+              className="h-12 w-[66px] rounded object-cover"
+            />
+            <img src={cockpitLogo} alt="Cockpit" className="h-[34px] w-auto" />
           </span>
 
           <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4">
-            <nav className="flex items-center text-sm font-medium">
+            <nav
+              ref={navRef}
+              tabIndex={0}
+              onKeyDown={handleNavKeyDown}
+              className="flex items-center overflow-x-auto text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [scrollbar-width:thin]"
+            >
               {NAV_ITEMS.map((item, index) => (
                 <Fragment key={item.to}>
-                  {index > 0 && <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />}
+                  {index > 0 && <Separator orientation="vertical" className="mx-2 shrink-0 data-[orientation=vertical]:h-4" />}
                   <NavLink
                     to={item.to}
                     className={({ isActive }) =>
                       cn(
-                        'text-muted-foreground flex items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors',
-                        'hover:bg-accent hover:text-accent-foreground',
-                        isActive && 'bg-accent/60 text-accent-foreground',
+                        'text-muted-foreground flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors',
+                        'hover:bg-blue-500/10 hover:text-blue-700',
+                        isActive && 'nav-link-active',
                       )
                     }
                   >

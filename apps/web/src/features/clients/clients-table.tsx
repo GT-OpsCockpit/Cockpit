@@ -89,7 +89,13 @@ export function ClientsTable({
                 <TableCell className="text-xs">{client.billing ?? '—'}</TableCell>
                 <TableCell className="whitespace-nowrap">
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" title="New booking" onClick={() => onNewBooking(client)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="New booking"
+                      onClick={() => onNewBooking(client)}
+                      className="btn-validate-green"
+                    >
                       <CalendarPlus className="size-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" title="Edit" onClick={() => onEdit(client)}>

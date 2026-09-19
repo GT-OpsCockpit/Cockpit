@@ -1,13 +1,13 @@
 import {
-  Banknote,
   Calendar,
   CalendarClock,
   Car,
+  ContactRound,
+  DollarSign,
   PartyPopper,
   ReceiptText,
   Settings,
-  Truck,
-  Users,
+  UserStar,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -28,12 +28,12 @@ export interface NavItem {
  */
 export const NAV_ITEMS: NavItem[] = [
   { to: '/bookings', label: 'Bookings', icon: Calendar },
-  { to: '/clients', label: 'Customers', icon: Users },
-  { to: '/drivers', label: 'Drivers & Partners', icon: Car },
-  { to: '/vehicles', label: 'Vehicles', icon: Truck },
+  { to: '/clients', label: 'Customers', icon: UserStar },
+  { to: '/drivers', label: 'Drivers & Partners', icon: ContactRound },
+  { to: '/vehicles', label: 'Vehicles', icon: Car },
   { to: '/planning', label: 'Planning', icon: CalendarClock },
   { to: '/events', label: 'Events', icon: PartyPopper },
   { to: '/invoicing', label: 'Invoicing', icon: ReceiptText },
-  { to: '/finance', label: 'Finance', icon: Banknote },
+  { to: '/finance', label: 'Finance', icon: DollarSign },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]

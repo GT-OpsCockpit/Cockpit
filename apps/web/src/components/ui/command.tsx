@@ -97,9 +97,15 @@ function CommandList({
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        "max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto",
+        "max-h-[min(300px,var(--radix-popover-content-available-height,300px))] scroll-py-1 overflow-x-hidden overflow-y-auto overscroll-contain",
         className
       )}
+      // The enclosing modal dialog (when there is one) locks page scroll
+      // while open, which also intercepts trackpad/wheel scrolling on this
+      // portaled popover unless the event is stopped before it bubbles up
+      // to that lock. Arrow-key navigation isn't affected — only wheel/touch
+      // scrolling is — hence keyboard already working while this didn't.
+      onWheel={(event) => event.stopPropagation()}
       {...props}
     />
   )

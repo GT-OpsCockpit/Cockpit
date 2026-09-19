@@ -168,7 +168,13 @@ function DriverGroup({
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" title="New booking" onClick={() => onNewBooking(driver)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="New booking"
+                          onClick={() => onNewBooking(driver)}
+                          className="btn-validate-green"
+                        >
                           <CalendarPlus className="size-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" title="Edit" onClick={() => onEdit(driver)}>
