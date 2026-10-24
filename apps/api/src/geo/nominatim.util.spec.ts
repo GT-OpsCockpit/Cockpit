@@ -1,6 +1,7 @@
 import {
   simplifyAddress,
   isAirportResult,
+  isTrainStationResult,
   extractIata,
   NominatimResult,
 } from './nominatim.util';
@@ -51,9 +52,79 @@ describe('isAirportResult', () => {
     );
   });
 
+  // Nominatim doesn't always land an airport's `class` on "aeroway" — some
+  // results carry the airport-ness in `type` or `extratags` instead, with
+  // `class` on something less specific (a general "place", a building).
+  it('detects type: aerodrome even when class lands on something else', () => {
+    expect(isAirportResult(result({ class: 'place', type: 'aerodrome' }))).toBe(
+      true,
+    );
+  });
+
+  it('detects aeroway surfaced only in extratags', () => {
+    expect(
+      isAirportResult(result({ extratags: { aeroway: 'aerodrome' } })),
+    ).toBe(true);
+  });
+
+  it('detects other airport-ish type values, not just "aerodrome"', () => {
+    expect(
+      isAirportResult(result({ class: 'building', type: 'international_airport' })),
+    ).toBe(true);
+    expect(isAirportResult(result({ class: 'amenity', type: 'heliport' }))).toBe(true);
+  });
+
   it('is false otherwise', () => {
     expect(isAirportResult(result({ address: { road: 'x' } }))).toBe(false);
     expect(isAirportResult(undefined)).toBe(false);
+  });
+});
+
+describe('isTrainStationResult', () => {
+  it('detects railway at the root class', () => {
+    expect(isTrainStationResult(result({ class: 'railway' }))).toBe(true);
+  });
+
+  it('detects railway in the address tag', () => {
+    expect(
+      isTrainStationResult(result({ address: { railway: 'station' } })),
+    ).toBe(true);
+  });
+
+  // Same reasoning as the aerodrome case above — a station result whose
+  // `class` isn't "railway" but whose `type` still says what it is.
+  it('detects type: station or halt even when class lands on something else', () => {
+    expect(isTrainStationResult(result({ class: 'building', type: 'station' }))).toBe(
+      true,
+    );
+    expect(isTrainStationResult(result({ class: 'building', type: 'halt' }))).toBe(
+      true,
+    );
+  });
+
+  it('detects railway surfaced only in extratags', () => {
+    expect(
+      isTrainStationResult(result({ extratags: { railway: 'station' } })),
+    ).toBe(true);
+  });
+
+  // The real-world case that slipped through the exact-match version: St
+  // Pancras International Station comes back from Nominatim as
+  // `class: "building", type: "train_station"` — not "station" or "halt".
+  it('detects "train_station" and other station-ish type values', () => {
+    expect(
+      isTrainStationResult(result({ class: 'building', type: 'train_station' })),
+    ).toBe(true);
+    expect(
+      isTrainStationResult(result({ class: 'building', type: 'subway_station' })),
+    ).toBe(true);
+  });
+
+  it('is false otherwise', () => {
+    expect(isTrainStationResult(result({ address: { road: 'x' } }))).toBe(
+      false,
+    );
+    expect(isTrainStationResult(undefined)).toBe(false);
   });
 });
 

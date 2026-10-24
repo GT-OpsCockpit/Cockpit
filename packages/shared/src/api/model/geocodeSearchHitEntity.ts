@@ -14,7 +14,10 @@ export interface GeocodeSearchHitEntity {
   tz: string | null;
   /** @nullable */
   countryCode: string | null;
+  /** @nullable */
+  postalCode: string | null;
   isAirport: boolean;
+  isTrainStation: boolean;
   /** @nullable */
   iata: string | null;
 }

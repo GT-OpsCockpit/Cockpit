@@ -25,4 +25,6 @@ export const STEP_ICONS: Record<string, LucideIcon> = {
   ONBOARD: UserCheck,
   DROPPED: CheckCheck,
   CANCELLED: CircleX,
+  DECLINED: CircleX,
+  UPDATE_PENDING: Send,
 }

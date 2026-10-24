@@ -58,6 +58,8 @@ export interface BookingFieldsDto {
   bufferTime?: number;
   fboAddress?: string;
   tailNbr?: string;
+  trainNumber?: string;
+  trainObservation?: string;
   nameboard?: string;
   pickupIata?: string;
   dropoffIata?: string;
@@ -122,6 +124,8 @@ export interface BookingColumns {
   bufferTime: number | null;
   fboAddress: string | null;
   tailNbr: string | null;
+  trainNumber: string | null;
+  trainObservation: string | null;
   nameboard: string | null;
   pickupIata: string | null;
   dropoffIata: string | null;
@@ -159,6 +163,20 @@ export function resolveBookingFields<TClient extends BookingClient>(
   }
   if (dto.service === Service.SPEC && !dto.instructions?.trim()) {
     return invalid('instructions is required for a SPEC service');
+  }
+  // An airport pickup is a meet-and-greet, so the flight details are not
+  // optional: a commercial flight number, or — private aviation — the tail
+  // number and the FBO address. The server can only see the IATA code the
+  // client geocoded (the form's own "is an airport" flag is never sent), so
+  // this catches the airports the geocoder could name; the form covers the rest.
+  if (
+    dto.pickupIata?.trim() &&
+    !dto.flightNumber?.trim() &&
+    !(dto.tailNbr?.trim() && dto.fboAddress?.trim())
+  ) {
+    return invalid(
+      'Airport pickup: flightNumber is required, or tailNbr and fboAddress for a private flight',
+    );
   }
 
   // Unlike the legacy (which stored any free-text vehicleType string with
@@ -264,6 +282,8 @@ export function resolveBookingFields<TClient extends BookingClient>(
       bufferTime: dto.bufferTime ?? null,
       fboAddress: dto.fboAddress || null,
       tailNbr: dto.tailNbr || null,
+      trainNumber: dto.trainNumber || null,
+      trainObservation: dto.trainObservation || null,
       nameboard: dto.nameboard || null,
       pickupIata: dto.pickupIata || null,
       dropoffIata: dto.dropoffIata || null,

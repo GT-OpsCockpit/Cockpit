@@ -7,7 +7,9 @@ export class GeocodeTzEntity {
   lon: number;
   displayName: string;
   countryCode: string | null;
+  postalCode: string | null;
   isAirport: boolean;
+  isTrainStation: boolean;
   iata: string | null;
 }
 
@@ -17,7 +19,9 @@ export class GeocodeSearchHitEntity {
   lon: number;
   tz: string | null;
   countryCode: string | null;
+  postalCode: string | null;
   isAirport: boolean;
+  isTrainStation: boolean;
   iata: string | null;
 }
 

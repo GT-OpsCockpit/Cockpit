@@ -49,6 +49,30 @@ describe('tripFormSchema — conditional validation', () => {
     expect(tripFormSchema.safeParse(validBase()).success).toBe(true)
   })
 
+  describe('airport pickup — flight details are required', () => {
+    it('rejects an airport pickup with no flight details at all', () => {
+      expect(issuePaths(validBase({ pickupIsAirport: true }))).toContain('flightNumber')
+    })
+
+    it('accepts a commercial flight number alone', () => {
+      expect(tripFormSchema.safeParse(validBase({ pickupIsAirport: true, flightNumber: 'AF1234' })).success).toBe(true)
+    })
+
+    it('needs both the tail number and the FBO address for a private flight', () => {
+      expect(issuePaths(validBase({ pickupIsAirport: true, tailNbr: 'N123AB' }))).toEqual(['fboAddress'])
+      expect(issuePaths(validBase({ pickupIsAirport: true, fboAddress: 'Signature, Le Bourget' }))).toEqual(['flightNumber'])
+      expect(
+        tripFormSchema.safeParse(
+          validBase({ pickupIsAirport: true, tailNbr: 'N123AB', fboAddress: 'Signature, Le Bourget' }),
+        ).success,
+      ).toBe(true)
+    })
+
+    it('asks for nothing when the pickup is not an airport', () => {
+      expect(tripFormSchema.safeParse(validBase({ pickupIsAirport: false })).success).toBe(true)
+    })
+  })
+
   describe('drop-off location — required except for ASD', () => {
     it('rejects a TSF booking with no drop-off', () => {
       expect(issuePaths(validBase({ dropoffLocation: '' }))).toContain('dropoffLocation')
@@ -112,15 +136,23 @@ describe('tripFormSchema — conditional validation', () => {
     })
   })
 
-  // Farming a job out is agreeing a price for it — the legacy refused to
-  // confirm the sub-contract popup without one (common.js:2812).
-  describe('partnerRateEur — required to sub-contract', () => {
-    it('rejects a sub-contracted booking with no partner rate', () => {
-      expect(issuePaths(validBase({ subContractor: true, partnerRateEur: undefined }))).toContain('partnerRateEur')
+  // Unlike the legacy's sub-contract popup, which refused to confirm without
+  // one (common.js:2812), this form lets a job be farmed out with no price
+  // agreed yet — both Retail price and Partner rate net can be filled in once
+  // they're known.
+  describe('partnerRateEur — optional even when sub-contracting', () => {
+    it('accepts a sub-contracted booking with no partner rate', () => {
+      expect(
+        tripFormSchema.safeParse(
+          validBase({ subContractor: true, partnerRateEur: undefined, partnerRef: 'D-XX-XX-UBE-001' }),
+        ).success,
+      ).toBe(true)
     })
 
-    it('rejects a zero partner rate, which is not a price', () => {
-      expect(issuePaths(validBase({ subContractor: true, partnerRateEur: 0 }))).toContain('partnerRateEur')
+    it('still rejects a negative partner rate', () => {
+      expect(
+        issuePaths(validBase({ subContractor: true, partnerRateEur: -10, partnerRef: 'D-XX-XX-UBE-001' })),
+      ).toContain('partnerRateEur')
     })
 
     it('accepts a sub-contracted booking once a rate is given', () => {

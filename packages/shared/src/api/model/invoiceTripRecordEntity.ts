@@ -62,6 +62,10 @@ export interface InvoiceTripRecordEntity {
   /** @nullable */
   tailNbr: string | null;
   /** @nullable */
+  trainNumber: string | null;
+  /** @nullable */
+  trainObservation: string | null;
+  /** @nullable */
   nameboard: string | null;
   /** @nullable */
   nameboardUrl: string | null;
@@ -72,6 +76,8 @@ export interface InvoiceTripRecordEntity {
   subContractor: boolean;
   /** @nullable */
   partnerId: string | null;
+  /** @nullable */
+  directPartnerId: string | null;
   dispatched: boolean;
   invoiced: boolean;
   assignmentCancelled: boolean;

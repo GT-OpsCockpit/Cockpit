@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { EventLinkService } from '../common/event-link/event-link.service';
+import { PartnersService } from '../partners/partners.service';
 import { normalizePhone } from '../common/utils/normalize-phone';
 import { letters } from '../common/utils/letters';
 import { searchTokensFilter } from '../common/utils/search-tokens';
@@ -42,6 +43,10 @@ const DRIVER_INCLUDE = {
   eventClient: true,
   unavailability: true,
   fleetReserved: true,
+  // Nested so the Drivers table's Company column can show the real Partner's
+  // name for a driver actually linked via partnerId, falling back to the
+  // free-text `company` field only for one that isn't (see driver.entity.ts).
+  partner: true,
 } satisfies Prisma.DriverInclude;
 
 const DEFAULT_PAGE = 1;
@@ -75,6 +80,7 @@ export class DriversService {
     private readonly prisma: PrismaService,
     private readonly refCounter: RefCounterService,
     private readonly eventLink: EventLinkService,
+    private readonly partners: PartnersService,
   ) {}
 
   async list(query: ListDriversQueryDto): Promise<DriverListEntity> {
@@ -89,6 +95,15 @@ export class DriversService {
     // `company` is normalised to null when blank (create/update below), so
     // "has a company" is exactly the legacy's `!!d.company`.
     if (query.partnersOnly) conditions.push({ company: { not: null } });
+    if (query.inHouse !== undefined) {
+      conditions.push({ partnerId: query.inHouse ? null : { not: null } });
+    }
+    if (query.partnerId) conditions.push({ partnerId: query.partnerId });
+    if (query.countryCode) conditions.push({ countryCode: query.countryCode });
+    if (query.area) conditions.push({ area: query.area });
+    if (query.category) {
+      conditions.push({ fleetReserved: { category: { name: query.category } } });
+    }
     if (query.availableOnly) {
       conditions.push(driverEffectivelyActiveFilter(todayUtcMidnight()));
     }
@@ -165,6 +180,10 @@ export class DriversService {
     const seq = await this.refCounter.next(`driver:${prefix}`);
     const ref = `${prefix}-${String(seq).padStart(3, '0')}`;
 
+    const partnerId = dto.partnerRef
+      ? (await this.partners.resolveByRefOrThrow(dto.partnerRef)).id
+      : null;
+
     const driver = await this.prisma.driver.create({
       data: {
         ref,
@@ -173,6 +192,7 @@ export class DriversService {
         lastName: dto.lastName,
         phone,
         company: dto.company || null,
+        partnerId,
         email: dto.email || null,
         area: dto.area?.trim() || 'Local',
         eventsOnly: !!dto.eventsOnly,
@@ -224,6 +244,13 @@ export class DriversService {
       eventClientId = null;
     }
 
+    const partnerId =
+      dto.partnerRef !== undefined
+        ? dto.partnerRef
+          ? (await this.partners.resolveByRefOrThrow(dto.partnerRef)).id
+          : null
+        : undefined;
+
     const driver = await this.prisma.driver.update({
       where: { ref },
       data: {
@@ -234,6 +261,7 @@ export class DriversService {
         ...(dto.lastName !== undefined && { lastName: dto.lastName }),
         ...(dto.phone !== undefined && { phone: normalizePhone(dto.phone) }),
         ...(dto.company !== undefined && { company: dto.company || null }),
+        ...(partnerId !== undefined && { partnerId }),
         ...(dto.email !== undefined && { email: dto.email || null }),
         ...(dto.area !== undefined && { area: dto.area.trim() || 'Local' }),
         ...(dto.eventsOnly !== undefined && { eventsOnly: dto.eventsOnly }),

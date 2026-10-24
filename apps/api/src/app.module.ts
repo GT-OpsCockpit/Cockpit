@@ -12,6 +12,9 @@ import { MetaModule } from './meta/meta.module';
 import { ClientsModule } from './clients/clients.module';
 import { DriversModule } from './drivers/drivers.module';
 import { FleetModule } from './fleet/fleet.module';
+import { PartnersModule } from './partners/partners.module';
+import { PassengersModule } from './passengers/passengers.module';
+import { PriceListsModule } from './price-lists/price-lists.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { GeoModule } from './geo/geo.module';
 import { TripsModule } from './trips/trips.module';
@@ -48,6 +51,9 @@ import { validateEnv, EnvironmentVariables } from './config/env.validation';
     ClientsModule,
     DriversModule,
     FleetModule,
+    PartnersModule,
+    PassengersModule,
+    PriceListsModule,
     NotificationsModule,
     GeoModule,
     TripsModule,

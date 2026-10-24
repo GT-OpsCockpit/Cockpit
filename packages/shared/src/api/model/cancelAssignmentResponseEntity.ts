@@ -11,4 +11,9 @@ export interface CancelAssignmentResponseEntity {
   ok: boolean;
   deleted?: boolean;
   trip?: TripEntity;
+  /**
+     * Set when the cancellation notice to the partner (email) or their driver (WhatsApp) failed to send — the cancellation itself still went through.
+     * @nullable
+     */
+  notifyWarning?: string | null;
 }

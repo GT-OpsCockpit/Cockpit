@@ -523,52 +523,16 @@ export const MAJOR_CITIES: MajorCity[] = [
     country: 'SZ',
   },
   {
-    name: 'New York',
-    country: 'US-NY',
+    name: 'Birmingham',
+    country: 'US-AL',
   },
   {
-    name: 'Miami',
-    country: 'US-NY',
+    name: 'Montgomery',
+    country: 'US-AL',
   },
   {
-    name: 'Boston',
-    country: 'US-NY',
-  },
-  {
-    name: 'Chicago',
-    country: 'US-IL',
-  },
-  {
-    name: 'Dallas',
-    country: 'US-IL',
-  },
-  {
-    name: 'Houston',
-    country: 'US-IL',
-  },
-  {
-    name: 'Denver',
-    country: 'US-CO',
-  },
-  {
-    name: 'Phoenix',
-    country: 'US-CO',
-  },
-  {
-    name: 'Las Vegas',
-    country: 'US-CO',
-  },
-  {
-    name: 'Los Angeles',
-    country: 'US-CA',
-  },
-  {
-    name: 'San Francisco',
-    country: 'US-CA',
-  },
-  {
-    name: 'Seattle',
-    country: 'US-CA',
+    name: 'Huntsville',
+    country: 'US-AL',
   },
   {
     name: 'Anchorage',
@@ -583,6 +547,106 @@ export const MAJOR_CITIES: MajorCity[] = [
     country: 'US-AK',
   },
   {
+    name: 'Phoenix',
+    country: 'US-AZ',
+  },
+  {
+    name: 'Tucson',
+    country: 'US-AZ',
+  },
+  {
+    name: 'Mesa',
+    country: 'US-AZ',
+  },
+  {
+    name: 'Little Rock',
+    country: 'US-AR',
+  },
+  {
+    name: 'Fayetteville',
+    country: 'US-AR',
+  },
+  {
+    name: 'Fort Smith',
+    country: 'US-AR',
+  },
+  {
+    name: 'Los Angeles',
+    country: 'US-CA',
+  },
+  {
+    name: 'San Francisco',
+    country: 'US-CA',
+  },
+  {
+    name: 'San Diego',
+    country: 'US-CA',
+  },
+  {
+    name: 'Denver',
+    country: 'US-CO',
+  },
+  {
+    name: 'Colorado Springs',
+    country: 'US-CO',
+  },
+  {
+    name: 'Boulder',
+    country: 'US-CO',
+  },
+  {
+    name: 'Hartford',
+    country: 'US-CT',
+  },
+  {
+    name: 'New Haven',
+    country: 'US-CT',
+  },
+  {
+    name: 'Stamford',
+    country: 'US-CT',
+  },
+  {
+    name: 'Wilmington',
+    country: 'US-DE',
+  },
+  {
+    name: 'Dover',
+    country: 'US-DE',
+  },
+  {
+    name: 'Newark',
+    country: 'US-DE',
+  },
+  {
+    name: 'Washington',
+    country: 'US-DC',
+  },
+  {
+    name: 'Miami',
+    country: 'US-FL',
+  },
+  {
+    name: 'Orlando',
+    country: 'US-FL',
+  },
+  {
+    name: 'Tampa',
+    country: 'US-FL',
+  },
+  {
+    name: 'Atlanta',
+    country: 'US-GA',
+  },
+  {
+    name: 'Savannah',
+    country: 'US-GA',
+  },
+  {
+    name: 'Augusta',
+    country: 'US-GA',
+  },
+  {
     name: 'Honolulu',
     country: 'US-HI',
   },
@@ -593,6 +657,474 @@ export const MAJOR_CITIES: MajorCity[] = [
   {
     name: 'Kailua-Kona',
     country: 'US-HI',
+  },
+  {
+    name: 'Boise',
+    country: 'US-ID',
+  },
+  {
+    name: 'Idaho Falls',
+    country: 'US-ID',
+  },
+  {
+    name: "Coeur d'Alene",
+    country: 'US-ID',
+  },
+  {
+    name: 'Chicago',
+    country: 'US-IL',
+  },
+  {
+    name: 'Springfield',
+    country: 'US-IL',
+  },
+  {
+    name: 'Peoria',
+    country: 'US-IL',
+  },
+  {
+    name: 'Indianapolis',
+    country: 'US-IN',
+  },
+  {
+    name: 'Fort Wayne',
+    country: 'US-IN',
+  },
+  {
+    name: 'Evansville',
+    country: 'US-IN',
+  },
+  {
+    name: 'Des Moines',
+    country: 'US-IA',
+  },
+  {
+    name: 'Cedar Rapids',
+    country: 'US-IA',
+  },
+  {
+    name: 'Davenport',
+    country: 'US-IA',
+  },
+  {
+    name: 'Wichita',
+    country: 'US-KS',
+  },
+  {
+    name: 'Overland Park',
+    country: 'US-KS',
+  },
+  {
+    name: 'Topeka',
+    country: 'US-KS',
+  },
+  {
+    name: 'Louisville',
+    country: 'US-KY',
+  },
+  {
+    name: 'Lexington',
+    country: 'US-KY',
+  },
+  {
+    name: 'Bowling Green',
+    country: 'US-KY',
+  },
+  {
+    name: 'New Orleans',
+    country: 'US-LA',
+  },
+  {
+    name: 'Baton Rouge',
+    country: 'US-LA',
+  },
+  {
+    name: 'Shreveport',
+    country: 'US-LA',
+  },
+  {
+    name: 'Portland',
+    country: 'US-ME',
+  },
+  {
+    name: 'Bangor',
+    country: 'US-ME',
+  },
+  {
+    name: 'Augusta',
+    country: 'US-ME',
+  },
+  {
+    name: 'Baltimore',
+    country: 'US-MD',
+  },
+  {
+    name: 'Annapolis',
+    country: 'US-MD',
+  },
+  {
+    name: 'Rockville',
+    country: 'US-MD',
+  },
+  {
+    name: 'Boston',
+    country: 'US-MA',
+  },
+  {
+    name: 'Worcester',
+    country: 'US-MA',
+  },
+  {
+    name: 'Cambridge',
+    country: 'US-MA',
+  },
+  {
+    name: 'Detroit',
+    country: 'US-MI',
+  },
+  {
+    name: 'Grand Rapids',
+    country: 'US-MI',
+  },
+  {
+    name: 'Ann Arbor',
+    country: 'US-MI',
+  },
+  {
+    name: 'Minneapolis',
+    country: 'US-MN',
+  },
+  {
+    name: 'Saint Paul',
+    country: 'US-MN',
+  },
+  {
+    name: 'Rochester',
+    country: 'US-MN',
+  },
+  {
+    name: 'Jackson',
+    country: 'US-MS',
+  },
+  {
+    name: 'Gulfport',
+    country: 'US-MS',
+  },
+  {
+    name: 'Biloxi',
+    country: 'US-MS',
+  },
+  {
+    name: 'Kansas City',
+    country: 'US-MO',
+  },
+  {
+    name: 'St. Louis',
+    country: 'US-MO',
+  },
+  {
+    name: 'Springfield',
+    country: 'US-MO',
+  },
+  {
+    name: 'Billings',
+    country: 'US-MT',
+  },
+  {
+    name: 'Missoula',
+    country: 'US-MT',
+  },
+  {
+    name: 'Bozeman',
+    country: 'US-MT',
+  },
+  {
+    name: 'Omaha',
+    country: 'US-NE',
+  },
+  {
+    name: 'Lincoln',
+    country: 'US-NE',
+  },
+  {
+    name: 'Grand Island',
+    country: 'US-NE',
+  },
+  {
+    name: 'Las Vegas',
+    country: 'US-NV',
+  },
+  {
+    name: 'Reno',
+    country: 'US-NV',
+  },
+  {
+    name: 'Henderson',
+    country: 'US-NV',
+  },
+  {
+    name: 'Manchester',
+    country: 'US-NH',
+  },
+  {
+    name: 'Nashua',
+    country: 'US-NH',
+  },
+  {
+    name: 'Concord',
+    country: 'US-NH',
+  },
+  {
+    name: 'Newark',
+    country: 'US-NJ',
+  },
+  {
+    name: 'Jersey City',
+    country: 'US-NJ',
+  },
+  {
+    name: 'Trenton',
+    country: 'US-NJ',
+  },
+  {
+    name: 'Albuquerque',
+    country: 'US-NM',
+  },
+  {
+    name: 'Santa Fe',
+    country: 'US-NM',
+  },
+  {
+    name: 'Las Cruces',
+    country: 'US-NM',
+  },
+  {
+    name: 'New York',
+    country: 'US-NY',
+  },
+  {
+    name: 'Buffalo',
+    country: 'US-NY',
+  },
+  {
+    name: 'Albany',
+    country: 'US-NY',
+  },
+  {
+    name: 'Charlotte',
+    country: 'US-NC',
+  },
+  {
+    name: 'Raleigh',
+    country: 'US-NC',
+  },
+  {
+    name: 'Durham',
+    country: 'US-NC',
+  },
+  {
+    name: 'Fargo',
+    country: 'US-ND',
+  },
+  {
+    name: 'Bismarck',
+    country: 'US-ND',
+  },
+  {
+    name: 'Grand Forks',
+    country: 'US-ND',
+  },
+  {
+    name: 'Columbus',
+    country: 'US-OH',
+  },
+  {
+    name: 'Cleveland',
+    country: 'US-OH',
+  },
+  {
+    name: 'Cincinnati',
+    country: 'US-OH',
+  },
+  {
+    name: 'Oklahoma City',
+    country: 'US-OK',
+  },
+  {
+    name: 'Tulsa',
+    country: 'US-OK',
+  },
+  {
+    name: 'Norman',
+    country: 'US-OK',
+  },
+  {
+    name: 'Portland',
+    country: 'US-OR',
+  },
+  {
+    name: 'Eugene',
+    country: 'US-OR',
+  },
+  {
+    name: 'Salem',
+    country: 'US-OR',
+  },
+  {
+    name: 'Philadelphia',
+    country: 'US-PA',
+  },
+  {
+    name: 'Pittsburgh',
+    country: 'US-PA',
+  },
+  {
+    name: 'Harrisburg',
+    country: 'US-PA',
+  },
+  {
+    name: 'Providence',
+    country: 'US-RI',
+  },
+  {
+    name: 'Warwick',
+    country: 'US-RI',
+  },
+  {
+    name: 'Cranston',
+    country: 'US-RI',
+  },
+  {
+    name: 'Charleston',
+    country: 'US-SC',
+  },
+  {
+    name: 'Columbia',
+    country: 'US-SC',
+  },
+  {
+    name: 'Greenville',
+    country: 'US-SC',
+  },
+  {
+    name: 'Sioux Falls',
+    country: 'US-SD',
+  },
+  {
+    name: 'Rapid City',
+    country: 'US-SD',
+  },
+  {
+    name: 'Aberdeen',
+    country: 'US-SD',
+  },
+  {
+    name: 'Nashville',
+    country: 'US-TN',
+  },
+  {
+    name: 'Memphis',
+    country: 'US-TN',
+  },
+  {
+    name: 'Knoxville',
+    country: 'US-TN',
+  },
+  {
+    name: 'Houston',
+    country: 'US-TX',
+  },
+  {
+    name: 'Dallas',
+    country: 'US-TX',
+  },
+  {
+    name: 'Austin',
+    country: 'US-TX',
+  },
+  {
+    name: 'Salt Lake City',
+    country: 'US-UT',
+  },
+  {
+    name: 'Provo',
+    country: 'US-UT',
+  },
+  {
+    name: 'Ogden',
+    country: 'US-UT',
+  },
+  {
+    name: 'Burlington',
+    country: 'US-VT',
+  },
+  {
+    name: 'Montpelier',
+    country: 'US-VT',
+  },
+  {
+    name: 'Rutland',
+    country: 'US-VT',
+  },
+  {
+    name: 'Virginia Beach',
+    country: 'US-VA',
+  },
+  {
+    name: 'Richmond',
+    country: 'US-VA',
+  },
+  {
+    name: 'Arlington',
+    country: 'US-VA',
+  },
+  {
+    name: 'Seattle',
+    country: 'US-WA',
+  },
+  {
+    name: 'Spokane',
+    country: 'US-WA',
+  },
+  {
+    name: 'Tacoma',
+    country: 'US-WA',
+  },
+  {
+    name: 'Charleston',
+    country: 'US-WV',
+  },
+  {
+    name: 'Huntington',
+    country: 'US-WV',
+  },
+  {
+    name: 'Morgantown',
+    country: 'US-WV',
+  },
+  {
+    name: 'Milwaukee',
+    country: 'US-WI',
+  },
+  {
+    name: 'Madison',
+    country: 'US-WI',
+  },
+  {
+    name: 'Green Bay',
+    country: 'US-WI',
+  },
+  {
+    name: 'Cheyenne',
+    country: 'US-WY',
+  },
+  {
+    name: 'Casper',
+    country: 'US-WY',
+  },
+  {
+    name: 'Jackson',
+    country: 'US-WY',
   },
   {
     name: 'Addis Ababa',

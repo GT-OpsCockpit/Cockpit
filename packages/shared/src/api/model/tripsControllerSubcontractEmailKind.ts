@@ -12,4 +12,5 @@ export type TripsControllerSubcontractEmailKind = typeof TripsControllerSubcontr
 export const TripsControllerSubcontractEmailKind = {
   assigned: 'assigned',
   cancelled: 'cancelled',
+  updated: 'updated',
 } as const;

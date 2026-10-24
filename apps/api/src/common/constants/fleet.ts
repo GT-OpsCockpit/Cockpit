@@ -4,6 +4,9 @@ export const FLEET_MAKES: string[] = [
   'Audi',
   'Bentley',
   'BMW',
+  'Cadillac',
+  'Chevrolet',
+  'GMC',
   'Mercedes-Benz',
   'Porsche',
   'Rolls Royce',
@@ -71,6 +74,9 @@ export const FLEET_MODELS_BY_MAKE: Record<string, string[]> = {
   Bentley: ['Bentayga', 'Flying Spur'],
   Porsche: ['Cayenne', 'Panamera'],
   'Rolls Royce': ['Cullinan', 'Phantom', 'Ghost', 'Spectre'],
+  Chevrolet: ['Suburban'],
+  Cadillac: ['Escalade'],
+  GMC: ['Yukon', 'Denali'],
 };
 
 // Trip category name -> allowed { make: [models] } for a Fleet vehicle in that category.
@@ -112,6 +118,9 @@ export const CATEGORY_MODELS: Record<string, Record<string, string[]>> = {
     Bentley: ['Bentayga'],
     'Rolls Royce': ['Cullinan'],
     Porsche: ['Cayenne'],
+    Chevrolet: ['Suburban'],
+    Cadillac: ['Escalade'],
+    GMC: ['Yukon', 'Denali'],
   },
   Sprinter: {
     'Mercedes-Benz': ['Sprinter'],

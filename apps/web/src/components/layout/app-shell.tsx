@@ -75,87 +75,88 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-muted/20">
       <header className="border-border bg-card sticky top-0 z-10 border-b">
-        {/* Full-bleed bar whose nav + user block carries the exact `mx-auto max-w-7xl
-            px-4` of <main> below, so the nav and the user chip line up with the page
-            content at every width. The wordmark and the clock are taken out of the
-            flow on purpose: in-flow they push that block off-centre (105px at 1280px),
-            which is the one thing this layout must never do. They live in the margins
-            the full-bleed bar gains, and each only appears once its margin is wide
-            enough to hold it without overlapping the block. */}
-        <div className="relative flex h-14 items-center">
-          <span className="absolute left-4 hidden items-center gap-2 2xl:flex">
-            <img
-              src={cockpitPhoto}
-              alt=""
-              className="h-12 w-[66px] rounded object-cover"
-            />
-            <img src={cockpitLogo} alt="Cockpit" className="h-[34px] w-auto" />
-          </span>
+        {/* Full-bleed bar; only the clock still lives out in the margin
+            (hidden below 2xl, see live-clock.tsx) since it's a nice-to-have,
+            not the identity mark — the logo has to actually be visible, so
+            it's a normal first item in the centred block below rather than
+            something that only appears once there's enough spare margin to
+            hold it. */}
+        <div className="flex h-20 items-center">
+          <div className="mx-auto flex w-full max-w-[1800px] items-center justify-between gap-4 px-4">
+            <div className="flex items-center gap-6">
+              <span className="flex shrink-0 items-center gap-2">
+                <img
+                  src={cockpitPhoto}
+                  alt=""
+                  className="h-12 w-[66px] rounded object-cover"
+                />
+                <img src={cockpitLogo} alt="Cockpit" className="h-[34px] w-auto" />
+              </span>
 
-          <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4">
-            <nav
-              ref={navRef}
-              tabIndex={0}
-              onKeyDown={handleNavKeyDown}
-              className="flex items-center overflow-x-auto text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [scrollbar-width:thin]"
-            >
-              {NAV_ITEMS.map((item, index) => (
-                <Fragment key={item.to}>
-                  {index > 0 && <Separator orientation="vertical" className="mx-2 shrink-0 data-[orientation=vertical]:h-4" />}
-                  <NavLink
-                    to={item.to}
-                    className={({ isActive }) =>
-                      cn(
-                        'text-muted-foreground flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors',
-                        'hover:bg-blue-500/10 hover:text-blue-700',
-                        isActive && 'nav-link-active',
-                      )
-                    }
-                  >
-                    <item.icon className="size-4" />
-                    {item.label}
-                  </NavLink>
-                </Fragment>
-              ))}
-            </nav>
+              <nav
+                ref={navRef}
+                tabIndex={0}
+                onKeyDown={handleNavKeyDown}
+                className="flex items-center overflow-x-auto text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [scrollbar-width:thin]"
+              >
+                {NAV_ITEMS.map((item, index) => (
+                  <Fragment key={item.to}>
+                    {index > 0 && <Separator orientation="vertical" className="mx-2 shrink-0 data-[orientation=vertical]:h-4" />}
+                    <NavLink
+                      to={item.to}
+                      className={({ isActive }) =>
+                        cn(
+                          'text-muted-foreground flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors',
+                          'hover:bg-blue-500/10 hover:text-blue-700',
+                          isActive && 'nav-link-active',
+                        )
+                      }
+                    >
+                      <item.icon className="size-4" />
+                      {item.label}
+                    </NavLink>
+                  </Fragment>
+                ))}
+              </nav>
+            </div>
 
-            {me && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="gap-2 px-2">
-                    <Avatar className="size-7">
-                      <AvatarFallback className="text-xs">
-                        {initials(me.firstName, me.lastName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="hidden sm:inline">
-                      {me.firstName} {me.lastName}
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{me.email}</span>
-                      <span className="text-muted-foreground text-xs">{me.role}</span>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={handleLogout}>
-                    <LogOut />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+            <div className="flex items-center gap-4">
+              <LiveClock />
 
-          <div className="absolute right-4">
-            <LiveClock />
+              {me && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="gap-2 px-2">
+                      <Avatar className="size-7">
+                        <AvatarFallback className="text-xs">
+                          {initials(me.firstName, me.lastName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="hidden sm:inline">
+                        {me.firstName} {me.lastName}
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{me.email}</span>
+                        <span className="text-muted-foreground text-xs">{me.role}</span>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={handleLogout}>
+                      <LogOut />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-6">
+      <main className="mx-auto max-w-[1800px] px-4 py-6">
         <Outlet />
       </main>
     </div>

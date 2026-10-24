@@ -32,11 +32,14 @@ export interface UpdateTripDto {
   driverRef?: string;
   billing?: UpdateTripDtoBilling;
   flightNumber?: string;
+  /** @minimum 0 */
   bufferTime?: number;
   fboAddress?: string;
   tailNbr?: string;
   /** Name to write on the pickup sign — the attached file is uploaded separately. */
   nameboard?: string;
+  trainNumber?: string;
+  trainObservation?: string;
   pickupIata?: string;
   dropoffIata?: string;
   /**
@@ -47,6 +50,14 @@ export interface UpdateTripDto {
   pickupTimezone?: string;
   subContractor?: boolean;
   partnerRef?: string;
+  /**
+     * A Partner company to farm the job out to with no specific driver of
+     * theirs picked yet — the "partenaire sans driver" case. Mutually
+     * exclusive with `partnerRef` above (TripsService rejects both being set):
+     * one names a driver on that company's roster, this names the company
+     * itself with nobody named on file.
+     */
+  directPartnerRef?: string;
   /** "Confirm and send" checkbox — best-effort WhatsApp to the POC after saving. */
   notifyDriver?: boolean;
 }

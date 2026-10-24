@@ -8,6 +8,7 @@
 import type { ClientBaseEntity } from './clientBaseEntity';
 import type { DriverUnavailabilityEntity } from './driverUnavailabilityEntity';
 import type { FleetVehicleBaseEntity } from './fleetVehicleBaseEntity';
+import type { PartnerBaseEntity } from './partnerBaseEntity';
 
 export interface DriverEntity {
   name: string;
@@ -17,6 +18,8 @@ export interface DriverEntity {
   unavailability: DriverUnavailabilityEntity | null;
   /** @nullable */
   fleetReserved: FleetVehicleBaseEntity | null;
+  /** @nullable */
+  partner: PartnerBaseEntity | null;
   id: string;
   ref: string;
   /** @nullable */
@@ -29,6 +32,8 @@ export interface DriverEntity {
   phone: string | null;
   /** @nullable */
   company: string | null;
+  /** @nullable */
+  partnerId: string | null;
   /** @nullable */
   email: string | null;
   area: string;

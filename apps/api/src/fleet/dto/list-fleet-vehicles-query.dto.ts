@@ -42,6 +42,29 @@ export class ListFleetVehiclesQueryDto {
   @IsString()
   compatibleWith?: string;
 
+  /** Vehicles page "In house" filter: true = internal fleet only, false = external (partner) fleet only. */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  isLocal?: boolean;
+
+  /** Vehicles page "Company" filter — the external vehicle's linked Partner. */
+  @IsOptional()
+  @IsString()
+  partnerId?: string;
+
+  @IsOptional()
+  @IsString()
+  countryCode?: string;
+
+  @IsOptional()
+  @IsString()
+  area?: string;
+
+  @IsOptional()
+  @IsString()
+  model?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

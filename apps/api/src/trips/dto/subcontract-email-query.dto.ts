@@ -5,6 +5,8 @@ export enum SubcontractEmailKind {
   ASSIGNED = 'assigned',
   /** The notice sent when a farmed-out job is taken back off the partner. */
   CANCELLED = 'cancelled',
+  /** The recap re-sent after a change to a job the partner already has (it must be confirmed again). */
+  UPDATED = 'updated',
 }
 
 export class SubcontractEmailQueryDto {

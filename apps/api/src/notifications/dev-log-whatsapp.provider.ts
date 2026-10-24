@@ -12,9 +12,11 @@ import { WhatsAppProvider } from './whatsapp-provider.interface';
 export class DevLogWhatsAppProvider implements WhatsAppProvider {
   private readonly logger = new Logger('WhatsApp(dev)');
 
-  async send(phone: string, body: string): Promise<void> {
+  async send(phone: string, body: string, mediaUrl?: string): Promise<void> {
     // `phone` is E.164, plus sign included — no "+" of our own to add.
-    this.logger.warn(`[not sent — Twilio not configured] to ${phone}: ${body}`);
+    this.logger.warn(
+      `[not sent — Twilio not configured] to ${phone}${mediaUrl ? ` (+ attachment: ${mediaUrl})` : ''}: ${body}`,
+    );
     await Promise.resolve();
   }
 }

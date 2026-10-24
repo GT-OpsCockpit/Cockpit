@@ -39,6 +39,7 @@ import {
 } from './nameboard-upload.config';
 import { SubcontractEmailQueryDto } from './dto/subcontract-email-query.dto';
 import { SubcontractEmailEntity } from './dto/subcontract-email.entity';
+import { SendSubcontractEmailDto } from './dto/send-subcontract-email.dto';
 
 @Controller('trips')
 export class TripsController {
@@ -81,6 +82,16 @@ export class TripsController {
     @Query() query: SubcontractEmailQueryDto,
   ): Promise<SubcontractEmailEntity> {
     return this.tripsService.subcontractEmail(ref, query);
+  }
+
+  // The real send behind the preview above's "Send" button — always an
+  // explicit dispatcher action, never automatic. See TripsService.sendSubcontractEmail.
+  @Post(':ref/subcontract-email')
+  sendSubcontractEmail(
+    @Param('ref') ref: string,
+    @Body() dto: SendSubcontractEmailDto,
+  ): Promise<{ ok: true; to: string }> {
+    return this.tripsService.sendSubcontractEmail(ref, dto);
   }
 
   @Patch(':ref/assign')

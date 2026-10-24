@@ -1,0 +1,133 @@
+# Production stack for a single VPS: Caddy (HTTPS) in front of the web app and
+# the API, with Postgres and MinIO kept private on the internal network.
+#
+# Images are BUILT ON THE SERVER from the checked-out code (no Docker Hub), so
+# what runs is exactly the commit that was pulled. Run everything from this
+# directory:   docker compose -f docker-compose.prod.yml <command>
+# (or use ./update.sh). See README.md for the step-by-step guide.
+name: cockpit
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cockpit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-cockpit}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-cockpit} -d ${POSTGRES_DB:-cockpit}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      target: prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      AUTH_DEV_OTP: 'false'
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cockpit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cockpit}?schema=public
+      PUBLIC_API_URL: https://${DOMAIN}/api
+      CORS_ORIGIN: https://${DOMAIN}
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET:-cockpit-uploads}
+      S3_FORCE_PATH_STYLE: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      target: prod
+      args:
+        # Same origin as the site: Caddy forwards /api/* to the API.
+        VITE_API_URL: https://${DOMAIN}/api
+    restart: unless-stopped
+
+  # One-off tasks (not started by `up`): database migrations and the baseline
+  # seed. Built from the image stage that still has the Prisma CLI.
+  #   docker compose -f docker-compose.prod.yml run --rm migrate
+  #   docker compose -f docker-compose.prod.yml run --rm seed
+  migrate:
+    profiles: ['tools']
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      target: base
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cockpit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cockpit}?schema=public
+    command: ['pnpm', 'exec', 'prisma', 'migrate', 'deploy']
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  seed:
+    profiles: ['tools']
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      target: base
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cockpit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cockpit}?schema=public
+      SEED_FIXTURES: 'false'
+    command: ['pnpm', 'exec', 'tsx', 'prisma/seed.ts']
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  minio_data:
+  caddy_data:
+  caddy_config:

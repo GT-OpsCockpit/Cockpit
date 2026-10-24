@@ -111,7 +111,7 @@ describe('ClientsTable — Country, POC and Event dates', () => {
 
   it('spells the country out, the same way the Fleet list does', () => {
     render(<ClientsTable clients={[baseClient({ countryCode: 'FR' })]} {...noop} />)
-    expect(cell(1)).toHaveTextContent('France (FR)')
+    expect(cell(1)).toHaveTextContent('France')
   })
 
   it('says "—" in the Country cell itself for an account with no country', () => {

@@ -11,6 +11,8 @@ export function baseDriver(overrides: Partial<DriverEntity> = {}): DriverEntity 
     lastName: 'Smith',
     phone: '+33611111111',
     company: null,
+    partnerId: null,
+    partner: null,
     email: null,
     area: 'Local',
     eventsOnly: false,

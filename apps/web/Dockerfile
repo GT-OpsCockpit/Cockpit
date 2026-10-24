@@ -23,6 +23,11 @@ CMD ["pnpm", "dev"]
 # ---- build: compiles the static Vite bundle ----
 FROM base AS build
 WORKDIR /app/apps/web
+# Where the browser finds the API. Empty = the app's built-in default
+# (http://localhost:3000, local dev). Production sets it at build time
+# (deploy/docker-compose.prod.yml) because Vite bakes it into the bundle.
+ARG VITE_API_URL=
+ENV VITE_API_URL=$VITE_API_URL
 RUN pnpm build
 
 # ---- prod: static bundle served by nginx, what gets pushed to Docker Hub ----

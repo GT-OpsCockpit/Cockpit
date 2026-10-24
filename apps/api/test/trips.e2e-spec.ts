@@ -1570,7 +1570,7 @@ describe('Trips (e2e)', () => {
       expect((res.body as { trip: TripBody }).trip.driverId).toBeNull();
     });
 
-    it('reassigning the fleet vehicle alone resets dispatched but keeps the steps (unlike a driver reassignment)', async () => {
+    it('reassigning the fleet vehicle alone resets dispatched and the steps, like a driver reassignment', async () => {
       const client = await createClient();
       const driver = await createDriver();
       const vehicle = await createFleetVehicle('Business', 'AB-123-CD');
@@ -1601,9 +1601,9 @@ describe('Trips (e2e)', () => {
       expect(updated.trip.fleetVehicleId).not.toBeNull();
       // Re-armed: the driver was told which car to take, and it changed.
       expect(updated.trip.dispatched).toBe(false);
-      // ...but the pipeline itself doesn't restart — only a change of
-      // assignee wipes the recorded progress.
-      expect(updated.trip.steps.length).toBeGreaterThan(0);
+      // ...and the status restarts too: a new car invalidates what the driver
+      // was sent, so it must be sent and accepted again.
+      expect(updated.trip.steps).toEqual([]);
     });
 
     it("rejects a fleet vehicle whose category is incompatible with the trip's vehicleType", async () => {
@@ -1960,7 +1960,7 @@ describe('Trips (e2e)', () => {
 
       const mail = await draft(trip.ref, 'kind=assigned');
       expect(mail.to).toBe('paul@riviera.test');
-      expect(mail.subject).toBe(`Booking ${trip.ref}`);
+      expect(mail.subject).toBe(`NEW BOOKING - ${trip.ref}`);
       expect(mail.body).toContain(`Ref: ${trip.ref}`);
       expect(mail.body).toContain('Partner rate net: 150.00€ Net');
     });
@@ -2014,7 +2014,7 @@ describe('Trips (e2e)', () => {
       const trip = await farmedOutTrip(partner.ref);
 
       const mail = await draft(trip.ref, 'kind=cancelled');
-      expect(mail.subject).toBe(`🚨 Canceled booking ${trip.ref}`);
+      expect(mail.subject).toBe(`CANCELED BOOKING - ${trip.ref}`);
       expect(mail.body).toContain('Status : **Canceled**');
       expect(mail.body.trimEnd().endsWith('Cockpit Transport')).toBe(true);
     });

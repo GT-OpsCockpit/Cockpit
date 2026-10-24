@@ -40,7 +40,13 @@ export function BreakdownSection({ rows }: { rows: BreakdownRow[] }) {
         </BarChart>
       </ResponsiveContainer>
 
-      <Table>
+      <Table className="table-fixed">
+        <colgroup>
+          <col className="w-[55%]" />
+          <col className="w-[15%]" />
+          <col className="w-[15%]" />
+          <col className="w-[15%]" />
+        </colgroup>
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>

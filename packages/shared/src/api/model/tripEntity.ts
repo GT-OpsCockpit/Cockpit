@@ -7,6 +7,7 @@
  */
 import type { ClientBaseEntity } from './clientBaseEntity';
 import type { DriverBaseEntity } from './driverBaseEntity';
+import type { PartnerBaseEntity } from './partnerBaseEntity';
 import type { TripEntityBilling } from './tripEntityBilling';
 import type { TripEntityCancellationFee } from './tripEntityCancellationFee';
 import type { TripEntityService } from './tripEntityService';
@@ -24,6 +25,11 @@ export interface TripEntity {
   driver: DriverBaseEntity | null;
   /** @nullable */
   partner: DriverBaseEntity | null;
+  /**
+     * The Partner *company* this booking is farmed out to with no driver of theirs picked yet — see Trip.directPartnerId's comment.
+     * @nullable
+     */
+  directPartner: PartnerBaseEntity | null;
   /** @nullable */
   vehicleType: VehicleTypeEntity | null;
   /** @nullable */
@@ -74,6 +80,10 @@ export interface TripEntity {
   /** @nullable */
   tailNbr: string | null;
   /** @nullable */
+  trainNumber: string | null;
+  /** @nullable */
+  trainObservation: string | null;
+  /** @nullable */
   nameboard: string | null;
   /** @nullable */
   nameboardUrl: string | null;
@@ -84,11 +94,16 @@ export interface TripEntity {
   subContractor: boolean;
   /** @nullable */
   partnerId: string | null;
+  /** @nullable */
+  directPartnerId: string | null;
   dispatched: boolean;
   invoiced: boolean;
   assignmentCancelled: boolean;
   /** @nullable */
   assignmentCancelledAt: string | null;
+  /** @nullable */
+  partnerDeclinedAt: string | null;
+  partnerUpdatePending: boolean;
   /** @nullable */
   cancellationFee: TripEntityCancellationFee;
   createdAt: string;

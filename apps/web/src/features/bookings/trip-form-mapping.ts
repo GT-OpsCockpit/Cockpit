@@ -9,6 +9,14 @@ export function toPickupAt(values: TripFormValues): string {
   return DateTime.fromISO(`${values.pickupDate}T${values.pickupTime}`, { zone }).toUTC().toISO()!
 }
 
+// Unlike an airport, a train station used to carry no code the trip
+// persisted (no "railway IATA" equivalent to pickupIata) — trainNumber now
+// fills that gap ("what it carries says it", same reasoning as
+// carriesFlightInfo for airports), and this text-pattern match is only the
+// fallback for a trip saved before trainNumber existed, or one where it was
+// left blank for some other reason.
+const TRAIN_STATION_PATTERN = /\b(gare|railway station|train station|station)\b/i
+
 /** Inverse of `toPickupAt` — prefills the edit dialog's form from an existing trip. */
 export function tripToFormValues(trip: TripEntity): TripFormValues {
   const local = pickupLocalInstant(trip)
@@ -34,6 +42,8 @@ export function tripToFormValues(trip: TripEntity): TripFormValues {
     fleetRegNbr: trip.fleetVehicle?.regNbr ?? '',
     subContractor: trip.subContractor,
     partnerRef: trip.partner?.ref ?? '',
+    directPartnerRef: trip.directPartner?.ref ?? '',
+    subContractorNoDriver: !!trip.directPartner,
     priceEur: trip.priceEur != null ? Number(trip.priceEur) : undefined,
     partnerRateEur: trip.partnerRateEur != null ? Number(trip.partnerRateEur) : undefined,
     tracking: trip.tracking,
@@ -41,6 +51,8 @@ export function tripToFormValues(trip: TripEntity): TripFormValues {
     bufferTime: trip.bufferTime ?? undefined,
     fboAddress: trip.fboAddress ?? '',
     tailNbr: trip.tailNbr ?? '',
+    trainNumber: trip.trainNumber ?? '',
+    trainObservation: trip.trainObservation ?? '',
     nameboard: trip.nameboard ?? '',
     pickupIata: trip.pickupIata ?? '',
     dropoffIata: trip.dropoffIata ?? '',
@@ -48,6 +60,7 @@ export function tripToFormValues(trip: TripEntity): TripFormValues {
     // by the code it carries, so the flight block stays open when it reopens.
     pickupIsAirport: !!trip.pickupIata,
     dropoffIsAirport: !!trip.dropoffIata,
+    pickupIsTrainStation: !!trip.trainNumber?.trim() || TRAIN_STATION_PATTERN.test(trip.pickupLocation),
     pickupTimezone: trip.timezone ?? '',
     notifyDriver: false,
   }
@@ -87,6 +100,8 @@ function toTripDto(values: TripFormValues): CreateTripDto {
     bufferTime: values.bufferTime,
     fboAddress: values.fboAddress || undefined,
     tailNbr: values.tailNbr || undefined,
+    trainNumber: values.trainNumber || undefined,
+    trainObservation: values.trainObservation || undefined,
     nameboard: values.nameboard || undefined,
     pickupIata: values.pickupIata || undefined,
     dropoffIata: values.dropoffIata || undefined,
@@ -105,7 +120,11 @@ export function toCreateTripDto(values: TripFormValues, { dispatch }: { dispatch
   }
   if (values.subContractor) {
     dto.subContractor = true
-    dto.partnerRef = values.partnerRef || undefined
+    if (values.subContractorNoDriver) {
+      dto.directPartnerRef = values.directPartnerRef || undefined
+    } else {
+      dto.partnerRef = values.partnerRef || undefined
+    }
     dto.partnerRateEur = values.partnerRateEur
   }
 
@@ -126,7 +145,10 @@ export function toUpdateTripDto(values: TripFormValues, { notifyDriver }: { noti
     // `if (dto.partnerRef !== undefined)`, and the booking silently keeps its
     // partner. Legacy said it the same way — quickUpdateTrip(trip, {
     // subContractor: false, partnerRef: '' }), common.js:2795-2802.
-    partnerRef: values.subContractor ? values.partnerRef || undefined : '',
+    partnerRef: values.subContractor && !values.subContractorNoDriver ? values.partnerRef || undefined : '',
+    // Same "un-ticking sends an explicit clear" rule as partnerRef above,
+    // for the bare-partner-company case.
+    directPartnerRef: values.subContractor && values.subContractorNoDriver ? values.directPartnerRef || undefined : '',
     // Sent whatever the Sub-C state: this PUT replaces the booking, so an
     // omitted rate is a cleared rate. The legacy always echoed it back
     // (tripToPutPayload, common.js:3286-3300) and kept the field visible in the

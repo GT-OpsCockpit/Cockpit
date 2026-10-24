@@ -16,6 +16,12 @@ import { ListClientsQueryDto } from './dto/list-clients-query.dto';
 import { SetActiveDto } from '../common/dto/set-active.dto';
 import { ClientListEntity } from './dto/client-list.entity';
 import { ClientEntity } from './dto/client.entity';
+import { SetClientPriceListsDto } from './dto/set-client-price-lists.dto';
+import { PriceListEntity } from '../price-lists/dto/price-list.entity';
+import { CreateClientContactDto } from './dto/create-client-contact.dto';
+import { UpdateClientContactDto } from './dto/update-client-contact.dto';
+import { ReorderClientContactsDto } from './dto/reorder-client-contacts.dto';
+import { ClientContactEntity } from './dto/client-contact.entity';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -70,6 +76,61 @@ export class ClientsController {
     @Body() dto: SetActiveDto,
   ): Promise<ClientEntity> {
     return this.clientsService.setActive(ref, dto.active);
+  }
+
+  @Get(':ref/price-lists')
+  listPriceLists(@Param('ref') ref: string): Promise<PriceListEntity[]> {
+    return this.clientsService.listPriceLists(ref);
+  }
+
+  @Put(':ref/price-lists')
+  setPriceLists(
+    @Param('ref') ref: string,
+    @Body() dto: SetClientPriceListsDto,
+  ): Promise<PriceListEntity[]> {
+    return this.clientsService.setPriceLists(ref, dto.priceListRefs);
+  }
+
+  @Get(':ref/contacts')
+  listContacts(@Param('ref') ref: string): Promise<ClientContactEntity[]> {
+    return this.clientsService.listContacts(ref);
+  }
+
+  @Post(':ref/contacts')
+  addContact(
+    @Param('ref') ref: string,
+    @Body() dto: CreateClientContactDto,
+  ): Promise<ClientContactEntity> {
+    return this.clientsService.addContact(ref, dto);
+  }
+
+  // Registered ahead of :contactId below — Nest matches routes in
+  // declaration order, and "reorder" would otherwise be swallowed as a
+  // contact id by the dynamic route.
+  @Put(':ref/contacts/reorder')
+  reorderContacts(
+    @Param('ref') ref: string,
+    @Body() dto: ReorderClientContactsDto,
+  ): Promise<ClientContactEntity[]> {
+    return this.clientsService.reorderContacts(ref, dto);
+  }
+
+  @Put(':ref/contacts/:contactId')
+  updateContact(
+    @Param('ref') ref: string,
+    @Param('contactId') contactId: string,
+    @Body() dto: UpdateClientContactDto,
+  ): Promise<ClientContactEntity> {
+    return this.clientsService.updateContact(ref, contactId, dto);
+  }
+
+  @RequirePermission('record:delete')
+  @Delete(':ref/contacts/:contactId')
+  deleteContact(
+    @Param('ref') ref: string,
+    @Param('contactId') contactId: string,
+  ): Promise<OkResponseEntity> {
+    return this.clientsService.deleteContact(ref, contactId);
   }
 
   // Offered right after an Events account is created: the crew already set up

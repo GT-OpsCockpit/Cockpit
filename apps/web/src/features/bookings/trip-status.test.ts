@@ -117,13 +117,28 @@ describe('dispatchButtonState', () => {
     })
   })
 
-  it('never dims a sub-contracted trip, even without a driver/vehicle assigned', () => {
-    const state = dispatchButtonState(baseTrip({ subContractor: true, driverId: null, fleetVehicleId: null }), true)
-    expect(state.dimmed).toBe(false)
+  it('dims a sub-contracted trip with no partner and no driver', () => {
+    const state = dispatchButtonState(
+      baseTrip({ subContractor: true, driverId: null, partnerId: null, directPartnerId: null }),
+      true,
+    )
+    expect(state.dimmed).toBe(true)
+    expect(state.title).toMatch(/partner or a driver/)
   })
 
-  it('never dims a Farm-out trip (isLocal=false), even without a driver/vehicle assigned', () => {
-    const state = dispatchButtonState(baseTrip({ driverId: null, fleetVehicleId: null }), false)
+  it('dims a Farm-out trip (isLocal=false) with nobody assigned', () => {
+    const state = dispatchButtonState(
+      baseTrip({ driverId: null, partnerId: null, directPartnerId: null }),
+      false,
+    )
+    expect(state.dimmed).toBe(true)
+  })
+
+  it('does not dim a sub-contracted trip once a partner company is assigned, vehicle or not', () => {
+    const state = dispatchButtonState(
+      baseTrip({ subContractor: true, driverId: null, directPartnerId: 'partner-1', fleetVehicleId: null }),
+      false,
+    )
     expect(state.dimmed).toBe(false)
   })
 })

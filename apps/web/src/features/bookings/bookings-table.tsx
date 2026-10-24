@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Calendar, Check } from 'lucide-react'
 import type { TripEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
@@ -30,6 +31,8 @@ interface BookingsTableProps {
   onDispatch: (trip: TripEntity) => void
   onAdvance: (trip: TripEntity) => void
   onNameboard: (trip: TripEntity) => void
+  /** Click on the Reg Nbr / Driver cell of a Local row: opens the quick assign popup. */
+  onAssign?: (trip: TripEntity) => void
   /** Whether the caller's filters are away from their defaults — switches the empty state to the "no results" variant with a reset action. */
   hasActiveFilters?: boolean
   onResetFilters?: () => void
@@ -44,15 +47,28 @@ export function BookingsTable({
   onDispatch,
   onAdvance,
   onNameboard,
+  onAssign,
   hasActiveFilters,
   onResetFilters,
 }: BookingsTableProps) {
   const isLocal = variant === 'local'
-  const colSpan = isLocal ? 10 : 9
+  const colSpan = 10
 
   return (
     <TableCard>
-      <Table>
+      <Table className="table-fixed">
+        <colgroup>
+          <col className="w-[9%]" />
+          <col className="w-[8%]" />
+          <col className="w-[11%]" />
+          <col className="w-[35%]" />
+          <col className="w-[6%]" />
+          <col className="w-[5%]" />
+          <col className="w-[4%]" />
+          <col className="w-[6%]" />
+          <col className="w-[10%]" />
+          <col className="w-[6%]" />
+        </colgroup>
         <TableHeader>
           <TableRow>
             <TableHead>Pickup</TableHead>
@@ -60,7 +76,7 @@ export function BookingsTable({
             <TableHead>Cust / Pax</TableHead>
             <TableHead>Itinerary</TableHead>
             <TableHead>Vehicle</TableHead>
-            {isLocal && <TableHead>Reg Nbr</TableHead>}
+            <TableHead>Reg Nbr</TableHead>
             <TableHead>Sub-C</TableHead>
             <TableHead>Driver</TableHead>
             <TableHead>Status</TableHead>
@@ -86,7 +102,10 @@ export function BookingsTable({
             trips.map((trip) => {
               const account = clientAccountLabel(trip)
               const driverName = tripDriverName(trip)
-              const rowClass = trip.assignmentCancelled ? 'bg-destructive/10' : urgencyRowClass(trip)
+              const rowClass =
+                trip.assignmentCancelled || (trip.subContractor && trip.partnerDeclinedAt)
+                  ? 'bg-destructive/10'
+                  : urgencyRowClass(trip)
               return (
                 <TableRow key={trip.ref} className={cn(rowClass)}>
                   <TableCell className="whitespace-nowrap text-xs">
@@ -102,20 +121,28 @@ export function BookingsTable({
                     </div>
                     <PassengerLine trip={trip} />
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs"><Itinerary trip={trip} /></TableCell>
+                  <TableCell className="text-muted-foreground text-xs whitespace-normal"><Itinerary trip={trip} /></TableCell>
                   <TableCell className="text-xs">
                     {trip.vehicleType?.name ?? '—'}
                     <br />
                     <span className="text-muted-foreground text-[9.5px]">{trip.paxCount ?? '?'} pax</span>
                   </TableCell>
-                  {isLocal && (
-                    <TableCell className="text-xs whitespace-nowrap">{fleetVehicleLabel(trip)}</TableCell>
-                  )}
+                  <TableCell className="text-xs whitespace-nowrap">
+                    {isLocal ? (
+                      <AssignCell trip={trip} onAssign={onAssign}>
+                        {fleetVehicleLabel(trip)}
+                      </AssignCell>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
                   <TableCell className="text-center text-xs">
                     {trip.subContractor ? <Check className="mx-auto size-3.5" aria-label="Sub-contracted" /> : '—'}
                   </TableCell>
                   <TableCell className="text-xs whitespace-nowrap">
-                    {isLocal ? shortDriverName(driverName) : (driverName ?? '—')}
+                    <AssignCell trip={trip} onAssign={onAssign}>
+                      {isLocal ? shortDriverName(driverName) : (driverName ?? '—')}
+                    </AssignCell>
                   </TableCell>
                   <TableCell className="text-xs">
                     <StatusBadge trip={trip} onAdvance={onAdvance} />
@@ -131,6 +158,7 @@ export function BookingsTable({
                     onCancel={onCancel}
                     onDispatch={onDispatch}
                     onNameboard={onNameboard}
+                    onAssign={onAssign}
                   />
                 </TableRow>
               )
@@ -159,5 +187,28 @@ function PassengerLine({ trip }: { trip: TripEntity }) {
       <TooltipTrigger asChild>{name}</TooltipTrigger>
       <TooltipContent>{poc}</TooltipContent>
     </Tooltip>
+  )
+}
+
+/** A Reg Nbr / Driver value that opens the quick assign popup — a plain text when the board gives no handler. */
+function AssignCell({
+  trip,
+  onAssign,
+  children,
+}: {
+  trip: TripEntity
+  onAssign?: (trip: TripEntity) => void
+  children: ReactNode
+}) {
+  if (!onAssign) return <>{children}</>
+  return (
+    <button
+      type="button"
+      className="hover:text-primary -mx-1 cursor-pointer rounded px-1 text-left underline-offset-2 hover:underline"
+      title={`Assign ${trip.ref}`}
+      onClick={() => onAssign(trip)}
+    >
+      {children}
+    </button>
   )
 }

@@ -32,6 +32,7 @@ import type {
   NotifyStepDto,
   PublicTripActionResponseEntity,
   PublicTripEntity,
+  SendSubcontractEmailDto,
   SubcontractEmailEntity,
   TripActionResponseEntity,
   TripEntity,
@@ -526,7 +527,79 @@ export function useTripsControllerSubcontractEmail<TData = Awaited<ReturnType<ty
 
 
 
-export const getTripsControllerAssignUrl = (ref: string,) => {
+export const getTripsControllerSendSubcontractEmailUrl = (ref: string,) => {
+
+
+
+
+  return `/api/trips/${ref}/subcontract-email`
+}
+
+export const tripsControllerSendSubcontractEmail = async (ref: string,
+    sendSubcontractEmailDto: SendSubcontractEmailDto, options?: Parameters<typeof fetcher>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+return fetcher<void>(getTripsControllerSendSubcontractEmailUrl(ref),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(sendSubcontractEmailDto)
+  }
+);}
+
+
+
+
+
+export const getTripsControllerSendSubcontractEmailMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tripsControllerSendSubcontractEmail>>, TError,TripsControllerSendSubcontractEmailMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof tripsControllerSendSubcontractEmail>>, TError,TripsControllerSendSubcontractEmailMutationVariables, TContext> => {
+
+const mutationKey = ['tripsControllerSendSubcontractEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tripsControllerSendSubcontractEmail>>, TripsControllerSendSubcontractEmailMutationVariables> = (props) => {
+          const {ref,data} = props ?? {};
+
+          return  tripsControllerSendSubcontractEmail(ref,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TripsControllerSendSubcontractEmailMutationResult = NonNullable<Awaited<ReturnType<typeof tripsControllerSendSubcontractEmail>>>
+    export type TripsControllerSendSubcontractEmailMutationBody = SendSubcontractEmailDto
+    export type TripsControllerSendSubcontractEmailMutationError = unknown
+    export type TripsControllerSendSubcontractEmailMutationVariables = {ref: string;data: SendSubcontractEmailDto}
+
+    export const useTripsControllerSendSubcontractEmail = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tripsControllerSendSubcontractEmail>>, TError,TripsControllerSendSubcontractEmailMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof tripsControllerSendSubcontractEmail>>,
+        TError,
+        TripsControllerSendSubcontractEmailMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTripsControllerSendSubcontractEmailMutationOptions(options), queryClient);
+    }
+    export const getTripsControllerAssignUrl = (ref: string,) => {
 
 
 

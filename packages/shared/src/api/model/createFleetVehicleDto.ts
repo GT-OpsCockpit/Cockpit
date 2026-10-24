@@ -26,6 +26,7 @@ export interface CreateFleetVehicleDto {
   countryCode?: string;
   area?: string;
   partnerCompany?: string;
+  partnerRef?: string;
   /** Driver ref (e.g. "D-FR-INT-001") to reserve this vehicle for — external vehicles only. */
   driverRef?: string;
   eventsOnly?: boolean;

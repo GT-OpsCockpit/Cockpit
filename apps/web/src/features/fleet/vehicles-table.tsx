@@ -1,4 +1,4 @@
-import { CalendarPlus, Pencil, RotateCcw, Truck, Wrench, X } from 'lucide-react'
+import { Pencil, RotateCcw, Truck, Wrench, X } from 'lucide-react'
 import type { FleetColorEntity, FleetVehicleEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { driverLabel, effectiveActivity } from '@cockpit/shared'
@@ -18,7 +18,6 @@ interface VehiclesTableProps {
   onEdit: (vehicle: FleetVehicleEntity) => void
   onUnavailability: (vehicle: FleetVehicleEntity) => void
   onToggleActive: (vehicle: FleetVehicleEntity) => void
-  onNewBooking: (vehicle: FleetVehicleEntity) => void
   /** UX-layer mirror of vehicle:reactivate (see docs/agents/permissions.md) — deactivating stays ungated. */
   canReactivate: boolean
   /** For the Color swatch's dot — kept as a prop (fetched by the page) rather than an internal useMetaControllerGetMeta() call, so this stays a plain presentational component like DriversTable. */
@@ -52,7 +51,6 @@ function ActionCell({
   onEdit,
   onUnavailability,
   onToggleActive,
-  onNewBooking,
   canReactivate,
   showUnavailability,
 }: VehiclesTableProps & { vehicle: FleetVehicleEntity; showUnavailability: boolean }) {
@@ -60,15 +58,6 @@ function ActionCell({
   return (
     <TableCell className="whitespace-nowrap">
       <div className="flex gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          title="New booking"
-          onClick={() => onNewBooking(vehicle)}
-          className="btn-validate-green"
-        >
-          <CalendarPlus className="size-3.5" />
-        </Button>
         {showUnavailability && (
           <Button variant="ghost" size="icon" title="Repair shop / Manufacturer service / Bodywork" onClick={() => onUnavailability(vehicle)}>
             <Wrench className="size-3.5" />
@@ -116,7 +105,20 @@ export function VehiclesTable(props: VehiclesTableProps) {
       <div className="grid gap-2">
         <h2 className="text-sm font-medium">Fleet - Internal</h2>
         <TableCard>
-          <Table>
+          <Table className="table-fixed">
+            <colgroup>
+              <col className="w-[6%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[7%]" />
+              <col className="w-[11%]" />
+              <col className="w-[12%]" />
+              <col className="w-[7%]" />
+              <col className="w-[6%]" />
+              <col className="w-[5%]" />
+              <col className="w-[14%]" />
+              <col className="w-[12%]" />
+            </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>Ref</TableHead>
@@ -192,7 +194,23 @@ export function VehiclesTable(props: VehiclesTableProps) {
       <div className="grid gap-2">
         <h2 className="text-sm font-medium">Fleet - External</h2>
         <TableCard>
-          <Table>
+          <Table className="table-fixed">
+            <colgroup>
+              <col className="w-[5%]" />
+              <col className="w-[10%]" />
+              <col className="w-[6%]" />
+              <col className="w-[11%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[4%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[5%]" />
+              <col className="w-[5%]" />
+              <col className="w-[3%]" />
+              <col className="w-[12%]" />
+              <col className="w-[7%]" />
+            </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>Ref</TableHead>
@@ -237,7 +255,7 @@ export function VehiclesTable(props: VehiclesTableProps) {
                       {vehicle.ref}
                       <InactivityBadge reason={activity.reason} />
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell className="text-xs whitespace-normal">
                       <CountryLabel code={vehicle.countryCode} />
                     </TableCell>
                     <TableCell className="text-xs">{vehicle.area ?? '—'}</TableCell>

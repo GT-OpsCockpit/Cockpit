@@ -5,12 +5,14 @@ import { LoginPage } from '@/features/auth/login-page'
 import { AppShell } from '@/components/layout/app-shell'
 import { BookingsPage } from '@/features/bookings/bookings-page'
 import { ClientsPage } from '@/features/clients/clients-page'
+import { PassengersPage } from '@/features/passengers/passengers-page'
 import { DriversPage } from '@/features/drivers/drivers-page'
 import { VehiclesPage } from '@/features/fleet/vehicles-page'
 import { PlanningPage } from '@/features/planning/planning-page'
 import { EventsPage } from '@/features/events/events-page'
 import { InvoicingPage } from '@/features/invoicing/invoicing-page'
 import { FinancePage } from '@/features/finance/finance-page'
+import { PriceListsPage } from '@/features/price-lists/price-lists-page'
 import { SettingsPage } from '@/features/settings/settings-page'
 import { NotFoundPage } from '@/features/not-found/not-found-page'
 import { DriverPage } from '@/features/public-tracking/driver-page'
@@ -53,11 +55,13 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/bookings" replace /> },
       { path: 'bookings', element: <BookingsPage /> },
       { path: 'clients', element: <ClientsPage /> },
+      { path: 'passengers', element: <PassengersPage /> },
       { path: 'drivers', element: <DriversPage /> },
       { path: 'vehicles', element: <VehiclesPage /> },
       { path: 'planning', element: <PlanningPage /> },
       { path: 'events', element: <EventsPage /> },
       { path: 'invoicing', element: <InvoicingPage /> },
+      { path: 'price-lists', element: <PriceListsPage /> },
       { path: 'finance', element: <FinancePage /> },
       { path: 'settings', element: <SettingsPage /> },
       // Anything else, inside the shell so the nav and the way back survive.

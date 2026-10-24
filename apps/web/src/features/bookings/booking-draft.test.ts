@@ -32,7 +32,9 @@ const geocode = (overrides: Partial<GeocodeTzEntity> = {}): GeocodeTzEntity => (
   lon: 7.21,
   displayName: 'Nice Côte d’Azur Airport',
   countryCode: 'FR',
+  postalCode: null,
   isAirport: true,
+  isTrainStation: false,
   iata: 'NCE',
   ...overrides,
 })
@@ -98,6 +100,8 @@ describe('applyBookingEdit — geocode', () => {
     ).toEqual({
       pickupIata: 'NCE',
       pickupIsAirport: true,
+      pickupIsTrainStation: false,
+      pickupPostalCode: '',
       pickupTimezone: 'Europe/Paris',
       countryCode: 'FR',
       area: '',
@@ -143,6 +147,23 @@ describe('applyBookingEdit — geocode', () => {
     expect(patch.countryCode).toBe('US-CA')
   })
 
+  // Several states share a zone and the geocode never names the state, so a
+  // Country the dispatcher already chose must survive their own pickup — and
+  // take the Area they typed with it.
+  it('keeps a US state already chosen when the pickup falls in its timezone', () => {
+    const patch = applyBookingEdit(
+      draft({ countryCode: 'US-NJ', area: 'Newark' }),
+      {
+        kind: 'geocode',
+        field: 'pickupLocation',
+        result: geocode({ countryCode: 'US', tz: 'America/New_York', iata: 'EWR' }),
+      },
+      { ...meta, countries: [...meta.countries, { name: 'United States (New Jersey)', code: 'US-NJ', tz: 'America/New_York', currency: 'USD' }] },
+    )
+    expect(patch.countryCode).toBeUndefined()
+    expect(patch.area).toBeUndefined()
+  })
+
   it('falls back to the first sub-entry when no timezone matches', () => {
     const patch = applyBookingEdit(
       draft(),
@@ -173,7 +194,17 @@ describe('applyBookingEdit — geocode', () => {
         { kind: 'geocode', field: 'dropoffLocation', result: geocode({ tz: 'Europe/Rome', iata: 'FCO' }) },
         meta,
       ),
-    ).toEqual({ dropoffIata: 'FCO', dropoffIsAirport: true })
+    ).toEqual({ dropoffIata: 'FCO', dropoffIsAirport: true, dropoffPostalCode: '', dropoffCountryCode: 'FR' })
+  })
+
+  it('captures the drop-off country separately, without touching the booking\'s own countryCode', () => {
+    expect(
+      applyBookingEdit(
+        draft({ countryCode: 'FR', pickupTimezone: 'Europe/Paris' }),
+        { kind: 'geocode', field: 'dropoffLocation', result: geocode({ countryCode: 'MA', tz: 'Africa/Casablanca' }) },
+        meta,
+      ),
+    ).toEqual({ dropoffIata: 'NCE', dropoffIsAirport: true, dropoffPostalCode: '', dropoffCountryCode: 'MA' })
   })
 
   it('clears a stale IATA when the new address is not an airport', () => {
@@ -186,6 +217,8 @@ describe('applyBookingEdit — geocode', () => {
     ).toEqual({
       pickupIata: '',
       pickupIsAirport: false,
+      pickupIsTrainStation: false,
+      pickupPostalCode: '',
       pickupTimezone: 'Europe/Paris',
       countryCode: 'FR',
       area: '',

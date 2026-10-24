@@ -8,10 +8,18 @@ import { formatDate } from '@/lib/utils'
 export interface DriverFilters {
   search: string
   showInactive: boolean
+  /** '' = both, 'true' = in-house only, 'false' = partner drivers only. */
+  inHouse: '' | 'true' | 'false'
+  /** The driver's linked Partner id ('' = all companies). */
+  partnerId: string
+  countryCode: string
+  area: string
+  /** Vehicle Category name of the driver's reserved fleet vehicle. */
+  category: string
 }
 
 export function defaultDriverFilters(): DriverFilters {
-  return { search: '', showInactive: false }
+  return { search: '', showInactive: false, inHouse: '', partnerId: '', countryCode: '', area: '', category: '' }
 }
 
 /**
@@ -25,9 +33,16 @@ export function driverOptionLabel(driver: DriverLabelInput): string {
   return label === driver.ref ? driver.ref : `${label} (${driver.ref})`
 }
 
-/** Splits the current page into the two always-visible legacy tables — internal chauffeurs vs. partner companies/chauffeurs. */
+/**
+ * Splits the current page into the two always-visible tables — in-house
+ * drivers vs. drivers attached to a Partner. Keyed on the real relational
+ * link (`partnerId`, set once a driver is actually attached to a Partner
+ * record from the Drivers & Partners page) rather than the legacy free-text
+ * `company` field, which could be set on a driver never linked to any real
+ * Partner at all.
+ */
 export function isPartner(driver: DriverEntity): boolean {
-  return !!driver.company
+  return !!driver.partnerId
 }
 
 /**

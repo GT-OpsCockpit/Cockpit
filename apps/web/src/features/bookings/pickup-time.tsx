@@ -16,7 +16,7 @@ export function PickupTime({ trip }: { trip: TripEntity }) {
   return (
     <>
       {local} LT
-      <div className="text-muted-foreground text-[11px]">{paris} Paris</div>
+      <div className="text-muted-foreground">{paris} Paris</div>
     </>
   )
 }

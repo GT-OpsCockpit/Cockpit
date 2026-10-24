@@ -6,5 +6,5 @@ export const WHATSAPP_PROVIDER = Symbol('WHATSAPP_PROVIDER');
  * added later without touching call sites (see ADR-0002).
  */
 export interface WhatsAppProvider {
-  send(phone: string, body: string): Promise<void>;
+  send(phone: string, body: string, mediaUrl?: string): Promise<void>;
 }

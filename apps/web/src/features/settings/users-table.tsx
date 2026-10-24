@@ -19,7 +19,17 @@ interface UsersTableProps {
 export function UsersTable({ users, onEdit, onSetPassword, onDeactivate, canManage }: UsersTableProps) {
   return (
     <TableCard>
-      <Table>
+      <Table className="table-fixed">
+        <colgroup>
+          <col className="w-[10%]" />
+          <col className="w-[14%]" />
+          <col className="w-[14%]" />
+          <col className="w-[14%]" />
+          <col className="w-[22%]" />
+          <col className="w-[10%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+        </colgroup>
         <TableHeader>
           <TableRow>
             <TableHead>Ref</TableHead>

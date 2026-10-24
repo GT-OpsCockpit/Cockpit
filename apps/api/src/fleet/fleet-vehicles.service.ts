@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
 import { EventLinkService } from '../common/event-link/event-link.service';
+import { PartnersService } from '../partners/partners.service';
 import { searchTokensFilter } from '../common/utils/search-tokens';
 import {
   fleetVehicleEffectivelyActiveFilter,
@@ -56,7 +57,16 @@ export class FleetVehiclesService {
     private readonly prisma: PrismaService,
     private readonly refCounter: RefCounterService,
     private readonly eventLink: EventLinkService,
+    private readonly partners: PartnersService,
   ) {}
+
+  private async resolvePartnerId(
+    isLocal: boolean,
+    partnerRef: string | undefined,
+  ): Promise<string | null> {
+    if (isLocal || !partnerRef) return null;
+    return (await this.partners.resolveByRefOrThrow(partnerRef)).id;
+  }
 
   async list(
     query: ListFleetVehiclesQueryDto,
@@ -79,6 +89,11 @@ export class FleetVehiclesService {
         },
       });
     }
+    if (query.isLocal !== undefined) conditions.push({ isLocal: query.isLocal });
+    if (query.partnerId) conditions.push({ partnerId: query.partnerId });
+    if (query.countryCode) conditions.push({ countryCode: query.countryCode });
+    if (query.area) conditions.push({ area: query.area });
+    if (query.model) conditions.push({ model: query.model });
 
     // Token by token, so a vehicle typed the way it reads on screen
     // ("Mercedes V-Class") spans make + model (see searchTokensFilter).
@@ -120,6 +135,7 @@ export class FleetVehiclesService {
     }
 
     const driverId = isLocal ? null : await this.resolveDriverId(dto.driverRef);
+    const partnerId = await this.resolvePartnerId(isLocal, dto.partnerRef);
 
     const seq = await this.refCounter.next('fleetVehicle');
     const vehicle = await this.prisma.fleetVehicle.create({
@@ -138,6 +154,7 @@ export class FleetVehiclesService {
         countryCode: !isLocal ? dto.countryCode || null : null,
         area: !isLocal ? dto.area?.trim() || null : null,
         partnerCompany: !isLocal ? dto.partnerCompany?.trim() || null : null,
+        partnerId,
         driverId,
         eventsOnly: !!dto.eventsOnly,
         eventCountry: dto.eventsOnly ? dto.eventCountry || null : null,
@@ -180,6 +197,7 @@ export class FleetVehiclesService {
     } else {
       driverId = null;
     }
+    const partnerId = await this.resolvePartnerId(isLocal, dto.partnerRef);
 
     const vehicle = await this.prisma.fleetVehicle.update({
       where: { ref },
@@ -197,6 +215,7 @@ export class FleetVehiclesService {
         countryCode: !isLocal ? dto.countryCode || null : null,
         area: !isLocal ? dto.area?.trim() || null : null,
         partnerCompany: !isLocal ? dto.partnerCompany?.trim() || null : null,
+        partnerId,
         ...(driverId !== undefined && { driverId }),
         eventsOnly: !!dto.eventsOnly,
         eventCountry: dto.eventsOnly ? dto.eventCountry || null : null,

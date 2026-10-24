@@ -19,7 +19,9 @@ async function main() {
     firstName: process.env.ADMIN_FIRST_NAME ?? 'Admin',
     lastName: process.env.ADMIN_LAST_NAME ?? 'User',
   });
-  await seedFixtures(prisma);
+  // Production seeds the baseline only (admin, countries, vehicle types):
+  // SEED_FIXTURES=false skips the demo clients, drivers and bookings.
+  if (process.env.SEED_FIXTURES !== 'false') await seedFixtures(prisma);
   console.log('Seed complete.');
 }
 

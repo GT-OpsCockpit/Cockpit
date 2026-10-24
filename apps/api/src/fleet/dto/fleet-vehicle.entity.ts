@@ -28,6 +28,8 @@ export class FleetVehicleBaseEntity {
   countryCode: string | null;
   area: string | null;
   partnerCompany: string | null;
+  // Structured companion to `partnerCompany` above — see schema.prisma.
+  partnerId: string | null;
   driverId: string | null;
   eventsOnly: boolean;
   eventCountry: string | null;

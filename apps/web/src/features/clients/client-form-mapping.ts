@@ -17,9 +17,6 @@ export function clientToFormValues(client: ClientEntity): ClientFormValues {
     vatNumber: client.vatNumber ?? '',
     email: client.email ?? '',
     billing: client.billing ?? ClientEntityBilling.ACCOUNT,
-    pocName: client.pocName ?? '',
-    pocPhone: client.pocPhone ?? '',
-    pocEmail: client.pocEmail ?? '',
     eventCountry: client.eventCountry ?? '',
     eventArea: client.eventArea ?? '',
     // eventStartDate/eventEndDate are Prisma DateTime columns, serialized as
@@ -30,7 +27,14 @@ export function clientToFormValues(client: ClientEntity): ClientFormValues {
   }
 }
 
-/** Shared by create and update — the API accepts the exact same field set for both (see CreateClientDto/UpdateClientDto). */
+/**
+ * Shared by create and update — the API accepts the exact same field set for
+ * both (see CreateClientDto/UpdateClientDto). Deliberately never sends
+ * pocName/pocPhone/pocEmail: those DTO fields still exist server-side for
+ * backward compatibility (ClientsService.create still falls back a blank
+ * pocName to the contact's own name), but nothing in this form edits them
+ * anymore — see client-form-schema.ts.
+ */
 function toClientDto(values: ClientFormValues): CreateClientDto {
   const isEvent = values.clientType === 'EVENT'
   return {
@@ -47,9 +51,6 @@ function toClientDto(values: ClientFormValues): CreateClientDto {
     vatNumber: values.vatNumber || undefined,
     email: values.email || undefined,
     billing: values.billing,
-    pocName: values.pocName || undefined,
-    pocPhone: values.pocPhone || undefined,
-    pocEmail: values.pocEmail || undefined,
     eventCountry: isEvent ? values.eventCountry || undefined : undefined,
     eventArea: isEvent ? values.eventArea || undefined : undefined,
     eventStartDate: isEvent ? values.eventStartDate || undefined : undefined,

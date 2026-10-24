@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Check, ChevronsUpDown, type LucideIcon } from 'lucide-react'
+import { Check, ChevronsUpDown, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -89,6 +89,14 @@ interface SearchComboboxProps {
    * field has no accessible name at all despite showing a value visually.
    */
   'aria-label'?: string
+  /**
+   * Small fixed "×" on the trigger whenever there's a value to clear — on by
+   * default, since every combobox that only picks from a list (Country,
+   * Customer, Driver, POC…) otherwise has no way back to "nothing picked"
+   * short of typing over it, which doesn't exist when there's nothing to
+   * type. Set false for the rare field an empty value can't land on.
+   */
+  clearable?: boolean
 }
 
 interface RememberedOption {
@@ -152,6 +160,7 @@ export function SearchCombobox({
   'aria-describedby': ariaDescribedBy,
   'aria-invalid': ariaInvalid,
   'aria-label': ariaLabel,
+  clearable = true,
 }: SearchComboboxProps) {
   const [open, setOpen] = useState(false)
   // A free-text combobox has to read back what was typed in order to commit
@@ -169,7 +178,10 @@ export function SearchCombobox({
   const currentLabel =
     selectedOption?.label ??
     remembered?.label ??
-    selectedLabel ??
+    // Only describes a value that is actually selected: once the field is
+    // cleared (value ''), keeping the seed label painted the old driver back
+    // on screen and made the × look broken even though the value was gone.
+    (value ? selectedLabel : undefined) ??
     (allowCustomValue && value ? value : undefined)
   const currentPrefix = selectedOption?.prefix ?? remembered?.prefix
 
@@ -204,7 +216,35 @@ export function SearchCombobox({
             {currentLabel !== undefined && currentPrefix}
             <span className="min-w-0 truncate">{currentLabel ?? placeholder}</span>
           </span>
-          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+          <span className="ml-2 flex shrink-0 items-center gap-0.5">
+            {clearable && currentLabel !== undefined && !disabled && (
+              // A span, not a nested <button> — this sits inside the
+              // trigger's own <button>, and a button-in-a-button is invalid
+              // HTML that browsers silently mangle. stopPropagation keeps
+              // the click from also reaching the trigger and popping the
+              // list open right after clearing.
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Clear"
+                className="hover:bg-accent rounded-sm p-0.5"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onChange('')
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onChange('')
+                  }
+                }}
+              >
+                <X className="size-3.5 opacity-60" aria-hidden="true" />
+              </span>
+            )}
+            <ChevronsUpDown className="size-4 opacity-50" />
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">

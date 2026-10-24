@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { FleetVehicleEntity } from '@cockpit/shared/api'
+import type { FleetVehicleEntity, FleetVehiclesControllerListParams } from '@cockpit/shared/api'
 import {
   getFleetVehiclesControllerListQueryKey,
   useFleetVehiclesControllerList,
@@ -9,26 +9,33 @@ import {
 import { useRoster } from '@/lib/use-roster'
 import { FilterCard } from '@/components/filter-card'
 import { ListPagination } from '@/components/list-pagination'
-import { SearchAndInactiveFiltersBar } from '@/components/search-and-inactive-filters-bar'
 import { usePermission } from '@/features/auth/use-permission'
-import { BookingCreateDialog, type BookingPrefill } from '@/features/bookings/booking-create-dialog'
 import { VehicleCreateDialog } from './vehicle-create-dialog'
 import { VehicleEditDialog } from './vehicle-edit-dialog'
+import { VehicleFiltersBar } from './vehicle-filters-bar'
 import { VehiclesTable } from './vehicles-table'
 import { VehicleUnavailabilityDialog } from './vehicle-unavailability-dialog'
-import { defaultVehicleFilters, vehicleBookingPrefill, type VehicleFilters } from './vehicle-status'
+import { defaultVehicleFilters, type VehicleFilters } from './vehicle-status'
 import { PageTitle } from '@/components/layout/page-title'
+
+type VehicleExtraParams = Pick<FleetVehiclesControllerListParams, 'isLocal' | 'partnerId' | 'countryCode' | 'area' | 'model'>
 
 export function VehiclesPage() {
   const [editTarget, setEditTarget] = useState<FleetVehicleEntity | null>(null)
   const [unavailabilityTarget, setUnavailabilityTarget] = useState<FleetVehicleEntity | null>(null)
-  const [bookingPrefill, setBookingPrefill] = useState<BookingPrefill | null>(null)
 
-  const roster = useRoster<VehicleFilters, FleetVehicleEntity>({
+  const roster = useRoster<VehicleFilters, FleetVehicleEntity, VehicleExtraParams>({
     defaults: defaultVehicleFilters,
     useList: useFleetVehiclesControllerList,
     useSetActive: useFleetVehiclesControllerSetActive,
     listQueryKey: getFleetVehiclesControllerListQueryKey(),
+    extraParams: (filters) => ({
+      isLocal: filters.isLocal === '' ? undefined : filters.isLocal === 'true',
+      partnerId: filters.partnerId || undefined,
+      countryCode: filters.countryCode || undefined,
+      area: filters.area || undefined,
+      model: filters.model || undefined,
+    }),
     label: 'Vehicle',
     errorLabel: 'vehicle',
   })
@@ -48,12 +55,7 @@ export function VehiclesPage() {
       </div>
 
       <FilterCard hasActiveFilters={roster.hasActiveFilters} onReset={roster.resetFilters}>
-        <SearchAndInactiveFiltersBar
-          filters={roster.filters}
-          onChange={roster.setFilters}
-          idPrefix="vh"
-          searchPlaceholder="Search by ref, reg nbr, make, model or acronym…"
-        />
+        <VehicleFiltersBar filters={roster.filters} onChange={roster.setFilters} />
       </FilterCard>
 
       <VehiclesTable
@@ -62,7 +64,6 @@ export function VehiclesPage() {
         onEdit={setEditTarget}
         onUnavailability={setUnavailabilityTarget}
         onToggleActive={roster.toggleActive}
-        onNewBooking={(v) => setBookingPrefill(vehicleBookingPrefill(v))}
         canReactivate={canReactivate}
         fleetColors={meta.data?.fleetColors}
         hasActiveFilters={roster.hasActiveFilters}
@@ -73,12 +74,6 @@ export function VehiclesPage() {
 
       <VehicleEditDialog vehicle={editTarget} onOpenChange={(open) => !open && setEditTarget(null)} />
       <VehicleUnavailabilityDialog vehicle={unavailabilityTarget} onOpenChange={(open) => !open && setUnavailabilityTarget(null)} />
-      <BookingCreateDialog
-        open={bookingPrefill !== null}
-        onOpenChange={(open) => !open && setBookingPrefill(null)}
-        draftKey="newBookingDraft:vehicles"
-        prefill={bookingPrefill ?? undefined}
-      />
     </div>
   )
 }

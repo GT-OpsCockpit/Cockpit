@@ -7,6 +7,8 @@ import {
   PartyPopper,
   ReceiptText,
   Settings,
+  Tag,
+  UserRound,
   UserStar,
   type LucideIcon,
 } from 'lucide-react'
@@ -28,11 +30,13 @@ export interface NavItem {
  */
 export const NAV_ITEMS: NavItem[] = [
   { to: '/bookings', label: 'Bookings', icon: Calendar },
-  { to: '/clients', label: 'Customers', icon: UserStar },
-  { to: '/drivers', label: 'Drivers & Partners', icon: ContactRound },
-  { to: '/vehicles', label: 'Vehicles', icon: Car },
   { to: '/planning', label: 'Planning', icon: CalendarClock },
   { to: '/events', label: 'Events', icon: PartyPopper },
+  { to: '/drivers', label: 'Drivers & Partners', icon: ContactRound },
+  { to: '/vehicles', label: 'Vehicles', icon: Car },
+  { to: '/clients', label: 'Customers', icon: UserStar },
+  { to: '/passengers', label: 'Passengers', icon: UserRound },
+  { to: '/price-lists', label: 'Price List', icon: Tag },
   { to: '/invoicing', label: 'Invoicing', icon: ReceiptText },
   { to: '/finance', label: 'Finance', icon: DollarSign },
   { to: '/settings', label: 'Settings', icon: Settings },

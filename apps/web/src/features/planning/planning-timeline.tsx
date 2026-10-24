@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import type { TripEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { clientAccountLabel, itineraryLabel, tripDriverName } from '../bookings/trip-display'
+import { clientAccountLabel, itineraryLabel } from '../bookings/trip-display'
 import {
   blockGeometry,
   compareUnassignedTrips,
@@ -336,7 +336,7 @@ export function PlanningTimeline({
                   key={trip.ref}
                   draggable
                   data-ref={trip.ref}
-                  className="w-44 cursor-grab rounded-lg border bg-card p-2 text-[11px] shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing"
+                  className="w-56 cursor-grab rounded-lg border bg-card p-2 text-[11px] shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing"
                   style={{ borderLeftWidth: 3, borderLeftColor: colorFor(trip) }}
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/plain', trip.ref)
@@ -344,11 +344,10 @@ export function PlanningTimeline({
                   }}
                   onClick={() => onOpenTrip(trip)}
                 >
-                  <div className="truncate font-medium text-foreground">{trip.passengerName || trip.ref}</div>
-                  <div className="truncate text-muted-foreground">{itineraryLabel(trip)}</div>
-                  <div className="truncate text-muted-foreground">
-                    {account.primary} · {trip.vehicleType?.name ?? '—'} · {tripDriverName(trip) ?? '—'}
+                  <div className="truncate font-medium text-foreground">
+                    {account.primary} · {trip.vehicleType?.name ?? '—'}
                   </div>
+                  <div className="truncate text-muted-foreground">{trip.pickupLocation}</div>
                 </div>
               )
             })

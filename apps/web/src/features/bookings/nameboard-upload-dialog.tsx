@@ -17,12 +17,12 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 // Kept in sync with apps/api/src/trips/nameboard-upload.config.ts (fileSize limit).
-const MAX_FILE_SIZE = 10 * 1024 * 1024
+export const MAX_FILE_SIZE = 10 * 1024 * 1024
 
 // Multipart upload isn't a good fit for the orval/react-query codegen (see the
 // comment on TripsController.uploadNameboard) — a plain fetch against the same
 // endpoint/base URL the generated client uses, rather than a generated hook.
-async function uploadNameboard(ref: string, file: File): Promise<TripEntity> {
+export async function uploadNameboard(ref: string, file: File): Promise<TripEntity> {
   const formData = new FormData()
   formData.append('file', file)
   const response = await fetch(`${getBaseUrl()}${getTripsControllerUploadNameboardUrl(ref)}`, {

@@ -27,10 +27,15 @@ import { can } from '../common/permissions/permissions';
 import { assertRequiredFields } from '../common/business/assert-required-fields';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { CreateClientDto } from './dto/create-client.dto';
+import { CreateClientContactDto } from './dto/create-client-contact.dto';
+import { UpdateClientContactDto } from './dto/update-client-contact.dto';
+import { ReorderClientContactsDto } from './dto/reorder-client-contacts.dto';
+import { ClientContactEntity } from './dto/client-contact.entity';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { ListClientsQueryDto } from './dto/list-clients-query.dto';
 import { ClientEntity } from './dto/client.entity';
 import { ClientListEntity } from './dto/client-list.entity';
+import { PriceListEntity } from '../price-lists/dto/price-list.entity';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { ClientType } from '../../generated/prisma/enums';
 import type { Client, Prisma } from '../../generated/prisma/client';
@@ -314,6 +319,139 @@ export class ClientsService {
       data: { active },
     });
     return withName(client);
+  }
+
+  /** Every price list currently applicable to this client. */
+  async listPriceLists(ref: string): Promise<PriceListEntity[]> {
+    await this.findByRefOrThrow(ref);
+    const priceLists = await this.prisma.priceList.findMany({
+      where: { clients: { some: { ref } } },
+      include: {
+        entries: { include: { vehicleType: true }, orderBy: { createdAt: 'asc' } },
+        clients: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    // `.name` on a Client is derived (withName below), never a real column —
+    // a Client row picked up through this raw `include: { clients: true }`
+    // arrives without it, same reasoning as passengers.service.ts's own
+    // identical fix.
+    return priceLists.map((pl) => ({
+      ...pl,
+      clients: pl.clients.map((c) => ({ ...c, name: clientDisplayName(c) })),
+    }));
+  }
+
+  /** Replaces the full set of price lists applicable to this client. */
+  async setPriceLists(
+    ref: string,
+    priceListRefs: string[],
+  ): Promise<PriceListEntity[]> {
+    await this.findByRefOrThrow(ref);
+    if (priceListRefs.length > 0) {
+      const found = await this.prisma.priceList.findMany({
+        where: { ref: { in: priceListRefs } },
+        select: { ref: true },
+      });
+      const missing = priceListRefs.filter(
+        (r) => !found.some((f) => f.ref === r),
+      );
+      if (missing.length > 0) {
+        throw new BadRequestException(
+          `Price list(s) not found: ${missing.join(', ')}`,
+        );
+      }
+    }
+    await this.prisma.client.update({
+      where: { ref },
+      data: { priceLists: { set: priceListRefs.map((r) => ({ ref: r })) } },
+    });
+    return this.listPriceLists(ref);
+  }
+
+  /** All contacts for this client, in their chosen order — that order is what "POC 1, POC 2…" numbers against in the UI, and what a new booking's POC field defaults to (the first one). `createdAt` only breaks ties between rows that happen to share an `order`. */
+  async listContacts(ref: string): Promise<ClientContactEntity[]> {
+    const client = await this.findByRefOrThrow(ref);
+    return this.prisma.clientContact.findMany({
+      where: { clientId: client.id },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async addContact(
+    ref: string,
+    dto: CreateClientContactDto,
+  ): Promise<ClientContactEntity> {
+    const client = await this.findByRefOrThrow(ref);
+    // Appended at the end of this client's current order, not left at the
+    // shared default of 0 — a client with contacts already reordered by
+    // drag-and-drop shouldn't have a new one jump to the top.
+    const last = await this.prisma.clientContact.aggregate({
+      where: { clientId: client.id },
+      _max: { order: true },
+    });
+    const order = (last._max.order ?? -1) + 1;
+    return this.prisma.clientContact.create({
+      data: { clientId: client.id, name: dto.name, phone: dto.phone, email: dto.email, order },
+    });
+  }
+
+  /**
+   * Applies a new drag-and-dropped order to this client's contacts.
+   * `contactIds` must be exactly this client's current contact ids, just
+   * reshuffled — anything missing, extra, or foreign is refused rather than
+   * silently reconciled, since a stale list from the browser could otherwise
+   * drop a contact from the order without anyone noticing.
+   */
+  async reorderContacts(
+    ref: string,
+    dto: ReorderClientContactsDto,
+  ): Promise<ClientContactEntity[]> {
+    const existing = await this.listContacts(ref);
+    const existingIds = new Set(existing.map((c) => c.id));
+    const requestedIds = new Set(dto.contactIds);
+    if (
+      existingIds.size !== requestedIds.size ||
+      dto.contactIds.some((id) => !existingIds.has(id))
+    ) {
+      throw new BadRequestException(
+        'The new order must include every contact on this account exactly once.',
+      );
+    }
+    await this.prisma.$transaction(
+      dto.contactIds.map((id, index) =>
+        this.prisma.clientContact.update({
+          where: { id },
+          data: { order: index },
+        }),
+      ),
+    );
+    return this.listContacts(ref);
+  }
+
+  async updateContact(
+    ref: string,
+    contactId: string,
+    dto: UpdateClientContactDto,
+  ): Promise<ClientContactEntity> {
+    await this.findContactOrThrow(ref, contactId);
+    return this.prisma.clientContact.update({
+      where: { id: contactId },
+      data: { name: dto.name, phone: dto.phone, email: dto.email },
+    });
+  }
+
+  async deleteContact(ref: string, contactId: string): Promise<OkResponseEntity> {
+    await this.findContactOrThrow(ref, contactId);
+    await this.prisma.clientContact.delete({ where: { id: contactId } });
+    return { ok: true };
+  }
+
+  private async findContactOrThrow(ref: string, contactId: string) {
+    const contacts = await this.listContacts(ref);
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) throw new NotFoundException('Contact not found on this client');
+    return contact;
   }
 
   async findByRefOrThrow(ref: string) {

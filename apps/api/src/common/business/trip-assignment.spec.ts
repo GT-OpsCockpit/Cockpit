@@ -16,6 +16,7 @@ const before = (overrides: Partial<TripBeforeEdit> = {}): TripBeforeEdit => ({
   pickupAt: FUTURE,
   driverId: 'driver-1',
   partnerId: null,
+  directPartnerId: null,
   priceEur: 200,
   partnerRateEur: 150,
   pocName: 'Jane Doe',
@@ -31,6 +32,7 @@ const unchanged = (
 ): TripEditIntent => ({
   driverId: 'driver-1',
   partnerId: null,
+  directPartnerId: null,
   subContractor: false,
   tracking: true,
   priceEur: 200,

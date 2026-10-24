@@ -16,7 +16,15 @@ function unavailability(overrides: Partial<FleetUnavailabilityEntity> = {}): Fle
 
 describe('defaultVehicleFilters', () => {
   it('starts with no search and inactive vehicles hidden', () => {
-    expect(defaultVehicleFilters()).toEqual({ search: '', showInactive: false })
+    expect(defaultVehicleFilters()).toEqual({
+      search: '',
+      showInactive: false,
+      isLocal: '',
+      partnerId: '',
+      countryCode: '',
+      area: '',
+      model: '',
+    })
   })
 })
 

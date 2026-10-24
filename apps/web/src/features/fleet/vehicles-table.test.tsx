@@ -15,7 +15,7 @@ const { baseVehicle } = await import('./test-fixtures')
 
 afterEach(cleanup)
 
-const noop = { onEdit: vi.fn(), onUnavailability: vi.fn(), onToggleActive: vi.fn(), onNewBooking: vi.fn() }
+const noop = { onEdit: vi.fn(), onUnavailability: vi.fn(), onToggleActive: vi.fn() }
 
 describe('VehiclesTable', () => {
   it('shows a placeholder row in both groups when there are no vehicles', () => {
@@ -54,7 +54,7 @@ describe('VehiclesTable', () => {
     render(<VehiclesTable vehicles={[external]} canReactivate {...noop} />)
 
     const externalGroup = screen.getByText('Fleet - External').closest('div')!
-    expect(within(externalGroup).getByText('France (FR)')).toBeInTheDocument()
+    expect(within(externalGroup).getByText('France')).toBeInTheDocument()
     expect(within(externalGroup).getByText('Paris')).toBeInTheDocument()
     expect(within(externalGroup).getByText('Acme')).toBeInTheDocument()
   })
@@ -100,7 +100,6 @@ describe('VehiclesTable', () => {
         onEdit={onEdit}
         onUnavailability={onUnavailability}
         onToggleActive={onToggleActive}
-        onNewBooking={noop.onNewBooking}
         canReactivate
       />,
     )

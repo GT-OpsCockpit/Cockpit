@@ -18,7 +18,15 @@ function unavailability(overrides: Partial<DriverUnavailabilityEntity> = {}): Dr
 
 describe('defaultDriverFilters', () => {
   it('starts with no search and inactive drivers hidden', () => {
-    expect(defaultDriverFilters()).toEqual({ search: '', showInactive: false })
+    expect(defaultDriverFilters()).toEqual({
+      search: '',
+      showInactive: false,
+      inHouse: '',
+      partnerId: '',
+      countryCode: '',
+      area: '',
+      category: '',
+    })
   })
 })
 
@@ -43,12 +51,15 @@ describe('driverOptionLabel', () => {
 })
 
 describe('isPartner', () => {
-  it('is false for an internal driver (no company)', () => {
-    expect(isPartner(driver({ company: null }))).toBe(false)
+  it('is false for an in-house driver, even with a stray company string', () => {
+    // company is the legacy free-text field, kept for ref-prefix/search —
+    // no longer what decides "is this a partner's driver". Only a real
+    // link to a Partner record (partnerId) does.
+    expect(isPartner(driver({ company: 'Uber', partnerId: null }))).toBe(false)
   })
 
-  it('is true once a company is set', () => {
-    expect(isPartner(driver({ company: 'Uber' }))).toBe(true)
+  it('is true once actually linked to a Partner', () => {
+    expect(isPartner(driver({ partnerId: 'partner-1' }))).toBe(true)
   })
 })
 

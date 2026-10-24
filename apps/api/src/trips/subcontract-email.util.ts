@@ -15,6 +15,24 @@ export interface TripForSubcontractEmail {
   partnerRateEur: { toNumber(): number } | null;
   vehicleType: { name: string } | null;
   fleetVehicle: { make: string; model: string } | null;
+  /** Commercial flight — mutually exclusive with tailNbr (private aviation locks the other out, see trip-form-fields.tsx's commercialFlight). */
+  flightNumber: string | null;
+  /** Private aviation only. */
+  tailNbr: string | null;
+  /** Handling agent's address — commercial or private, whichever pickup/dropoff is an airport. */
+  fboAddress: string | null;
+  /** Text typed into the Nameboard field — takes priority over an uploaded image. */
+  nameboard: string | null;
+  /**
+   * Relative path to an uploaded nameboard image (NameboardController, e.g.
+   * "/uploads/nameboards/xyz.png"). Left relative on purpose: this util runs
+   * server-side and has no notion of its own public origin, so
+   * openSubcontractEmailDraft (subcontract-email.ts) resolves it to an
+   * absolute link right before opening the mailto: — the same
+   * `${getBaseUrl()}${trip.nameboardUrl}` pattern nameboard-upload-dialog.tsx
+   * already uses to show the image in the app.
+   */
+  nameboardUrl: string | null;
 }
 
 export interface SubcontractEmailDraft {
@@ -59,6 +77,39 @@ function vehicleLine(trip: TripForSubcontractEmail) {
 }
 
 /**
+ * Flight/FBO/tail lines for an airport job — omitted entirely when none of
+ * the three is on file, so a non-airport job's email is unchanged. flightNumber
+ * and tailNbr are mutually exclusive (commercial vs. private aviation, see
+ * trip-form-fields.tsx's commercialFlight lock), so at most one of them shows.
+ * FBO address comes before the tail number — the handling agent is who the
+ * partner's crew actually coordinates with on the ground.
+ */
+function airportLines(trip: TripForSubcontractEmail): string[] {
+  const lines: string[] = [];
+  if (trip.flightNumber) {
+    lines.push(`Flight: ${trip.flightNumber}`);
+  }
+  if (trip.fboAddress) {
+    lines.push(`FBO address: ${trip.fboAddress}`);
+  }
+  if (!trip.flightNumber && trip.tailNbr) {
+    lines.push(`Tail nbr: ${trip.tailNbr}`);
+  }
+  return lines;
+}
+
+/**
+ * The pickup nameboard — typed text if there is one, otherwise a link to the
+ * uploaded image (still a relative path here; see nameboardUrl above).
+ * Omitted entirely when neither is on file.
+ */
+function nameboardLine(trip: TripForSubcontractEmail): string[] {
+  if (trip.nameboard) return [`Nameboard: ${trip.nameboard}`];
+  if (trip.nameboardUrl) return [`Nameboard: ${trip.nameboardUrl}`];
+  return [];
+}
+
+/**
  * The mission recap sent to a partner a job has just been farmed out to
  * (openSubcontractEmailDraft, common.js:2636).
  *
@@ -70,20 +121,27 @@ function vehicleLine(trip: TripForSubcontractEmail) {
 export function buildSubcontractEmail(
   trip: TripForSubcontractEmail,
   to: string | null,
+  variant: 'assigned' | 'updated' = 'assigned',
 ): SubcontractEmailDraft {
   const { date, time } = pickupLines(trip);
   const isAsd = trip.service === 'ASD';
   const rate = trip.partnerRateEur;
 
   const lines = [
-    'A job has been subcontracted to you please find below the details :',
+    'Dear Team,',
+    '',
+    variant === 'updated'
+      ? 'The following job has been **Updated**, please find below the new details and confirm it again :'
+      : 'A job has been subcontracted to you please find below the details :',
     '',
     `Ref: ${trip.ref}`,
     `Vehicle type: ${vehicleLine(trip)}`,
     `Pax Name: ${trip.passengerName || DASH} (${trip.paxCount ?? '?'} pax)`,
+    ...nameboardLine(trip),
     `Pickup Date: ${date}`,
     `Pickup time: ${time}`,
     `Pickup location: ${trip.pickupLocation || DASH}`,
+    ...airportLines(trip),
     `Job type: ${trip.service || DASH}`,
     isAsd
       ? `Duration: ${trip.hours ?? '?'}h`
@@ -92,7 +150,11 @@ export function buildSubcontractEmail(
     `Partner rate net: ${rate ? `${rate.toNumber().toFixed(2)}€ Net` : DASH}`,
   ];
 
-  return { to, subject: `Booking ${trip.ref}`, body: lines.join('\n') };
+  return {
+    to,
+    subject: `${variant === 'updated' ? 'UPDATED' : 'NEW'} BOOKING - ${trip.ref}`,
+    body: lines.join('\n'),
+  };
 }
 
 /**
@@ -108,6 +170,8 @@ export function buildCanceledSubcontractEmail(
   const { date, time } = pickupLines(trip);
 
   const lines = [
+    'Dear Team,',
+    '',
     'Please note the following job has been **Canceled** :',
     '',
     `Ref: ${trip.ref}`,
@@ -128,7 +192,7 @@ export function buildCanceledSubcontractEmail(
 
   return {
     to,
-    subject: `🚨 Canceled booking ${trip.ref}`,
+    subject: `CANCELED BOOKING - ${trip.ref}`,
     body: lines.join('\n'),
   };
 }

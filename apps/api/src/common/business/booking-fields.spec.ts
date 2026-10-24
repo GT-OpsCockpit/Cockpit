@@ -127,6 +127,48 @@ describe('resolveBookingFields', () => {
       ).toBe('instructions is required for a SPEC service');
     });
 
+    describe('an airport pickup needs its flight details', () => {
+      const refusal =
+        'Airport pickup: flightNumber is required, or tailNbr and fboAddress for a private flight';
+
+      it('refuses one with no flight details', () => {
+        expect(
+          messageOf(
+            resolveBookingFields(dto({ pickupIata: 'CDG' }), deps()),
+          ),
+        ).toBe(refusal);
+      });
+
+      it('refuses a private flight missing its FBO address or tail number', () => {
+        for (const extra of [{ tailNbr: 'N123AB' }, { fboAddress: 'Signature' }]) {
+          expect(
+            messageOf(
+              resolveBookingFields(
+                dto({ pickupIata: 'CDG', ...extra }),
+                deps(),
+              ),
+            ),
+          ).toBe(refusal);
+        }
+      });
+
+      it('accepts a flight number, or a complete private flight', () => {
+        for (const extra of [
+          { flightNumber: 'AF1234' },
+          { tailNbr: 'N123AB', fboAddress: 'Signature' },
+        ]) {
+          expect(
+            messageOf(
+              resolveBookingFields(
+                dto({ pickupIata: 'CDG', ...extra }),
+                deps(),
+              ),
+            ),
+          ).toBeNull();
+        }
+      });
+    });
+
     it('refuses a vehicle type that matches no vehicle type on file', () => {
       expect(
         messageOf(

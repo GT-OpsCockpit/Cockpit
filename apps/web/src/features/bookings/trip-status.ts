@@ -29,6 +29,12 @@ export const STEP_LABELS: Record<TripStepEntityStep, string> = {
 
 export const CANCELLED_LABEL = 'Stop'
 
+/** The sub-contracted partner declined it from their email — to be reassigned. */
+export const DECLINED_LABEL = 'Declined'
+
+/** Edited after it was sent to its partner: the updated email is still to be sent. */
+export const UPDATE_PENDING_LABEL = 'Updated - Send ?'
+
 export const NO_STATUS_LABEL = 'Send ?'
 
 // Steps kept as a solid badge; everything else is plain colored text (matches
@@ -39,6 +45,8 @@ export const HIGHLIGHTED_STEPS: (TripStepEntityStep | 'CANCELLED')[] = [
   TripStepEntityStep.ACCEPTED,
   TripStepEntityStep.DROPPED,
   'CANCELLED',
+  'DECLINED',
+  'UPDATE_PENDING',
 ]
 
 // Steps from which the dispatcher can click the badge to validate the next
@@ -52,11 +60,13 @@ export const ADVANCEABLE_STEPS: TripStepEntityStep[] = [
   TripStepEntityStep.ONBOARD,
 ]
 
-export type TripStatus = TripStepEntityStep | 'CANCELLED' | null
+export type TripStatus = TripStepEntityStep | 'CANCELLED' | 'DECLINED' | 'UPDATE_PENDING' | null
 
 /** Latest step reached, or 'CANCELLED' if the assignment was pulled — mirrors the legacy's currentStatus(). */
 export function currentStatus(trip: TripEntity): TripStatus {
   if (trip.assignmentCancelled) return 'CANCELLED'
+  if (trip.partnerDeclinedAt && trip.subContractor) return 'DECLINED'
+  if (trip.partnerUpdatePending && trip.subContractor) return 'UPDATE_PENDING'
   return currentStep(trip.steps)
 }
 
@@ -68,6 +78,8 @@ export function isStatusLocked(trip: TripEntity): boolean {
 export function statusLabel(status: TripStatus): string {
   if (!status) return NO_STATUS_LABEL
   if (status === 'CANCELLED') return CANCELLED_LABEL
+  if (status === 'DECLINED') return DECLINED_LABEL
+  if (status === 'UPDATE_PENDING') return UPDATE_PENDING_LABEL
   return STEP_LABELS[status]
 }
 
@@ -98,6 +110,11 @@ export function dispatchButtonState(trip: TripEntity, isLocal: boolean): { dimme
           : 'Assign a driver before sending'
       return { dimmed: true, disabled: false, title }
     }
+  }
+  // Farm-out / sub-contracted: nobody to send to until a partner (driver or
+  // company) or an own driver is on the booking.
+  if ((!isLocal || trip.subContractor) && !trip.driverId && !trip.partnerId && !trip.directPartnerId) {
+    return { dimmed: true, disabled: false, title: 'Assign a partner or a driver before sending' }
   }
   return {
     dimmed: false,

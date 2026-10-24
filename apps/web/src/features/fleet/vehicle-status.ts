@@ -6,10 +6,17 @@ import { formatDate } from '@/lib/utils'
 export interface VehicleFilters {
   search: string
   showInactive: boolean
+  /** '' = both, 'true' = internal fleet only, 'false' = external (partner) fleet only. */
+  isLocal: '' | 'true' | 'false'
+  /** The external vehicle's linked Partner id ('' = all companies). */
+  partnerId: string
+  countryCode: string
+  area: string
+  model: string
 }
 
 export function defaultVehicleFilters(): VehicleFilters {
-  return { search: '', showInactive: false }
+  return { search: '', showInactive: false, isLocal: '', partnerId: '', countryCode: '', area: '', model: '' }
 }
 
 /** Seeds a "New booking" modal opened from this vehicle's row — see booking-create-dialog.tsx. */

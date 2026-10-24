@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Plus, Send } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Eraser, Plus, Send } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -17,7 +17,7 @@ import { RecordFormDialog } from '@/components/record-form-dialog'
 import { TripFormFields } from './trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
 import { dispatchReadiness } from './booking-draft'
-import { openSubcontractEmailDraft } from './subcontract-email'
+import { SubcontractEmailDialog, type SubcontractEmailTarget } from './subcontract-email-dialog'
 import { toCreateTripDto } from './trip-form-mapping'
 
 /**
@@ -119,6 +119,8 @@ export function BookingCreateDialog({
 
   const createTrip = useTripsControllerCreate()
   const dispatchDriver = useTripsControllerDispatchDriver()
+  // Outlives afterCreate()'s onOpenChange(false) — see SubcontractEmailDialog.
+  const [emailTarget, setEmailTarget] = useState<SubcontractEmailTarget | null>(null)
 
   // Whether this draft can go straight out to a driver — and, when it cannot,
   // why: the button being greyed out was the form's one silent dead end. The
@@ -137,7 +139,7 @@ export function BookingCreateDialog({
       const trip = await createTrip.mutateAsync({ data: toCreateTripDto(values, { dispatch: false }) })
       toast.success(`Trip ${trip.ref} created (account ${trip.client.ref}).`)
       if (values.subContractor) {
-        await openSubcontractEmailDraft(trip.ref, 'assigned')
+        setEmailTarget({ ref: trip.ref, kind: 'assigned' })
       }
       afterCreate()
     } catch (error) {
@@ -157,7 +159,7 @@ export function BookingCreateDialog({
       // Independent of whether the WhatsApp dispatch above succeeded — the
       // email is its own notification channel (common.js:4400).
       if (values.subContractor) {
-        await openSubcontractEmailDraft(trip.ref, 'assigned')
+        setEmailTarget({ ref: trip.ref, kind: 'assigned' })
       }
       afterCreate()
     } catch (error) {
@@ -167,7 +169,17 @@ export function BookingCreateDialog({
 
   const submitting = createTrip.isPending || dispatchDriver.isPending
 
+  // Wipes both the live form and the localStorage draft (loadDraft would
+  // otherwise bring the just-cleared values right back the next time this
+  // dialog opens) — a fresh sheet, not just a visual reset. No confirmation
+  // step — the eraser is deliberately a single click.
+  const onClear = () => {
+    form.reset(withPrefill(tripFormDefaults(), prefill))
+    clearDraft(draftKey)
+  }
+
   return (
+    <>
     <RecordFormDialog
       open={open}
       onOpenChange={onOpenChange}
@@ -175,9 +187,13 @@ export function BookingCreateDialog({
       record={{ form, onSubmit: onCreate, isSubmitting: submitting }}
       submitLabel="Create"
       submitIcon={<Plus />}
-      contentClassName="sm:max-w-4xl"
+      contentClassName="sm:max-w-6xl"
       layout="scroll-body"
       actions={
+        <>
+        <Button type="button" variant="outline" size="icon" title="Clear this booking" disabled={submitting} onClick={onClear}>
+          <Eraser />
+        </Button>
         <Tooltip>
           {/* A disabled button fires no pointer events, so the trigger has to
               be the wrapper rather than the button itself. */}
@@ -196,6 +212,7 @@ export function BookingCreateDialog({
           </TooltipTrigger>
           {!canDispatch && <TooltipContent>{blockedReason}</TooltipContent>}
         </Tooltip>
+        </>
       }
     >
       <TripFormFields
@@ -206,5 +223,7 @@ export function BookingCreateDialog({
         regNbrSeedOption={prefill?.fleetRegNbr ? { value: prefill.fleetRegNbr, label: prefill.regNbrLabel ?? prefill.fleetRegNbr } : null}
       />
     </RecordFormDialog>
+    <SubcontractEmailDialog target={emailTarget} onOpenChange={(open) => !open && setEmailTarget(null)} />
+    </>
   )
 }

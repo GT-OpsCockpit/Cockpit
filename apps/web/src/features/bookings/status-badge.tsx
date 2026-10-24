@@ -13,7 +13,14 @@ const HIGHLIGHTED_COLORS: Record<string, string> = {
   ACCEPTED: 'border-border bg-muted text-muted-foreground',
   DROPPED: 'border-success/40 bg-success/10 text-success',
   CANCELLED: 'border-destructive/40 bg-destructive/10 text-destructive',
+  DECLINED: 'border-destructive/40 bg-destructive/10 text-destructive',
+  UPDATE_PENDING: 'border-destructive/40 bg-destructive/10 text-destructive',
 }
+
+// A sub-contracted booking the partner confirmed reads in blue, apart from the
+// grey "Confirmed" of a booking run by our own drivers. No blue token in the
+// theme, hence the palette classes.
+const PARTNER_CONFIRMED_COLOR = 'border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400'
 
 const PLAIN_COLORS: Record<string, string> = {
   ENROUTE: 'text-warning',
@@ -39,6 +46,8 @@ export function StatusBadge({ trip, onAdvance }: { trip: TripEntity; onAdvance?:
   }
 
   const label = statusLabel(status)
+  const badgeColor =
+    status === 'ACCEPTED' && trip.subContractor ? PARTNER_CONFIRMED_COLOR : HIGHLIGHTED_COLORS[status]
   const clickable = onAdvance && isStatusAdvanceable(trip)
   const clickProps = clickable
     ? { title: 'Click to validate the next step', onClick: () => onAdvance(trip) }
@@ -47,7 +56,7 @@ export function StatusBadge({ trip, onAdvance }: { trip: TripEntity; onAdvance?:
   if (isStatusHighlighted(status)) {
     if (clickable) {
       return (
-        <Badge asChild className={cn(HIGHLIGHTED_COLORS[status], 'cursor-pointer')}>
+        <Badge asChild className={cn(badgeColor, 'cursor-pointer')}>
           <button type="button" {...clickProps}>
             <StatusIcon status={status} />
             {label}
@@ -56,7 +65,7 @@ export function StatusBadge({ trip, onAdvance }: { trip: TripEntity; onAdvance?:
       )
     }
     return (
-      <Badge className={cn(HIGHLIGHTED_COLORS[status])}>
+      <Badge className={cn(badgeColor)}>
         <StatusIcon status={status} />
         {label}
       </Badge>

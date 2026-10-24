@@ -42,17 +42,29 @@ describe('DispatchButton', () => {
     expect(toast.warning).not.toHaveBeenCalled()
   })
 
-  it('never warns/reroutes for a Farm-out or sub-contracted job, even with no driver/vehicle assigned', () => {
+  it('warns and opens the assign popup for a Farm-out job with nobody assigned', () => {
     const onDispatch = vi.fn()
     const onEdit = vi.fn()
-    const trip = baseTrip({ driverId: null, fleetVehicleId: null })
+    const trip = baseTrip({ driverId: null, partnerId: null, directPartnerId: null, fleetVehicleId: null })
+    render(<DispatchButton trip={trip} isLocal={false} onDispatch={onDispatch} onEdit={onEdit} />)
+
+    fireEvent.click(screen.getByRole('button'))
+
+    expect(onDispatch).not.toHaveBeenCalled()
+    expect(onEdit).toHaveBeenCalledWith(trip)
+    expect(toast.warning).toHaveBeenCalled()
+  })
+
+  it('sends a Farm-out job straight away once a partner company is assigned', () => {
+    const onDispatch = vi.fn()
+    const onEdit = vi.fn()
+    const trip = baseTrip({ driverId: null, directPartnerId: 'partner-1', fleetVehicleId: null })
     render(<DispatchButton trip={trip} isLocal={false} onDispatch={onDispatch} onEdit={onEdit} />)
 
     fireEvent.click(screen.getByRole('button'))
 
     expect(onDispatch).toHaveBeenCalledWith(trip)
     expect(onEdit).not.toHaveBeenCalled()
-    expect(toast.warning).not.toHaveBeenCalled()
   })
 
   it('is disabled — and does nothing on click — once already dispatched', () => {

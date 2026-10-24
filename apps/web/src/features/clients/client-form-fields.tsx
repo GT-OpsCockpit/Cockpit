@@ -1,10 +1,8 @@
-import { useEffect, useRef } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { ClientEntityBilling, ClientEntityClientType } from '@cockpit/shared/api'
 import { SearchCombobox } from '@/components/search-combobox'
 import { AreaField } from '@/components/area-field'
 import { EmailInput } from '@/components/email-input'
-import { PhoneInput } from '@/components/phone-input'
 import { useCountryOptions } from '@/hooks/use-country-options'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -26,30 +24,6 @@ export function ClientFormFields({
   const isCompany = clientType === ClientEntityClientType.COMPANY
   const isEvent = clientType === ClientEntityClientType.EVENT
   const isIndividual = !isCompany && !isEvent
-
-  const contactFirstName = form.watch('contactFirstName') ?? ''
-  const contactLastName = form.watch('contactLastName') ?? ''
-
-  // POC Full Name follows the contact's first + last name until someone types
-  // in it themselves, and never again after that (pocNameAutoSynced,
-  // clients.html:488-498). The server already falls back to the contact's name
-  // for an empty POC, so this is typing comfort — but it is what makes what
-  // will be saved visible instead of guessed at.
-  //
-  // Seeded as already-touched when a POC is on file: the legacy's flag only
-  // ever governed its creation form, while v2 shares these fields with the
-  // edit dialog, where a POC already recorded is usually a deliberately
-  // different person. Correcting a typo in the contact's name must not
-  // silently rewrite them.
-  const pocNameTouched = useRef(!!form.getValues('pocName')?.trim())
-
-  useEffect(() => {
-    if (!isIndividual || pocNameTouched.current) return
-    // Both empty leaves the last synced value in place rather than blanking
-    // the field, same as the legacy.
-    const full = [contactFirstName.trim(), contactLastName.trim()].filter(Boolean).join(' ')
-    if (full) form.setValue('pocName', full)
-  }, [isIndividual, contactFirstName, contactLastName, form])
 
   const countryOptions = useCountryOptions()
 
@@ -331,58 +305,6 @@ export function ClientFormFields({
             </FormItem>
           )}
         />
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="pocName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>POC Name</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Contact name"
-                    {...field}
-                    onChange={(e) => {
-                      pocNameTouched.current = true
-                      field.onChange(e)
-                    }}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="pocPhone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>POC Mobile</FormLabel>
-                <FormControl>
-                  <PhoneInput
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    countryCode={form.watch('countryCode')}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="pocEmail"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>POC Email</FormLabel>
-                <FormControl>
-                  <EmailInput value={field.value ?? ''} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
       </div>
     </fieldset>
   )

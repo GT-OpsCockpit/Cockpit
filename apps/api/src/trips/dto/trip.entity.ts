@@ -7,6 +7,7 @@ import {
 } from '../../../generated/prisma/enums';
 import { ClientBaseEntity } from '../../clients/dto/client.entity';
 import { DriverBaseEntity } from '../../drivers/dto/driver.entity';
+import { PartnerBaseEntity } from '../../partners/dto/partner.entity';
 import { VehicleTypeEntity } from '../../fleet/dto/vehicle-type.entity';
 import type { Prisma } from '../../../generated/prisma/client';
 
@@ -82,16 +83,23 @@ export class TripBaseEntity {
   bufferTime: number | null;
   fboAddress: string | null;
   tailNbr: string | null;
+  trainNumber: string | null;
+  trainObservation: string | null;
   nameboard: string | null;
   nameboardUrl: string | null;
   pickupIata: string | null;
   dropoffIata: string | null;
   subContractor: boolean;
   partnerId: string | null;
+  directPartnerId: string | null;
   dispatched: boolean;
   invoiced: boolean;
   assignmentCancelled: boolean;
   assignmentCancelledAt: Date | null;
+  /** The sub-contracted partner declined it (Decline button in their email) — shows as Declined, to be reassigned. */
+  partnerDeclinedAt: Date | null;
+  /** Edited since it was sent to its partner — shows "Updated - Send ?" until the updated email is sent. */
+  partnerUpdatePending: boolean;
   cancellationFee: CancellationFee | null;
   createdAt: Date;
   updatedAt: Date;
@@ -102,6 +110,8 @@ export class TripEntity extends TripBaseEntity {
   client: ClientBaseEntity;
   driver: DriverBaseEntity | null;
   partner: DriverBaseEntity | null;
+  /** The Partner *company* this booking is farmed out to with no driver of theirs picked yet — see Trip.directPartnerId's comment. */
+  directPartner: PartnerBaseEntity | null;
   vehicleType: VehicleTypeEntity | null;
   fleetVehicle: TripFleetVehicleEntity | null;
   steps: TripStepEntity[];
@@ -111,6 +121,12 @@ export class UpdateTripResponseEntity {
   ok: boolean;
   trip: TripEntity;
   notifyWarning: string | null;
+  /**
+   * The save changed what a sub-contracted partner was sent (and not the
+   * partner itself): the status went back to Sent and the form should open
+   * the review-then-send screen with the "updated booking" email.
+   */
+  subcontractUpdateRequired: boolean;
 }
 
 /** cancelAssignment() either deletes the trip outright (free cancellation) or keeps it with the assignment cleared. */
@@ -118,6 +134,8 @@ export class CancelAssignmentResponseEntity {
   ok: boolean;
   deleted?: boolean;
   trip?: TripEntity;
+  /** Set when the cancellation notice to the partner (email) or their driver (WhatsApp) failed to send — the cancellation itself still went through. */
+  notifyWarning?: string | null;
 }
 
 /** Shared response shape for advanceStep()/notify() — `skipped` is only present when tracking is off. */

@@ -23,6 +23,8 @@ export interface TripBeforeEdit {
   pickupAt: Date;
   driverId: string | null;
   partnerId: string | null;
+  /** See TripEditIntent.directPartnerId below. */
+  directPartnerId: string | null;
   priceEur: number | null;
   partnerRateEur: number | null;
   pocName: string | null;
@@ -40,6 +42,12 @@ export interface TripBeforeEdit {
 export interface TripEditIntent {
   driverId: string | null;
   partnerId: string | null;
+  /**
+   * The Partner company this booking is farmed out to with no driver of
+   * theirs picked (mutually exclusive with `partnerId`, which points at one
+   * of that company's own drivers) — see Trip.directPartnerId's comment.
+   */
+  directPartnerId: string | null;
   subContractor: boolean;
   tracking: boolean;
   priceEur: number | null;
@@ -96,10 +104,14 @@ export function decideAssignment(
   options: DecideOptions,
 ): AssignmentDecision {
   // A sub-contract with no partner chauffeur has no driver to send anything
-  // to: it is pinned at "Sent" rather than having its Send button re-armed.
+  // to: it is pinned at "Sent" rather than having its Send button re-armed —
+  // whether that's because nobody at all was named, or because a Partner
+  // *company* was named with no specific driver of theirs (directPartnerId).
   const locked = after.subContractor && !after.partnerId;
   const reassigned =
-    after.driverId !== before.driverId || after.partnerId !== before.partnerId;
+    after.driverId !== before.driverId ||
+    after.partnerId !== before.partnerId ||
+    after.directPartnerId !== before.directPartnerId;
 
   const decision: Omit<AssignmentDecision, 'refusal'> = {
     locked,

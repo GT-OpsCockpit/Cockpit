@@ -25,9 +25,6 @@ function validBase(overrides: Partial<ClientFormValues> = {}): ClientFormValues 
     vatNumber: '',
     email: '',
     billing: ClientEntityBilling.ACCOUNT,
-    pocName: '',
-    pocPhone: '',
-    pocEmail: '',
     eventCountry: '',
     eventArea: '',
     eventStartDate: '',
@@ -89,22 +86,16 @@ describe('clientFormSchema — the shared rules reach the right fields', () => {
 })
 
 describe('clientFormSchema — formats, which do not depend on the account type', () => {
-  it('accepts a blank email/pocEmail (both optional)', () => {
-    expect(clientFormSchema.safeParse(validBase({ email: '', pocEmail: '' })).success).toBe(true)
+  it('accepts a blank email (optional)', () => {
+    expect(clientFormSchema.safeParse(validBase({ email: '' })).success).toBe(true)
   })
 
   it('rejects a malformed email', () => {
     expect(issues(validBase({ email: 'not-an-email' })).map((i) => i.path)).toContain('email')
   })
 
-  it('rejects a malformed pocEmail', () => {
-    expect(issues(validBase({ pocEmail: 'not-an-email' })).map((i) => i.path)).toContain('pocEmail')
-  })
-
-  it('accepts a well-formed email and pocEmail', () => {
-    const result = clientFormSchema.safeParse(
-      validBase({ email: 'sophie.martin@example.com', pocEmail: 'poc@example.com' }),
-    )
+  it('accepts a well-formed email', () => {
+    const result = clientFormSchema.safeParse(validBase({ email: 'sophie.martin@example.com' }))
     expect(result.success).toBe(true)
   })
 

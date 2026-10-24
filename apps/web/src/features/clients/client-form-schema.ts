@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { ClientEntityBilling, ClientEntityClientType } from '@cockpit/shared/api'
-import { optionalEmail, optionalPhone } from '@/lib/contact-fields'
+import { optionalEmail } from '@/lib/contact-fields'
 import { addRequiredFieldIssues } from '@/lib/required-fields-issues'
 
 /**
@@ -8,6 +8,14 @@ import { addRequiredFieldIssues } from '@/lib/required-fields-issues'
  * or phone; which fields apply at all is the shared rule the API reads too
  * (record-requirements.js), so there is nothing left here to keep in step by
  * hand.
+ *
+ * No pocName/pocPhone/pocEmail here on purpose — that single legacy POC field
+ * on the Client record has been retired from this form in favor of the
+ * per-client contact list (ClientContactsSection, "Points of contact"), which
+ * is also the only thing a booking's own POC picker reads
+ * (trip-form-fields.tsx). Having both a single legacy field here *and* the
+ * contact list below it was exactly the confusion that caused a contact typed
+ * into this field to never show up as a bookable POC.
  */
 export const clientFormSchema = z
   .object({
@@ -24,9 +32,6 @@ export const clientFormSchema = z
     vatNumber: z.string().optional(),
     email: optionalEmail(),
     billing: z.enum([ClientEntityBilling.ACCOUNT, ClientEntityBilling.CASH, ClientEntityBilling.CARD]),
-    pocName: z.string().optional(),
-    pocPhone: optionalPhone(),
-    pocEmail: optionalEmail(),
     eventCountry: z.string().optional(),
     eventArea: z.string().optional(),
     eventStartDate: z.string().optional(),
@@ -51,9 +56,6 @@ export function clientFormDefaults(): ClientFormValues {
     vatNumber: '',
     email: '',
     billing: ClientEntityBilling.ACCOUNT,
-    pocName: '',
-    pocPhone: '',
-    pocEmail: '',
     eventCountry: '',
     eventArea: '',
     eventStartDate: '',

@@ -18,7 +18,7 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
     }
   }
 
-  async send(phone: string, body: string): Promise<void> {
+  async send(phone: string, body: string, mediaUrl?: string): Promise<void> {
     if (!this.client || !this.from) {
       throw new InternalServerErrorException(
         'WhatsApp is not configured (TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/TWILIO_WHATSAPP_FROM)',
@@ -31,6 +31,7 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
       from: this.from,
       to: `whatsapp:${phone}`,
       body,
+      ...(mediaUrl ? { mediaUrl: [mediaUrl] } : {}),
     });
   }
 }

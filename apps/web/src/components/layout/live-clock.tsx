@@ -7,11 +7,6 @@ import { Clock } from 'lucide-react'
  * the rest of the topbar (and vice versa — nav/menu state changes don't
  * restart this timer).
  *
- * Shown from 2xl up only: the topbar's middle block is pinned to the page
- * content's width (80rem) and centred, which leaves the margins to the
- * wordmark and this clock — below ~1530px there is no margin left to put it
- * in without pushing that block off-centre.
- *
  * Always shows Paris time first — the ops team runs on it regardless of
  * where an individual viewer happens to be — and, only when the browser's
  * own time zone differs from Paris (someone travelling, or a subcontractor
@@ -39,7 +34,7 @@ export function LiveClock() {
   const localCity = localZone.split('/').at(-1)?.replace(/_/g, ' ') ?? localZone
 
   return (
-    <div className="text-muted-foreground hidden flex-col items-end gap-0.5 text-xs whitespace-nowrap tabular-nums 2xl:flex">
+    <div className="text-muted-foreground -ml-[15px] flex flex-col items-start gap-0.5 text-xs whitespace-nowrap tabular-nums">
       {isParisZone ? (
         <span className="flex items-center gap-1.5">
           <Clock className="size-3.5" />

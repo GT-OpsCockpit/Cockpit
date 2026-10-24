@@ -76,6 +76,25 @@ describe('parisHint', () => {
   })
 })
 
+describe('nameboardApplies', () => {
+  it('is off for an ordinary address pickup', () => {
+    expect(tripFormRules(values()).nameboardApplies).toBe(false)
+  })
+
+  it('is on for an airport pickup, by IATA code or by the live flag', () => {
+    expect(tripFormRules(values({ pickupIata: 'NCE' })).nameboardApplies).toBe(true)
+    expect(tripFormRules(values({ pickupIata: '', pickupIsAirport: true })).nameboardApplies).toBe(true)
+  })
+
+  it('is on for a train station pickup', () => {
+    expect(tripFormRules(values({ pickupIsTrainStation: true })).nameboardApplies).toBe(true)
+  })
+
+  it('ignores a drop-off airport — only the pickup side is a meet-and-greet', () => {
+    expect(tripFormRules(values({ dropoffIata: 'CDG' })).nameboardApplies).toBe(false)
+  })
+})
+
 describe('dropoffApplies / showAirportInfo', () => {
   it('drops the drop-off for an at-disposal booking — the car stays with the passenger', () => {
     expect(tripFormRules(values({ service: TripEntityService.ASD })).dropoffApplies).toBe(false)

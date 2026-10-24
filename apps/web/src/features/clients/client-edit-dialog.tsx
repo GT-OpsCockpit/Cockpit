@@ -10,6 +10,7 @@ import { PermanentDeleteAction } from '@/components/permanent-delete-action'
 import { usePermission } from '@/features/auth/use-permission'
 import { PermissionWarning } from '@/components/permission-warning'
 import { ClientFormFields } from './client-form-fields'
+import { ClientContactsSection } from './client-contacts-section'
 import { clientFormDefaults, clientFormSchema, type ClientFormValues } from './client-form-schema'
 import { clientToFormValues, toUpdateClientDto } from './client-form-mapping'
 
@@ -45,6 +46,7 @@ export function ClientEditDialog({
       onOpenChange={onOpenChange}
       title={`Edit account${client ? ` — ${client.ref}` : ''}`}
       record={record}
+      layout="scroll-body"
       submitDisabled={!canEdit}
       actions={
         client && (
@@ -60,6 +62,12 @@ export function ClientEditDialog({
     >
       {!canEdit && <PermissionWarning>Editing an account requires the Admin role.</PermissionWarning>}
       <ClientFormFields form={record.form} disabled={!canEdit} />
+      {client && (
+        <>
+          <div className="border-t" />
+          <ClientContactsSection clientRef={client.ref} />
+        </>
+      )}
     </RecordFormDialog>
   )
 }

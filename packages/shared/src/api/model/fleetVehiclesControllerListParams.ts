@@ -27,6 +27,17 @@ availableOnly?: boolean;
  */
 compatibleWith?: string;
 /**
+ * Vehicles page "In house" filter: true = internal fleet only, false = external (partner) fleet only.
+ */
+isLocal?: boolean;
+/**
+ * Vehicles page "Company" filter — the external vehicle's linked Partner.
+ */
+partnerId?: string;
+countryCode?: string;
+area?: string;
+model?: string;
+/**
  * @minimum 1
  */
 page?: number;

@@ -74,6 +74,36 @@ export class ListDriversQueryDto {
   @IsString()
   tripDropoffLocation?: string;
 
+  /**
+   * Drivers page "In house" filter — distinct from `partnersOnly` above,
+   * which still keys off the legacy `company` field for the pickers that
+   * already relied on it (vehicle linking, invoicing). This one matches the
+   * app's actual in-house/partner split (isPartner, driver-status.ts): true
+   * = no partnerId (in-house), false = has a partnerId (partner driver).
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  inHouse?: boolean;
+
+  /** Drivers page "Company" filter — the driver's linked Partner. */
+  @IsOptional()
+  @IsString()
+  partnerId?: string;
+
+  @IsOptional()
+  @IsString()
+  countryCode?: string;
+
+  @IsOptional()
+  @IsString()
+  area?: string;
+
+  /** Drivers/Partners page "Vehicle category" filter — the reserved fleet vehicle's Category name. */
+  @IsOptional()
+  @IsString()
+  category?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

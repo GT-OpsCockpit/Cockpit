@@ -4,7 +4,7 @@ import { LiveClock } from './live-clock'
 
 // Asserted TZ-agnostically (no TZ is pinned for the suite, see vite.config.ts):
 // the contract is the shape and the ticking, not one machine's abbreviation.
-const CLOCK_TEXT = /^\d{2}:\d{2}:\d{2} \S+$/
+const CLOCK_TEXT = /^\d{2}:\d{2} \S+/
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -20,16 +20,13 @@ describe('LiveClock', () => {
   it('renders the current time with a zone label', () => {
     render(<LiveClock />)
     expect(screen.getByText(CLOCK_TEXT)).toBeInTheDocument()
-    expect(screen.getByText(/^14:32:07 /)).toBeInTheDocument()
+    expect(screen.getByText(/^14:32 /)).toBeInTheDocument()
   })
 
-  it('ticks forward every second', () => {
+  it('ticks forward with the minute', () => {
     render(<LiveClock />)
-    act(() => void vi.advanceTimersByTime(1000))
-    expect(screen.getByText(/^14:32:08 /)).toBeInTheDocument()
-
-    act(() => void vi.advanceTimersByTime(2000))
-    expect(screen.getByText(/^14:32:10 /)).toBeInTheDocument()
+    act(() => void vi.advanceTimersByTime(60_000))
+    expect(screen.getByText(/^14:33 /)).toBeInTheDocument()
   })
 
   it('clears its interval on unmount, so no timer outlives the component', () => {

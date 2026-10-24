@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { TripEntity, UpdateTripResponseEntity } from '@cockpit/shared/api'
 import { getTripsControllerListQueryKey, useTripsControllerUpdate } from '@cockpit/shared/api'
 import { toast } from 'sonner'
@@ -8,12 +9,13 @@ import { PermissionWarning } from '@/components/permission-warning'
 import { TripFormFields } from './trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
 import { toUpdateTripDto, tripToFormValues } from './trip-form-mapping'
-import { openSubcontractEmailDraft } from './subcontract-email'
+import { SubcontractEmailDialog, type SubcontractEmailTarget } from './subcontract-email-dialog'
 
 /** What the save needs to know about the booking as it was *before* it — see submit(). */
 interface SavedEdit {
   response: UpdateTripResponseEntity
   outgoingPartnerRef?: string
+  outgoingDirectPartnerRef?: string
   wasFarmedOut: boolean
 }
 
@@ -25,6 +27,10 @@ export function BookingEditDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const updateTrip = useTripsControllerUpdate()
+  // Outlives the edit dialog closing (RecordFormDialog's `open` toggles off
+  // right after a successful save) — see SubcontractEmailDialog's doc
+  // comment on why this can no longer be a fire-and-forget mailto: draft.
+  const [emailTarget, setEmailTarget] = useState<SubcontractEmailTarget | null>(null)
   // Mirrors the legacy's openEditTripModal: whether to notify the driver via WhatsApp
   // after saving is never a user choice here — it's "yes" iff the trip already had a
   // driver assigned before this edit (hence the "Confirm and send" vs "Confirm" label).
@@ -48,59 +54,74 @@ export function BookingEditDialog({
       // partner the booking is being taken away from — by the time the PUT
       // returns, partnerRef no longer names them (common.js:2686).
       const outgoingPartnerRef = trip!.partner?.ref
+      const outgoingDirectPartnerRef = trip!.directPartner?.ref
       const wasFarmedOut = trip!.subContractor
       const response = await updateTrip.mutateAsync({
         ref: trip!.ref,
         data: toUpdateTripDto(values, { notifyDriver: hadDriver }),
       })
-      return { response, outgoingPartnerRef, wasFarmedOut }
+      return { response, outgoingPartnerRef, outgoingDirectPartnerRef, wasFarmedOut }
     },
     success: () => `Trip ${trip?.ref} updated.`,
     error: 'Error updating booking.',
     invalidate: [getTripsControllerListQueryKey()],
     close: () => onOpenChange(false),
-    onSuccess: async ({ response, outgoingPartnerRef, wasFarmedOut }, values) => {
+    onSuccess: async ({ response, outgoingPartnerRef, outgoingDirectPartnerRef, wasFarmedOut }, values) => {
       if (response.notifyWarning) toast.warning(response.notifyWarning)
       // Farmed out here: recap the mission to the partner. Taken back off
-      // them: tell them it's cancelled. Both are drafts, never sends.
-      if (!wasFarmedOut && values.subContractor) {
-        await openSubcontractEmailDraft(trip!.ref, 'assigned')
+      // them: tell them it's cancelled. Both open a review-then-send dialog —
+      // nothing is sent until the dispatcher clicks Send in it.
+      // …or handed to a different partner company: the new one is told too.
+      const directPartnerChanged =
+        !!values.directPartnerRef && values.directPartnerRef !== outgoingDirectPartnerRef
+      const partnerDriverChanged =
+        !values.subContractorNoDriver && !!values.partnerRef && values.partnerRef !== outgoingPartnerRef
+      if (values.subContractor && (!wasFarmedOut || directPartnerChanged || partnerDriverChanged)) {
+        setEmailTarget({ ref: trip!.ref, kind: 'assigned' })
       } else if (wasFarmedOut && !values.subContractor && outgoingPartnerRef) {
-        await openSubcontractEmailDraft(trip!.ref, 'cancelled', outgoingPartnerRef)
+        setEmailTarget({ ref: trip!.ref, kind: 'cancelled', partnerRef: outgoingPartnerRef })
+      } else if (response.subcontractUpdateRequired) {
+        // Same partner, but the job they were sent has changed: the status went
+        // back to Sent and they get the updated recap, with fresh Confirm/Decline
+        // buttons (the old email's links no longer work).
+        setEmailTarget({ ref: trip!.ref, kind: 'updated' })
       }
     },
     disabled: !trip || pastLockout,
   })
 
   return (
-    <RecordFormDialog
-      open={!!trip}
-      onOpenChange={onOpenChange}
-      title={`Edit booking${trip ? ` — ${trip.ref}` : ''}`}
-      record={record}
-      submitLabel={hadDriver ? 'Confirm and send' : 'Confirm'}
-      submitDisabled={pastLockout}
-      contentClassName="sm:max-w-4xl"
-      layout="scroll-body"
-    >
-      <div className="grid gap-4">
-        {pastLockout && (
-          <PermissionWarning>
-            This booking's pickup is already in the past — only an Admin can edit it.
-          </PermissionWarning>
-        )}
-        <TripFormFields
-          form={record.form}
-          trip={trip}
-          disabled={pastLockout}
-          priceDisabled={priceLockout}
-          priceDisabledReason={
-            priceLockout && !pastLockout
-              ? 'Changing the Retail net / Partner rate net requires the Admin role.'
-              : undefined
-          }
-        />
-      </div>
-    </RecordFormDialog>
+    <>
+      <RecordFormDialog
+        open={!!trip}
+        onOpenChange={onOpenChange}
+        title={`Edit booking${trip ? ` — ${trip.ref}` : ''}`}
+        record={record}
+        submitLabel={hadDriver ? 'Confirm and send' : 'Confirm'}
+        submitDisabled={pastLockout}
+        contentClassName="sm:max-w-6xl"
+        layout="scroll-body"
+      >
+        <div className="grid gap-4">
+          {pastLockout && (
+            <PermissionWarning>
+              This booking's pickup is already in the past — only an Admin can edit it.
+            </PermissionWarning>
+          )}
+          <TripFormFields
+            form={record.form}
+            trip={trip}
+            disabled={pastLockout}
+            priceDisabled={priceLockout}
+            priceDisabledReason={
+              priceLockout && !pastLockout
+                ? 'Changing the Retail net / Partner rate net requires the Admin role.'
+                : undefined
+            }
+          />
+        </div>
+      </RecordFormDialog>
+      <SubcontractEmailDialog target={emailTarget} onOpenChange={(open) => !open && setEmailTarget(null)} />
+    </>
   )
 }

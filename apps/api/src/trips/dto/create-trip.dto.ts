@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Min,
   MinLength,
 } from 'class-validator';
 import { Service, Billing } from '../../../generated/prisma/enums';
@@ -102,6 +103,7 @@ export class CreateTripDto {
 
   @IsOptional()
   @IsInt()
+  @Min(0, { message: 'Buffer time cannot be negative.' })
   bufferTime?: number;
 
   @IsOptional()
@@ -116,6 +118,14 @@ export class CreateTripDto {
   @IsOptional()
   @IsString()
   nameboard?: string;
+
+  @IsOptional()
+  @IsString()
+  trainNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  trainObservation?: string;
 
   @IsOptional()
   @IsString()
@@ -141,6 +151,17 @@ export class CreateTripDto {
   @IsOptional()
   @IsString()
   partnerRef?: string;
+
+  /**
+   * A Partner company to farm the job out to with no specific driver of
+   * theirs picked yet — the "partenaire sans driver" case. Mutually
+   * exclusive with `partnerRef` above (TripsService rejects both being set):
+   * one names a driver on that company's roster, this names the company
+   * itself with nobody named on file.
+   */
+  @IsOptional()
+  @IsString()
+  directPartnerRef?: string;
 
   /** Manual ref override — 409 if it already exists. */
   @IsOptional()

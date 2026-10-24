@@ -12,6 +12,7 @@ export interface CreateDriverDto {
   lastName?: string;
   phone?: string;
   company?: string;
+  partnerRef?: string;
   area?: string;
   email?: string;
   eventsOnly?: boolean;

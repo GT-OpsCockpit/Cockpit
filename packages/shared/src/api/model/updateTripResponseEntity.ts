@@ -12,4 +12,5 @@ export interface UpdateTripResponseEntity {
   trip: TripEntity;
   /** @nullable */
   notifyWarning: string | null;
+  subcontractUpdateRequired: boolean;
 }

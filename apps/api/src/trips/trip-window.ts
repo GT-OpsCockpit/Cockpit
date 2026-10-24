@@ -189,7 +189,27 @@ export function tripWindow(
   if (window) where.pickupAt = window;
 
   if (query.hasPartner) where.partnerId = { not: null };
-  if (query.unbilled) where.invoiced = false;
+  if (query.unbilled) {
+    where.invoiced = false;
+    // Billable only once it can no longer be called off: a job sub-contracted
+    // to a partner company (no driver steps to mark it Done) becomes billable
+    // one minute after its pickup time, and one the partner declined never is.
+    const billable: Prisma.TripWhereInput[] = [
+      { partnerDeclinedAt: null },
+      {
+        OR: [
+          { directPartnerId: null },
+          { pickupAt: { lt: now.minus({ minutes: 1 }).toJSDate() } },
+        ],
+      },
+    ];
+    const existing = where.AND
+      ? Array.isArray(where.AND)
+        ? where.AND
+        : [where.AND]
+      : [];
+    where.AND = [...existing, ...billable];
+  }
 
   return where;
 }

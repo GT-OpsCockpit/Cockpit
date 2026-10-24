@@ -20,6 +20,8 @@ export interface DriverBaseEntity {
   /** @nullable */
   company: string | null;
   /** @nullable */
+  partnerId: string | null;
+  /** @nullable */
   email: string | null;
   area: string;
   eventsOnly: boolean;

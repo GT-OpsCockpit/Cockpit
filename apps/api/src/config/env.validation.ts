@@ -72,6 +72,33 @@ export class EnvironmentVariables {
   @IsString()
   SMTP_FROM?: string;
 
+  /**
+   * From address for the sub-contracted-partner emails (assign/unassign/
+   * cancel notices) — required by the requester to be contact@gt-ops.club
+   * specifically, distinct from SMTP_FROM (the OTP login mailer's own
+   * default), so a partner always sees the same sender whatever SMTP_FROM is
+   * set to. See docs/feature-requests/partner-companies.md §6.
+   */
+  @IsString()
+  PARTNER_MAILER_FROM: string = 'contact@gt-ops.club';
+
+  /**
+   * Public origin of this API, used to build the "Confirm booking" link in a
+   * sub-contracted partner's email. Defaults to the local dev server, which
+   * only the dispatcher's own machine can open.
+   */
+  @IsString()
+  PUBLIC_API_URL: string = 'http://localhost:3000';
+
+  /**
+   * Signs those links. Without it the email goes out with no buttons — never
+   * with a guessable default.
+   */
+  @IsOptional()
+  @IsString()
+  @MinLength(16)
+  PARTNER_LINK_SECRET?: string;
+
   @IsOptional()
   @IsString()
   TWILIO_ACCOUNT_SID?: string;

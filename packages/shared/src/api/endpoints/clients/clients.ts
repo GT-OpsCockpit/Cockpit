@@ -25,15 +25,21 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ClientContactEntity,
   ClientEntity,
   ClientListEntity,
   ClientsControllerListParams,
+  CreateClientContactDto,
   CreateClientDto,
   OkResponseEntity,
+  PriceListEntity,
   ReactivateDto,
   ReactivateResponseEntity,
   ReactivationCandidatesEntity,
+  ReorderClientContactsDto,
   SetActiveDto,
+  SetClientPriceListsDto,
+  UpdateClientContactDto,
   UpdateClientDto
 } from '../../model';
 
@@ -439,6 +445,551 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getClientsControllerSetActiveMutationOptions(options), queryClient);
+    }
+    export const getClientsControllerListPriceListsUrl = (ref: string,) => {
+
+
+
+
+  return `/api/clients/${ref}/price-lists`
+}
+
+export const clientsControllerListPriceLists = async (ref: string, options?: Parameters<typeof fetcher>[1]): Promise<PriceListEntity[]> => {
+
+  return fetcher<PriceListEntity[]>(getClientsControllerListPriceListsUrl(ref),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getClientsControllerListPriceListsQueryKey = (ref: string,) => {
+    return [
+    `/api/clients/${ref}/price-lists`
+    ] as const;
+    }
+
+
+export const getClientsControllerListPriceListsQueryOptions = <TData = Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError = unknown>(ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getClientsControllerListPriceListsQueryKey(ref);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof clientsControllerListPriceLists>>> = ({ signal }) => clientsControllerListPriceLists(ref, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ref !== null && ref !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ClientsControllerListPriceListsQueryResult = NonNullable<Awaited<ReturnType<typeof clientsControllerListPriceLists>>>
+export type ClientsControllerListPriceListsQueryError = unknown
+
+
+export function useClientsControllerListPriceLists<TData = Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError = unknown>(
+ ref: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof clientsControllerListPriceLists>>,
+          TError,
+          Awaited<ReturnType<typeof clientsControllerListPriceLists>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useClientsControllerListPriceLists<TData = Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError = unknown>(
+ ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof clientsControllerListPriceLists>>,
+          TError,
+          Awaited<ReturnType<typeof clientsControllerListPriceLists>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useClientsControllerListPriceLists<TData = Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError = unknown>(
+ ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useClientsControllerListPriceLists<TData = Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError = unknown>(
+ ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListPriceLists>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getClientsControllerListPriceListsQueryOptions(ref,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getClientsControllerSetPriceListsUrl = (ref: string,) => {
+
+
+
+
+  return `/api/clients/${ref}/price-lists`
+}
+
+export const clientsControllerSetPriceLists = async (ref: string,
+    setClientPriceListsDto: SetClientPriceListsDto, options?: Parameters<typeof fetcher>[1]): Promise<PriceListEntity[]> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+return fetcher<PriceListEntity[]>(getClientsControllerSetPriceListsUrl(ref),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(setClientPriceListsDto)
+  }
+);}
+
+
+
+
+
+export const getClientsControllerSetPriceListsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerSetPriceLists>>, TError,ClientsControllerSetPriceListsMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof clientsControllerSetPriceLists>>, TError,ClientsControllerSetPriceListsMutationVariables, TContext> => {
+
+const mutationKey = ['clientsControllerSetPriceLists'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clientsControllerSetPriceLists>>, ClientsControllerSetPriceListsMutationVariables> = (props) => {
+          const {ref,data} = props ?? {};
+
+          return  clientsControllerSetPriceLists(ref,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClientsControllerSetPriceListsMutationResult = NonNullable<Awaited<ReturnType<typeof clientsControllerSetPriceLists>>>
+    export type ClientsControllerSetPriceListsMutationBody = SetClientPriceListsDto
+    export type ClientsControllerSetPriceListsMutationError = unknown
+    export type ClientsControllerSetPriceListsMutationVariables = {ref: string;data: SetClientPriceListsDto}
+
+    export const useClientsControllerSetPriceLists = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerSetPriceLists>>, TError,ClientsControllerSetPriceListsMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof clientsControllerSetPriceLists>>,
+        TError,
+        ClientsControllerSetPriceListsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClientsControllerSetPriceListsMutationOptions(options), queryClient);
+    }
+    export const getClientsControllerListContactsUrl = (ref: string,) => {
+
+
+
+
+  return `/api/clients/${ref}/contacts`
+}
+
+export const clientsControllerListContacts = async (ref: string, options?: Parameters<typeof fetcher>[1]): Promise<ClientContactEntity[]> => {
+
+  return fetcher<ClientContactEntity[]>(getClientsControllerListContactsUrl(ref),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getClientsControllerListContactsQueryKey = (ref: string,) => {
+    return [
+    `/api/clients/${ref}/contacts`
+    ] as const;
+    }
+
+
+export const getClientsControllerListContactsQueryOptions = <TData = Awaited<ReturnType<typeof clientsControllerListContacts>>, TError = unknown>(ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListContacts>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getClientsControllerListContactsQueryKey(ref);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof clientsControllerListContacts>>> = ({ signal }) => clientsControllerListContacts(ref, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ref !== null && ref !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListContacts>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ClientsControllerListContactsQueryResult = NonNullable<Awaited<ReturnType<typeof clientsControllerListContacts>>>
+export type ClientsControllerListContactsQueryError = unknown
+
+
+export function useClientsControllerListContacts<TData = Awaited<ReturnType<typeof clientsControllerListContacts>>, TError = unknown>(
+ ref: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListContacts>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof clientsControllerListContacts>>,
+          TError,
+          Awaited<ReturnType<typeof clientsControllerListContacts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useClientsControllerListContacts<TData = Awaited<ReturnType<typeof clientsControllerListContacts>>, TError = unknown>(
+ ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListContacts>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof clientsControllerListContacts>>,
+          TError,
+          Awaited<ReturnType<typeof clientsControllerListContacts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useClientsControllerListContacts<TData = Awaited<ReturnType<typeof clientsControllerListContacts>>, TError = unknown>(
+ ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListContacts>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useClientsControllerListContacts<TData = Awaited<ReturnType<typeof clientsControllerListContacts>>, TError = unknown>(
+ ref: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof clientsControllerListContacts>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getClientsControllerListContactsQueryOptions(ref,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getClientsControllerAddContactUrl = (ref: string,) => {
+
+
+
+
+  return `/api/clients/${ref}/contacts`
+}
+
+export const clientsControllerAddContact = async (ref: string,
+    createClientContactDto: CreateClientContactDto, options?: Parameters<typeof fetcher>[1]): Promise<ClientContactEntity> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+return fetcher<ClientContactEntity>(getClientsControllerAddContactUrl(ref),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createClientContactDto)
+  }
+);}
+
+
+
+
+
+export const getClientsControllerAddContactMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerAddContact>>, TError,ClientsControllerAddContactMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof clientsControllerAddContact>>, TError,ClientsControllerAddContactMutationVariables, TContext> => {
+
+const mutationKey = ['clientsControllerAddContact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clientsControllerAddContact>>, ClientsControllerAddContactMutationVariables> = (props) => {
+          const {ref,data} = props ?? {};
+
+          return  clientsControllerAddContact(ref,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClientsControllerAddContactMutationResult = NonNullable<Awaited<ReturnType<typeof clientsControllerAddContact>>>
+    export type ClientsControllerAddContactMutationBody = CreateClientContactDto
+    export type ClientsControllerAddContactMutationError = unknown
+    export type ClientsControllerAddContactMutationVariables = {ref: string;data: CreateClientContactDto}
+
+    export const useClientsControllerAddContact = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerAddContact>>, TError,ClientsControllerAddContactMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof clientsControllerAddContact>>,
+        TError,
+        ClientsControllerAddContactMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClientsControllerAddContactMutationOptions(options), queryClient);
+    }
+    export const getClientsControllerReorderContactsUrl = (ref: string,) => {
+
+
+
+
+  return `/api/clients/${ref}/contacts/reorder`
+}
+
+export const clientsControllerReorderContacts = async (ref: string,
+    reorderClientContactsDto: ReorderClientContactsDto, options?: Parameters<typeof fetcher>[1]): Promise<ClientContactEntity[]> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+return fetcher<ClientContactEntity[]>(getClientsControllerReorderContactsUrl(ref),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reorderClientContactsDto)
+  }
+);}
+
+
+
+
+
+export const getClientsControllerReorderContactsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerReorderContacts>>, TError,ClientsControllerReorderContactsMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof clientsControllerReorderContacts>>, TError,ClientsControllerReorderContactsMutationVariables, TContext> => {
+
+const mutationKey = ['clientsControllerReorderContacts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clientsControllerReorderContacts>>, ClientsControllerReorderContactsMutationVariables> = (props) => {
+          const {ref,data} = props ?? {};
+
+          return  clientsControllerReorderContacts(ref,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClientsControllerReorderContactsMutationResult = NonNullable<Awaited<ReturnType<typeof clientsControllerReorderContacts>>>
+    export type ClientsControllerReorderContactsMutationBody = ReorderClientContactsDto
+    export type ClientsControllerReorderContactsMutationError = unknown
+    export type ClientsControllerReorderContactsMutationVariables = {ref: string;data: ReorderClientContactsDto}
+
+    export const useClientsControllerReorderContacts = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerReorderContacts>>, TError,ClientsControllerReorderContactsMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof clientsControllerReorderContacts>>,
+        TError,
+        ClientsControllerReorderContactsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClientsControllerReorderContactsMutationOptions(options), queryClient);
+    }
+    export const getClientsControllerUpdateContactUrl = (ref: string,
+    contactId: string,) => {
+
+
+
+
+  return `/api/clients/${ref}/contacts/${contactId}`
+}
+
+export const clientsControllerUpdateContact = async (ref: string,
+    contactId: string,
+    updateClientContactDto: UpdateClientContactDto, options?: Parameters<typeof fetcher>[1]): Promise<ClientContactEntity> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+return fetcher<ClientContactEntity>(getClientsControllerUpdateContactUrl(ref,contactId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateClientContactDto)
+  }
+);}
+
+
+
+
+
+export const getClientsControllerUpdateContactMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerUpdateContact>>, TError,ClientsControllerUpdateContactMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof clientsControllerUpdateContact>>, TError,ClientsControllerUpdateContactMutationVariables, TContext> => {
+
+const mutationKey = ['clientsControllerUpdateContact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clientsControllerUpdateContact>>, ClientsControllerUpdateContactMutationVariables> = (props) => {
+          const {ref,contactId,data} = props ?? {};
+
+          return  clientsControllerUpdateContact(ref,contactId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClientsControllerUpdateContactMutationResult = NonNullable<Awaited<ReturnType<typeof clientsControllerUpdateContact>>>
+    export type ClientsControllerUpdateContactMutationBody = UpdateClientContactDto
+    export type ClientsControllerUpdateContactMutationError = unknown
+    export type ClientsControllerUpdateContactMutationVariables = {ref: string;contactId: string;data: UpdateClientContactDto}
+
+    export const useClientsControllerUpdateContact = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerUpdateContact>>, TError,ClientsControllerUpdateContactMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof clientsControllerUpdateContact>>,
+        TError,
+        ClientsControllerUpdateContactMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClientsControllerUpdateContactMutationOptions(options), queryClient);
+    }
+    export const getClientsControllerDeleteContactUrl = (ref: string,
+    contactId: string,) => {
+
+
+
+
+  return `/api/clients/${ref}/contacts/${contactId}`
+}
+
+export const clientsControllerDeleteContact = async (ref: string,
+    contactId: string, options?: Parameters<typeof fetcher>[1]): Promise<OkResponseEntity> => {
+
+  return fetcher<OkResponseEntity>(getClientsControllerDeleteContactUrl(ref,contactId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getClientsControllerDeleteContactMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerDeleteContact>>, TError,ClientsControllerDeleteContactMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof clientsControllerDeleteContact>>, TError,ClientsControllerDeleteContactMutationVariables, TContext> => {
+
+const mutationKey = ['clientsControllerDeleteContact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clientsControllerDeleteContact>>, ClientsControllerDeleteContactMutationVariables> = (props) => {
+          const {ref,contactId} = props ?? {};
+
+          return  clientsControllerDeleteContact(ref,contactId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClientsControllerDeleteContactMutationResult = NonNullable<Awaited<ReturnType<typeof clientsControllerDeleteContact>>>
+
+    export type ClientsControllerDeleteContactMutationError = unknown
+    export type ClientsControllerDeleteContactMutationVariables = {ref: string;contactId: string}
+
+    export const useClientsControllerDeleteContact = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientsControllerDeleteContact>>, TError,ClientsControllerDeleteContactMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof clientsControllerDeleteContact>>,
+        TError,
+        ClientsControllerDeleteContactMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClientsControllerDeleteContactMutationOptions(options), queryClient);
     }
     export const getClientsControllerListReactivationCandidatesUrl = (ref: string,) => {
 

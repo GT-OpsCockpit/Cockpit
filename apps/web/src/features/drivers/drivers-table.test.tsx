@@ -18,9 +18,9 @@ afterEach(cleanup)
 const noop = { onEdit: vi.fn(), onUnavailability: vi.fn(), onToggleActive: vi.fn(), onUnlinkVehicle: vi.fn(), onNewBooking: vi.fn() }
 
 describe('DriversTable', () => {
-  it('shows a placeholder row in both groups when there are no drivers', () => {
+  it('shows a placeholder row when there are no drivers', () => {
     render(<DriversTable drivers={[]} canReactivate {...noop} />)
-    expect(screen.getAllByText('No records to display')).toHaveLength(2)
+    expect(screen.getAllByText('No records to display')).toHaveLength(1)
   })
 
   it('shows a filtered-empty state with a working reset action when filters are active', () => {
@@ -28,24 +28,21 @@ describe('DriversTable', () => {
     render(<DriversTable drivers={[]} canReactivate {...noop} hasActiveFilters onResetFilters={onResetFilters} />)
 
     const resetButtons = screen.getAllByRole('button', { name: 'Reset filters' })
-    expect(resetButtons).toHaveLength(2)
+    expect(resetButtons).toHaveLength(1)
     expect(screen.queryByText('No records to display')).not.toBeInTheDocument()
 
     fireEvent.click(resetButtons[0])
     expect(onResetFilters).toHaveBeenCalledOnce()
   })
 
-  it('splits an internal driver into Drivers and a company driver into Partners', () => {
+  it('lists in-house and partner drivers in the same table', () => {
     const chauffeur = baseDriver({ ref: 'D-FR-INT-001', company: null })
     const partner = baseDriver({ ref: 'D-US-LO-UBE-001', company: 'Uber', name: 'Uber Ops' })
     render(<DriversTable drivers={[chauffeur, partner]} canReactivate {...noop} />)
 
-    const chauffeursGroup = screen.getByText('Drivers').closest('div')!
-    const partnersGroup = screen.getByText('Partners').closest('div')!
-    expect(within(chauffeursGroup).getByText('D-FR-INT-001')).toBeInTheDocument()
-    expect(within(chauffeursGroup).queryByText('D-US-LO-UBE-001')).not.toBeInTheDocument()
-    expect(within(partnersGroup).getByText('D-US-LO-UBE-001')).toBeInTheDocument()
-    expect(within(partnersGroup).queryByText('D-FR-INT-001')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('table')).toHaveLength(1)
+    expect(screen.getByText('D-FR-INT-001')).toBeInTheDocument()
+    expect(screen.getByText('D-US-LO-UBE-001')).toBeInTheDocument()
   })
 
   // The row is greyed and badged for all three reasons the legacy greyed it
@@ -88,10 +85,10 @@ describe('DriversTable', () => {
     })
   })
 
-  it('renders the company next to the name only for a partner', () => {
+  it('shows the company in its own column for a partner', () => {
     const partner = baseDriver({ ref: 'D-US-LO-UBE-001', company: 'Uber' })
     render(<DriversTable drivers={[partner]} canReactivate {...noop} />)
-    expect(screen.getByText('(Uber)')).toBeInTheDocument()
+    expect(screen.getByText('Uber')).toBeInTheDocument()
   })
 
   it('dims an inactive driver and offers Reactivate instead of Deactivate', () => {
@@ -212,17 +209,17 @@ describe('DriversTable', () => {
 // showed nowhere at all.
 describe('DriversTable — Country', () => {
   const firstRow = () => within(screen.getAllByRole('table')[0]).getAllByRole('row')[1]
-  // Ref | Country | Name | Phone | Email | Area | Unavailability | Action
+  // Ref | Name | Country | Area | Company | Phone | Email | Unavailability | Action
   const cell = (index: number) => within(firstRow()).getAllByRole('cell')[index]
 
   it('spells the country out, the same way the Fleet list does', () => {
     render(<DriversTable drivers={[baseDriver({ countryCode: 'FR' })]} canReactivate {...noop} />)
-    expect(cell(1)).toHaveTextContent('France (FR)')
+    expect(cell(2)).toHaveTextContent('France')
   })
 
   it('says "—" in the Country cell itself for a driver with no country on file', () => {
     render(<DriversTable drivers={[baseDriver({ countryCode: null })]} canReactivate {...noop} />)
-    expect(cell(1)).toHaveTextContent('—')
+    expect(cell(2)).toHaveTextContent('—')
   })
 })
 
@@ -232,18 +229,17 @@ describe('DriversTable — Country', () => {
 // that answers "is this ours or a sub-contractor's?" was blank exactly when
 // the answer was "ours".
 describe('DriversTable — In-house', () => {
-  // A driver carrying a Company is a partner, and lands in the second table.
-  const nameCell = (table: number) =>
-    within(within(screen.getAllByRole('table')[table]).getAllByRole('row')[1]).getAllByRole('cell')[2]
+  // One table: the Company column (5th cell) answers "ours or a sub-contractor's?".
+  const companyCell = () => within(within(screen.getByRole('table')).getAllByRole('row')[1]).getAllByRole('cell')[4]
 
   it('marks a driver with no company as In-house', () => {
     render(<DriversTable drivers={[baseDriver({ company: null })]} canReactivate {...noop} />)
-    expect(nameCell(0)).toHaveTextContent('In-house')
+    expect(companyCell()).toHaveTextContent('In-house')
   })
 
   it('names the company instead when there is one', () => {
     render(<DriversTable drivers={[baseDriver({ company: 'Riviera Cars' })]} canReactivate {...noop} />)
-    expect(nameCell(1)).toHaveTextContent('Riviera Cars')
-    expect(nameCell(1)).not.toHaveTextContent('In-house')
+    expect(companyCell()).toHaveTextContent('Riviera Cars')
+    expect(companyCell()).not.toHaveTextContent('In-house')
   })
 })

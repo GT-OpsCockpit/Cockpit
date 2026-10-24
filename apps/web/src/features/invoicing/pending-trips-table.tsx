@@ -33,7 +33,19 @@ export function PendingTripsTable({
 }) {
   return (
     <TableCard>
-      <Table>
+      <Table className="table-fixed">
+        <colgroup>
+          <col className="w-[8%]" />
+          <col className="w-[9%]" />
+          <col className="w-[11%]" />
+          <col className="w-[26%]" />
+          <col className="w-[8%]" />
+          <col className="w-[9%]" />
+          <col className="w-[6%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+          <col className="w-[7%]" />
+        </colgroup>
         <TableHeader>
           <TableRow>
             <TableHead>Date</TableHead>

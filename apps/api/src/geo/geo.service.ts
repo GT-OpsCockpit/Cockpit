@@ -14,6 +14,7 @@ import { normalizeSearch } from '../common/utils/normalize-search';
 import {
   simplifyAddress,
   isAirportResult,
+  isTrainStationResult,
   extractIata,
   NominatimResult,
 } from './nominatim.util';
@@ -81,7 +82,9 @@ export class GeoService {
       lon,
       displayName: simplifyAddress(r0),
       countryCode: r0.address?.country_code?.toUpperCase() ?? null,
+      postalCode: r0.address?.postcode ?? null,
       isAirport: isAirportResult(r0),
+      isTrainStation: isTrainStationResult(r0),
       iata: extractIata(r0),
     };
   }
@@ -110,12 +113,35 @@ export class GeoService {
             lon: parseFloat(r.lon),
             tz,
             countryCode: r.address?.country_code?.toUpperCase() ?? null,
+            postalCode: r.address?.postcode ?? null,
             isAirport: isAirportResult(r),
+            isTrainStation: isTrainStationResult(r),
             iata: extractIata(r),
           };
         })
         .filter((r) => r.tz);
-      return { results: mapped };
+      // A single real-world place — a big station, an airport — often comes
+      // back from Nominatim as several separate hits that all simplify down
+      // to the exact same displayName (an entrance, a platform, the nearby
+      // bike parking, a bus stop sharing the station's name…). Only some of
+      // those carry the railway/aeroway tag, so picking whichever happened
+      // to be selected by name risked landing on an untagged one — e.g.
+      // "Gare du Nord, Paris, France" resolving to its bicycle parking
+      // (class: amenity) instead of the station entrance (class: railway)
+      // that shares the identical simplified name. Deduping by displayName
+      // and keeping the classified hit when one exists makes the dropdown
+      // show one, unambiguous "Gare du Nord" — the one that is a station.
+      const byDisplayName = new Map<string, (typeof mapped)[number]>();
+      for (const r of mapped) {
+        const existing = byDisplayName.get(r.displayName);
+        if (
+          !existing ||
+          ((r.isAirport || r.isTrainStation) && !(existing.isAirport || existing.isTrainStation))
+        ) {
+          byDisplayName.set(r.displayName, r);
+        }
+      }
+      return { results: [...byDisplayName.values()] };
     } catch (err) {
       this.logger.warn(`[geocode-search] failed: ${(err as Error).message}`);
       throw new BadGatewayException(

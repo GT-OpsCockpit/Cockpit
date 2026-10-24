@@ -6,6 +6,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { DateTime } from 'luxon';
 import { randomUUID } from 'node:crypto';
 import { basename, extname } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,15 +22,27 @@ import {
 } from './nameboard-upload.config';
 import { StorageService } from '../common/storage/storage.service';
 import { CompanyService } from '../company/company.service';
+import { PartnerMailerService } from '../common/mailer/partner-mailer.service';
+import { ConfigService } from '@nestjs/config';
+import type { EnvironmentVariables } from '../config/env.validation';
+import {
+  buildAvailableMailto,
+  buildDeclineMailto,
+  buildPartnerEmailHtml,
+  signPartnerLink,
+  verifyPartnerLink,
+} from './partner-link.util';
 import {
   buildCanceledSubcontractEmail,
   buildSubcontractEmail,
+  type TripForSubcontractEmail,
 } from './subcontract-email.util';
 import {
   SubcontractEmailKind,
   SubcontractEmailQueryDto,
 } from './dto/subcontract-email-query.dto';
 import { SubcontractEmailEntity } from './dto/subcontract-email.entity';
+import { SendSubcontractEmailDto } from './dto/send-subcontract-email.dto';
 import { compatibleFleetCategories } from '../common/constants/vehicle-compatibility';
 import {
   fleetVehicleEffectivelyActiveFilter,
@@ -49,10 +62,19 @@ import {
 import { MESSAGES } from '../common/constants/messages';
 import {
   driverDisplayName,
+  driverLabel,
+  currentStep,
   type DriverStep,
   TRIP_STEP_ORDER,
+  isBeforeArrival,
 } from '@cockpit/shared';
-import { buildTripMessageContext } from './trip-message.util';
+import {
+  buildTripMessageContext,
+  driverFingerprint,
+  driverRelevantChange,
+  pocRelevantChange,
+  type TripForMessage,
+} from './trip-message.util';
 import { toPublicTrip } from './public-trip.mapper';
 import { tripWindow } from './trip-window';
 import { CreateTripDto } from './dto/create-trip.dto';
@@ -75,7 +97,13 @@ import {
 const TRIP_INCLUDE = {
   client: true,
   driver: true,
-  partner: true,
+  // Nests the real Partner (if any) this driver's roster belongs to, so
+  // resolvePartnerEmail can prefer the company's own contact email over the
+  // driver's — see Driver.partnerId's comment in schema.prisma.
+  partner: { include: { partner: true } },
+  // The Partner company itself, for a booking farmed out with no driver of
+  // theirs picked (Trip.directPartnerId) — see the notifyDirectPartner* helpers.
+  directPartner: true,
   vehicleType: true,
   fleetVehicle: { include: { category: true } },
   steps: true,
@@ -87,12 +115,13 @@ type FleetVehicleWithCategory = Prisma.FleetVehicleGetPayload<{
   include: typeof FLEET_VEHICLE_INCLUDE;
 }>;
 
+// null = the step is recorded but sends nothing to the POC.
 const STEP_MESSAGE_KEY: Record<
   DriverStep,
-  'accepted' | 'enroute' | 'arrived' | 'onboard' | 'dropped'
+  'arrived' | 'onboard' | 'dropped' | null
 > = {
-  ACCEPTED: 'accepted',
-  ENROUTE: 'enroute',
+  ACCEPTED: null,
+  ENROUTE: null,
   ARRIVED: 'arrived',
   ONBOARD: 'onboard',
   DROPPED: 'dropped',
@@ -103,6 +132,7 @@ function toBeforeEdit(trip: {
   pickupAt: Date;
   driverId: string | null;
   partnerId: string | null;
+  directPartnerId: string | null;
   priceEur: Prisma.Decimal | null;
   partnerRateEur: Prisma.Decimal | null;
   pocName: string | null;
@@ -114,6 +144,7 @@ function toBeforeEdit(trip: {
     pickupAt: trip.pickupAt,
     driverId: trip.driverId,
     partnerId: trip.partnerId,
+    directPartnerId: trip.directPartnerId,
     priceEur: trip.priceEur ? trip.priceEur.toNumber() : null,
     partnerRateEur: trip.partnerRateEur ? trip.partnerRateEur.toNumber() : null,
     pocName: trip.pocName,
@@ -139,6 +170,8 @@ export class TripsService {
     private readonly realtime: RealtimeService,
     private readonly company: CompanyService,
     private readonly storage: StorageService,
+    private readonly partnerMailer: PartnerMailerService,
+    private readonly config: ConfigService<EnvironmentVariables, true>,
   ) {}
 
   list(query: ListTripsQueryDto): Promise<TripEntity[]> {
@@ -188,6 +221,12 @@ export class TripsService {
   async create(dto: CreateTripDto): Promise<TripEntity> {
     const { data, client, driverId } = await this.resolveTripInputs(dto);
 
+    if (dto.subContractor && dto.partnerRef && dto.directPartnerRef) {
+      throw new BadRequestException(
+        'A booking can be sub-contracted to a partner driver (partnerRef) or straight to the partner company (directPartnerRef), not both.',
+      );
+    }
+
     const partner =
       dto.subContractor && dto.partnerRef
         ? await this.prisma.driver.findUnique({
@@ -197,6 +236,18 @@ export class TripsService {
     if (dto.subContractor && dto.partnerRef && !partner) {
       throw new BadRequestException(
         `partnerRef "${dto.partnerRef}" does not match an existing driver`,
+      );
+    }
+
+    const directPartner =
+      dto.subContractor && dto.directPartnerRef
+        ? await this.prisma.partner.findUnique({
+            where: { ref: dto.directPartnerRef },
+          })
+        : null;
+    if (dto.subContractor && dto.directPartnerRef && !directPartner) {
+      throw new BadRequestException(
+        `directPartnerRef "${dto.directPartnerRef}" does not match an existing partner`,
       );
     }
 
@@ -221,14 +272,24 @@ export class TripsService {
         driverId,
         subContractor: !!dto.subContractor,
         partnerId: partner?.id ?? null,
+        directPartnerId: directPartner?.id ?? null,
         dispatched: locked,
         steps: locked
           ? { create: [{ step: TripStepKind.TRANSMITTED }] }
           : undefined,
       },
     });
+
+    const created = await this.findByRefOrThrow(ref);
+    // The POC is told who their driver is as soon as one is assigned.
+    if (driverId && created.tracking) {
+      await this.messagePoc(created, 'assigned');
+    }
+    // Nothing is emailed here: the partner is told through the review-then-send
+    // dialog the form opens right after the save (subcontractEmail /
+    // sendSubcontractEmail), never before the dispatcher has validated it.
     this.realtime.emitTripChanged(ref);
-    return this.findByRefOrThrow(ref);
+    return created;
   }
 
   async update(
@@ -257,10 +318,17 @@ export class TripsService {
 
     const previousDriverId = trip.driverId;
     const previousPartnerId = trip.partnerId;
+    const previousDirectPartnerId = trip.directPartnerId;
 
     const { data, client, driverId } = await this.resolveTripInputs(dto, {
       previousDriverId,
     });
+
+    if (dto.subContractor && dto.partnerRef && dto.directPartnerRef) {
+      throw new BadRequestException(
+        'A booking can be sub-contracted to a partner driver (partnerRef) or straight to the partner company (directPartnerRef), not both.',
+      );
+    }
 
     let partnerId: string | null | undefined;
     if (dto.partnerRef !== undefined) {
@@ -276,24 +344,56 @@ export class TripsService {
       }
       partnerId = partner?.id ?? null;
     }
+    let directPartnerId: string | null | undefined;
+    let directPartner: { id: string; email: string; ref: string } | null = null;
+    if (dto.directPartnerRef !== undefined) {
+      directPartner = dto.directPartnerRef
+        ? await this.prisma.partner.findUnique({
+            where: { ref: dto.directPartnerRef },
+          })
+        : null;
+      if (dto.directPartnerRef && !directPartner) {
+        throw new BadRequestException(
+          `directPartnerRef "${dto.directPartnerRef}" does not match an existing partner`,
+        );
+      }
+      directPartnerId = directPartner?.id ?? null;
+    }
     // "Not sub-contracted" and "still has a partner" cannot both hold: the
     // Partner log would list the booking and its Bookings row would show the
     // partner as the driver. Un-ticking Sub-C is how a job is taken back
     // in-house, and the legacy client said so by sending an empty partnerRef
     // (quickUpdateTrip, common.js:2795-2802). Settled here so it holds whatever
-    // the payload leaves out.
+    // the payload leaves out. Same rule for the direct-partner-company case.
     const finalPartnerId =
       dto.subContractor === false
         ? null
         : partnerId !== undefined
           ? partnerId
           : previousPartnerId;
+    const finalDirectPartnerId =
+      dto.subContractor === false
+        ? null
+        : directPartnerId !== undefined
+          ? directPartnerId
+          : previousDirectPartnerId;
+    // A partner driver being (re)assigned takes over from a bare partner
+    // company, and vice versa — the payload only ever names one of the two.
+    const finalPartnerIdResolved =
+      finalDirectPartnerId && partnerId === undefined
+        ? null
+        : finalPartnerId;
+    const finalDirectPartnerIdResolved =
+      finalPartnerIdResolved && directPartnerId === undefined
+        ? null
+        : finalDirectPartnerId;
 
     const decision = decideAssignment(
       toBeforeEdit(trip),
       {
         driverId,
-        partnerId: finalPartnerId,
+        partnerId: finalPartnerIdResolved,
+        directPartnerId: finalDirectPartnerIdResolved,
         subContractor:
           dto.subContractor !== undefined
             ? dto.subContractor
@@ -327,10 +427,12 @@ export class TripsService {
         ...(dto.subContractor !== undefined && {
           subContractor: dto.subContractor,
         }),
-        // finalPartnerId already carries "unchanged" as the previous value, so
-        // writing it unconditionally is the same edit — and it is the one the
-        // sub-contract invariant above was applied to.
-        partnerId: finalPartnerId,
+        // finalPartnerIdResolved already carries "unchanged" as the previous
+        // value, so writing it unconditionally is the same edit — and it is
+        // the one the sub-contract invariant above was applied to. Same for
+        // finalDirectPartnerIdResolved, its bare-partner-company companion.
+        partnerId: finalPartnerIdResolved,
+        directPartnerId: finalDirectPartnerIdResolved,
         dispatched: decision.dispatched,
         ...(decision.reassigned && {
           assignmentCancelled: false,
@@ -340,8 +442,39 @@ export class TripsService {
       },
     });
 
-    if (decision.reassigned) {
+    const full = await this.findByRefOrThrow(newRef);
+    // Any change the driver would care about — a new driver/partner, a new
+    // vehicle, or anything in the mission details — invalidates what they were
+    // sent: the status goes back to the start and the job has to be sent again
+    // and accepted again. Once the driver is in position (or beyond) the job is
+    // under way, so only a change of driver/partner still restarts it.
+    const detailsChanged =
+      isBeforeArrival(trip) && driverRelevantChange(trip, full);
+    const statusReset = decision.reassigned || detailsChanged;
+    if (statusReset) {
       await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
+    }
+    // Edited after it was sent to the same partner: it reads "Updated - Send ?"
+    // (red) until the updated email goes out, then "Sent" until they Confirm or
+    // Decline. A new assignment or any reset also wipes a previous "Declined".
+    const awaitingUpdateEmail =
+      detailsChanged &&
+      !decision.reassigned &&
+      full.subContractor &&
+      (!!full.partnerId || !!full.directPartnerId);
+    if (
+      statusReset &&
+      (trip.partnerDeclinedAt ||
+        trip.partnerUpdatePending ||
+        awaitingUpdateEmail)
+    ) {
+      await this.prisma.trip.update({
+        where: { id: trip.id },
+        data: {
+          partnerDeclinedAt: null,
+          partnerUpdatePending: awaitingUpdateEmail,
+        },
+      });
     }
     if (decision.stampTransmitted) {
       await this.prisma.tripStep.create({
@@ -350,16 +483,45 @@ export class TripsService {
     }
 
     let notifyWarning: string | null = null;
-    if (decision.notifyPoc) {
-      const full = await this.findByRefOrThrow(newRef);
-      try {
-        await this.notifications.send(
-          full.pocPhone!,
-          MESSAGES.updated(buildTripMessageContext(full)),
-        );
-      } catch (err) {
-        notifyWarning = `Changes saved, but the update WhatsApp message failed to send: ${(err as Error).message}`;
+    // The POC hears about it too: a newly assigned driver, or a change to what
+    // they care about (pickup, drop-off, date/time, vehicle, pax) under the
+    // same driver.
+    const pocKind =
+      driverId && driverId !== previousDriverId
+        ? 'assigned'
+        : decision.notifyPoc && pocRelevantChange(trip, full)
+          ? 'updated'
+          : null;
+    if (pocKind && full.tracking) {
+      const failure = await this.messagePoc(full, pocKind);
+      if (failure) {
+        notifyWarning = `Changes saved, but the ${pocKind === 'assigned' ? 'assignment' : 'update'} WhatsApp message to the POC failed to send: ${failure}`;
       }
+    }
+
+    // Partner notifications — a driver/company actually lost this job, not
+    // merely an unrelated field edit. Only losing the job is handled here
+    // automatically. Gaining one (a partner driver or a bare partner company)
+    // never emails on its own: the form opens the review-then-send screen and
+    // nothing leaves until the dispatcher clicks Send.
+    const partnerWarnings: string[] = [];
+    if (previousPartnerId && previousPartnerId !== finalPartnerIdResolved) {
+      const warning = await this.notifyPartnerDriverCancelled(trip.partner, full);
+      if (warning) partnerWarnings.push(warning);
+    }
+    if (
+      previousDirectPartnerId &&
+      previousDirectPartnerId !== finalDirectPartnerIdResolved
+    ) {
+      const warning = await this.notifyDirectPartnerCancelled(
+        trip.directPartner,
+        full,
+      );
+      if (warning) partnerWarnings.push(warning);
+    }
+    if (partnerWarnings.length > 0) {
+      const joined = partnerWarnings.join(' ');
+      notifyWarning = notifyWarning ? `${notifyWarning} ${joined}` : joined;
     }
 
     this.realtime.emitTripChanged(newRef);
@@ -367,6 +529,9 @@ export class TripsService {
       ok: true,
       trip: await this.findByRefOrThrow(newRef),
       notifyWarning,
+      // Edited, same partner, already sub-contracted: the partner has to be
+      // told (and confirm again) — the form opens the review-then-send screen.
+      subcontractUpdateRequired: awaitingUpdateEmail,
     };
   }
 
@@ -447,7 +612,12 @@ export class TripsService {
     }
 
     if (Object.keys(data).length === 0) {
-      return { ok: true, trip, notifyWarning: null };
+      return {
+        ok: true,
+        trip,
+        notifyWarning: null,
+        subcontractUpdateRequired: false,
+      };
     }
 
     // The same rules the full PUT runs (see update()) — this route just cannot
@@ -464,6 +634,9 @@ export class TripsService {
       {
         driverId,
         partnerId: trip.partnerId,
+        // This route never touches the partner/direct-partner assignment —
+        // only driverRef/fleetRegNbr — so both are handed back unchanged.
+        directPartnerId: trip.directPartnerId,
         subContractor: trip.subContractor,
         tracking: trip.tracking,
         priceEur: before.priceEur,
@@ -478,8 +651,8 @@ export class TripsService {
     if (decision.refusal) throw toException(decision.refusal);
 
     data.dispatched = decision.dispatched;
-    // Only a change of assignee wipes the progress — a vehicle swap re-arms
-    // the Send button without restarting the pipeline.
+    // A new assignee also clears a cancelled assignment; the status reset for
+    // any driver-relevant change (vehicle included) happens just below.
     if (decision.reassigned) {
       data.assignmentCancelled = false;
       data.assignmentCancelledAt = null;
@@ -487,8 +660,20 @@ export class TripsService {
     }
 
     await this.prisma.trip.update({ where: { id: trip.id }, data });
-    if (decision.reassigned) {
+    const updated = await this.findByRefOrThrow(ref);
+    // Same reset as update(): a new driver or vehicle means the job has to be
+    // sent again and accepted again.
+    const statusReset =
+      decision.reassigned ||
+      (isBeforeArrival(trip) && driverRelevantChange(trip, updated));
+    if (statusReset) {
       await this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } });
+      if (trip.partnerDeclinedAt || trip.partnerUpdatePending) {
+        await this.prisma.trip.update({
+          where: { id: trip.id },
+          data: { partnerDeclinedAt: null, partnerUpdatePending: false },
+        });
+      }
     }
     if (decision.stampTransmitted) {
       await this.prisma.tripStep.create({
@@ -499,20 +684,26 @@ export class TripsService {
     // Non-blocking, exactly as in update(): the reassignment is saved either
     // way, the caller just learns the message didn't go out.
     let notifyWarning: string | null = null;
-    const updated = await this.findByRefOrThrow(ref);
-    if (decision.notifyPoc) {
-      try {
-        await this.notifications.send(
-          updated.pocPhone!,
-          MESSAGES.updated(buildTripMessageContext(updated)),
-        );
-      } catch (err) {
-        notifyWarning = `Assignment saved, but the update WhatsApp message failed to send: ${(err as Error).message}`;
+    const pocKind =
+      driverId && driverId !== trip.driverId
+        ? 'assigned'
+        : decision.notifyPoc && pocRelevantChange(trip, updated)
+          ? 'updated'
+          : null;
+    if (pocKind && updated.tracking) {
+      const failure = await this.messagePoc(updated, pocKind);
+      if (failure) {
+        notifyWarning = `Assignment saved, but the ${pocKind === 'assigned' ? 'assignment' : 'update'} WhatsApp message to the POC failed to send: ${failure}`;
       }
     }
 
     this.realtime.emitTripChanged(ref);
-    return { ok: true, trip: updated, notifyWarning };
+    return {
+      ok: true,
+      trip: await this.findByRefOrThrow(ref),
+      notifyWarning,
+      subcontractUpdateRequired: false,
+    };
   }
 
   async cancelAssignment(
@@ -520,6 +711,16 @@ export class TripsService {
     dto: CancelAssignmentDto,
   ): Promise<CancelAssignmentResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
+
+    // Automatic, unlike a fresh partner-driver dispatch — there's no "Send"
+    // click to gate this behind, and the whole point of cancelling is that
+    // whoever had the job stops expecting it. A partner's own driver gets
+    // both channels (they have a WhatsApp number); a bare partner company
+    // gets the email only.
+    const notifyWarning =
+      (await this.notifyPartnerDriverCancelled(trip.partner, trip)) ??
+      (await this.notifyDirectPartnerCancelled(trip.directPartner, trip));
+
     if (!dto.cancellationFee || dto.cancellationFee === CancellationFee.FREE) {
       await this.prisma.$transaction([
         this.prisma.tripStep.deleteMany({ where: { tripId: trip.id } }),
@@ -527,7 +728,7 @@ export class TripsService {
       ]);
       await this.tripRef.release(trip.ref);
       this.realtime.emitTripChanged(trip.ref);
-      return { ok: true, deleted: true };
+      return { ok: true, deleted: true, notifyWarning };
     }
 
     await this.prisma.$transaction([
@@ -536,6 +737,8 @@ export class TripsService {
         where: { id: trip.id },
         data: {
           driverId: null,
+          partnerDeclinedAt: null,
+          partnerUpdatePending: false,
           assignmentCancelled: true,
           assignmentCancelledAt: new Date(),
           cancellationFee: dto.cancellationFee,
@@ -543,7 +746,7 @@ export class TripsService {
       }),
     ]);
     this.realtime.emitTripChanged(ref);
-    return { ok: true, trip: await this.findByRefOrThrow(ref) };
+    return { ok: true, trip: await this.findByRefOrThrow(ref), notifyWarning };
   }
 
   async advanceStep(ref: string): Promise<TripActionResponseEntity> {
@@ -583,7 +786,8 @@ export class TripsService {
       return { ok: true, trip: await this.findByRefOrThrow(ref) };
     }
 
-    if (!trip.tracking) {
+    const messageKey = STEP_MESSAGE_KEY[nextStep];
+    if (!trip.tracking || !messageKey) {
       await this.prisma.tripStep.create({
         data: { tripId: trip.id, step: nextStep },
       });
@@ -595,9 +799,7 @@ export class TripsService {
       };
     }
 
-    const body = MESSAGES[STEP_MESSAGE_KEY[nextStep]](
-      buildTripMessageContext(trip),
-    );
+    const body = MESSAGES[messageKey](buildTripMessageContext(trip));
     try {
       await this.notifications.send(trip.pocPhone!, body);
     } catch (err) {
@@ -621,7 +823,8 @@ export class TripsService {
       );
     }
 
-    if (!trip.tracking) {
+    const messageKey = STEP_MESSAGE_KEY[step];
+    if (!trip.tracking || !messageKey) {
       await this.stampStep(trip.id, TripStepKind[step]);
       this.realtime.emitTripChanged(ref);
       return {
@@ -631,9 +834,7 @@ export class TripsService {
       };
     }
 
-    const body = MESSAGES[STEP_MESSAGE_KEY[step]](
-      buildTripMessageContext(trip),
-    );
+    const body = MESSAGES[messageKey](buildTripMessageContext(trip));
     try {
       await this.notifications.send(trip.pocPhone!, body);
     } catch (err) {
@@ -645,6 +846,23 @@ export class TripsService {
       ok: true,
       trip: toPublicTrip(await this.findByRefOrThrow(ref), true),
     };
+  }
+
+  /** One WhatsApp to the booking's POC; returns the failure reason, null when sent or when there is nobody to tell. */
+  private async messagePoc(
+    trip: TripForMessage & { pocPhone: string | null },
+    kind: 'assigned' | 'updated',
+  ): Promise<string | null> {
+    if (!trip.pocPhone) return null;
+    try {
+      await this.notifications.send(
+        trip.pocPhone,
+        MESSAGES[kind](buildTripMessageContext(trip)),
+      );
+      return null;
+    } catch (err) {
+      return (err as Error).message;
+    }
   }
 
   async dispatchDriver(ref: string): Promise<TripEntity> {
@@ -678,6 +896,80 @@ export class TripsService {
     }
     this.realtime.emitTripChanged(ref);
     return this.findByRefOrThrow(ref);
+  }
+
+  /**
+   * A Partner company's booking (no driver named) was taken back or
+   * reassigned elsewhere — automatic email, same "real send" as the
+   * assignment notice above; there's no driver to WhatsApp here either.
+   */
+  private async notifyDirectPartnerCancelled(
+    partner: { email: string } | null,
+    trip: TripForSubcontractEmail,
+  ): Promise<string | null> {
+    if (!partner?.email) return null;
+    const company = await this.company.get();
+    const draft = buildCanceledSubcontractEmail(
+      trip,
+      partner.email,
+      company.name ?? null,
+    );
+    try {
+      await this.partnerMailer.send(partner.email, draft.subject, draft.body);
+      return null;
+    } catch (err) {
+      return `the cancellation email to the partner failed to send: ${(err as Error).message}`;
+    }
+  }
+
+  /**
+   * A partner's own driver was taken off a booking (cancelled, or
+   * reassigned elsewhere) — unlike a bare partner company, this one has a
+   * real WhatsApp number, so both channels fire automatically: the driver is
+   * told directly, and their company gets the same cancellation email
+   * sendSubcontractEmail's manual "Send" button would have sent.
+   */
+  private async notifyPartnerDriverCancelled(
+    driver:
+      | ({
+          phone: string | null;
+          email: string | null;
+          partner: { email: string } | null;
+        } & Parameters<typeof driverDisplayName>[0])
+      | null,
+    trip: TripForSubcontractEmail & TripForMessage,
+  ): Promise<string | null> {
+    if (!driver) return null;
+    const warnings: string[] = [];
+    if (driver.phone) {
+      try {
+        await this.notifications.send(
+          driver.phone,
+          MESSAGES.driverCancellation(buildTripMessageContext(trip), {
+            name: driverDisplayName(driver),
+          }),
+        );
+      } catch (err) {
+        warnings.push(
+          `the cancellation WhatsApp to the driver failed to send: ${(err as Error).message}`,
+        );
+      }
+    }
+    const to = driver.partner?.email ?? driver.email;
+    if (to) {
+      const company = await this.company.get();
+      const draft = buildCanceledSubcontractEmail(trip, to, company.name ?? null);
+      try {
+        await this.partnerMailer.send(to, draft.subject, draft.body);
+      } catch (err) {
+        warnings.push(
+          `the cancellation email to the partner failed to send: ${(err as Error).message}`,
+        );
+      }
+    }
+    return warnings.length
+      ? `Assignment change saved, but ${warnings.join(' and ')}.`
+      : null;
   }
 
   async setNameboard(
@@ -850,11 +1142,311 @@ export class TripsService {
       const company = await this.company.get();
       return buildCanceledSubcontractEmail(trip, to, company.name ?? null);
     }
-    return buildSubcontractEmail(trip, to);
+    return buildSubcontractEmail(
+      trip,
+      to,
+      query.kind === SubcontractEmailKind.UPDATED ? 'updated' : 'assigned',
+    );
+  }
+
+  /**
+   * Actually sends a partner notification, via SMTP from
+   * PARTNER_MAILER_FROM (contact@gt-ops.club) — the real send behind the
+   * "Send" button on the preview `subcontractEmail` above builds. Re-resolves
+   * `to` itself rather than trusting the client, exactly like `subcontractEmail`
+   * does; only `subject`/`body` come from the caller, since those are what the
+   * dispatcher actually reviewed (and may have edited) in the preview.
+   */
+  async sendSubcontractEmail(
+    ref: string,
+    dto: SendSubcontractEmailDto,
+  ): Promise<{ ok: true; to: string }> {
+    const trip = await this.findByRefOrThrow(ref);
+    const to = await this.resolvePartnerEmail(trip, dto.partnerRef);
+    if (!to) {
+      throw new BadRequestException(
+        'No email address on file for this partner — nothing was sent.',
+      );
+    }
+    // The mission recap carries two buttons — "Confirm booking" (one click
+    // moves the booking to Confirmed) and "Decline" (marks it Declined and
+    // opens a pre-filled reply in the partner's own mail client). Only on the
+    // assignment / updated emails, and only when a link secret is configured.
+    // Both links are signed with the booking's current details, so they die
+    // with the next edit — the update email carries fresh ones.
+    const secret = this.config.get('PARTNER_LINK_SECRET', { infer: true });
+    const partnerKey = this.partnerKeyFor(trip, dto.partnerRef);
+    let html: string | undefined;
+    let text = dto.body;
+    if (
+      secret &&
+      partnerKey &&
+      dto.kind !== SubcontractEmailKind.CANCELLED &&
+      !trip.assignmentCancelled
+    ) {
+      const base = this.config
+        .get('PUBLIC_API_URL', { infer: true })
+        .replace(/\/+$/, '');
+      const token = signPartnerLink(
+        secret,
+        trip.ref,
+        partnerKey,
+        driverFingerprint(trip),
+      );
+      const link = (action: 'confirm' | 'decline') =>
+        `${base}/api/partner-links/${encodeURIComponent(trip.ref)}/${action}?t=${token}`;
+      html = buildPartnerEmailHtml(dto.body, {
+        confirmUrl: link('confirm'),
+        declineUrl: link('decline'),
+      });
+      text = `${dto.body}\n\nConfirm this booking: ${link('confirm')}\nDecline this booking: ${link('decline')}`;
+    }
+    await this.partnerMailer.send(to, dto.subject, text, html);
+    if (dto.kind === SubcontractEmailKind.UPDATED) {
+      // The updated recap is out: "Updated - Send ?" becomes "Sent", waiting
+      // for the partner's Confirm or Decline.
+      await this.prisma.trip.update({
+        where: { id: trip.id },
+        data: { partnerUpdatePending: false },
+      });
+      await this.stampStep(trip.id, TripStepKind.TRANSMITTED);
+      this.realtime.emitTripChanged(trip.ref);
+    }
+    return { ok: true, to };
+  }
+
+  /** Who an assignment email is for, as the signed link names them: the partner driver, else the partner company. */
+  private partnerKeyFor(
+    trip: {
+      partner: { ref: string } | null;
+      directPartner: { ref: string } | null;
+      partnerDeclinedAt?: Date | null;
+      partnerDeclinedRef?: string | null;
+    },
+    partnerRefOverride?: string,
+  ): string | null {
+    return (
+      partnerRefOverride ??
+      trip.partner?.ref ??
+      trip.directPartner?.ref ??
+      // declined: the partner was taken off, the old links still name them
+      (trip.partnerDeclinedAt ? (trip.partnerDeclinedRef ?? null) : null)
+    );
+  }
+
+  /** The partner company's name for the Decline draft's signature. */
+  private async partnerDisplayName(
+    trip: {
+      partner: {
+        ref: string;
+        firstName: string | null;
+        lastName: string | null;
+        company: string | null;
+        partner: { companyName: string | null; contactName: string } | null;
+      } | null;
+      directPartner: { companyName: string | null; contactName: string } | null;
+      partnerDeclinedAt?: Date | null;
+      partnerDeclinedRef?: string | null;
+    },
+    partnerRefOverride?: string,
+  ): Promise<string> {
+    if (
+      !partnerRefOverride &&
+      !trip.partner &&
+      !trip.directPartner &&
+      trip.partnerDeclinedAt &&
+      trip.partnerDeclinedRef
+    ) {
+      const ref = trip.partnerDeclinedRef;
+      const asCompany = await this.prisma.partner.findUnique({ where: { ref } });
+      if (asCompany) return asCompany.companyName || asCompany.contactName;
+      partnerRefOverride = ref;
+    }
+    const driver = partnerRefOverride
+      ? await this.prisma.driver.findUnique({
+          where: { ref: partnerRefOverride },
+          include: { partner: true },
+        })
+      : trip.partner;
+    const company = driver?.partner ?? trip.directPartner;
+    return (
+      company?.companyName ||
+      company?.contactName ||
+      (driver ? driverLabel(driver) : 'Partner')
+    );
+  }
+
+  /**
+   * What a partner sees when they open the "Confirm booking" / "Decline" link:
+   * the booking and a button. Opening a link changes nothing (mail scanners
+   * follow every link) — only the button's POST does.
+   */
+  async partnerLinkPreview(
+    ref: string,
+    token: string,
+  ): Promise<{
+    state: 'ready' | 'already' | 'declined' | 'invalid';
+    trip?: { ref: string; pickup: string };
+  }> {
+    const trip = await this.prisma.trip.findUnique({
+      where: { ref },
+      include: TRIP_INCLUDE,
+    });
+    if (!trip || !this.partnerLinkValid(trip, token))
+      return { state: 'invalid' };
+    const confirmed =
+      !trip.partnerDeclinedAt &&
+      trip.steps.some((s) => s.step === TripStepKind.ACCEPTED);
+    return {
+      state: trip.partnerDeclinedAt
+        ? 'declined'
+        : confirmed
+          ? 'already'
+          : 'ready',
+      trip: {
+        ref: trip.ref,
+        pickup: `${trip.pickupLocation} — ${DateTime.fromJSDate(trip.pickupAt)
+          .setZone(trip.timezone ?? 'utc')
+          .toFormat('dd/MM/yyyy HH:mm')}`,
+      },
+    };
+  }
+
+  /**
+   * The booking becomes "Confirmed" (the ACCEPTED step) — what the partner's
+   * click means. A decline is final, though: a partner who declined and then
+   * clicks Confirm changes nothing in Cockpit, they get a pre-filled email to
+   * tell the dispatcher they can take the job after all, and the dispatcher
+   * decides whether to assign it to them.
+   */
+  async confirmByPartnerLink(
+    ref: string,
+    token: string,
+  ): Promise<
+    { outcome: 'confirmed' | 'already' | 'invalid' } | { outcome: 'declined'; mailto: string }
+  > {
+    const trip = await this.prisma.trip.findUnique({
+      where: { ref },
+      include: TRIP_INCLUDE,
+    });
+    if (!trip || !this.partnerLinkValid(trip, token))
+      return { outcome: 'invalid' };
+    if (trip.partnerDeclinedAt) {
+      const company = await this.company.get();
+      return {
+        outcome: 'declined',
+        mailto: buildAvailableMailto({
+          to: this.config.get('PARTNER_MAILER_FROM', { infer: true }),
+          tripRef: trip.ref,
+          companyName: company.name ?? null,
+          partnerName: await this.partnerDisplayName(trip),
+        }),
+      };
+    }
+    const reached = currentStep(trip.steps);
+    if (
+      reached &&
+      TRIP_STEP_ORDER.indexOf(reached) >= TRIP_STEP_ORDER.indexOf('ACCEPTED')
+    ) {
+      return { outcome: 'already' };
+    }
+    await this.stampStep(trip.id, TripStepKind.ACCEPTED);
+    this.realtime.emitTripChanged(trip.ref);
+    return { outcome: 'confirmed' };
+  }
+
+  /**
+   * The partner declined: the booking shows as Declined (red, to be
+   * reassigned) and the page they land on opens their mail client on the
+   * pre-filled reply to the dispatch mailbox.
+   */
+  async declineByPartnerLink(
+    ref: string,
+    token: string,
+  ): Promise<{ mailto: string } | null> {
+    const trip = await this.prisma.trip.findUnique({
+      where: { ref },
+      include: TRIP_INCLUDE,
+    });
+    if (!trip || !this.partnerLinkValid(trip, token)) return null;
+    if (!trip.partnerDeclinedAt) {
+      await this.prisma.trip.update({
+        where: { id: trip.id },
+        // The declining partner comes off the booking (it goes back to "to
+        // assign"), but is remembered so their links still resolve.
+        data: {
+          partnerDeclinedAt: new Date(),
+          partnerDeclinedRef: trip.partner?.ref ?? trip.directPartner?.ref ?? null,
+          partnerDeclinedRegNbr: trip.fleetVehicle?.regNbr ?? null,
+          partnerId: null,
+          directPartnerId: null,
+          fleetVehicleId: null,
+        },
+      });
+      this.realtime.emitTripChanged(trip.ref);
+    }
+    const company = await this.company.get();
+    return {
+      mailto: buildDeclineMailto({
+        to: this.config.get('PARTNER_MAILER_FROM', { infer: true }),
+        tripRef: trip.ref,
+        companyName: company.name ?? null,
+        partnerName: await this.partnerDisplayName(trip),
+      }),
+    };
+  }
+
+  private partnerLinkValid(
+    trip: Parameters<typeof driverFingerprint>[0] & {
+      ref: string;
+      assignmentCancelled: boolean;
+      partner: { ref: string } | null;
+      directPartner: { ref: string } | null;
+      partnerDeclinedAt?: Date | null;
+      partnerDeclinedRef?: string | null;
+      partnerDeclinedRegNbr?: string | null;
+    },
+    token: string,
+  ): boolean {
+    const secret = this.config.get('PARTNER_LINK_SECRET', { infer: true });
+    const key = this.partnerKeyFor(trip);
+    if (!secret || !key || trip.assignmentCancelled) return false;
+    // After a decline the vehicle is gone from the booking: check the link
+    // against the vehicle it was sent with.
+    const sentTrip =
+      trip.partnerDeclinedAt && !trip.partner && !trip.directPartner
+        ? {
+            ...trip,
+            fleetVehicle: trip.partnerDeclinedRegNbr
+              ? { regNbr: trip.partnerDeclinedRegNbr }
+              : null,
+          }
+        : trip;
+    return verifyPartnerLink(
+      secret,
+      trip.ref,
+      key,
+      driverFingerprint(sentTrip as typeof trip),
+      token,
+    );
   }
 
   /**
    * The partner's own email.
+   *
+   * Once the assigned partner driver has been attached to a real Partner
+   * record (Driver.partnerId — see the Partner-companies feature), that
+   * company's own contact email is what actually gets notified, since that's
+   * who the "Send" step in the new preview-and-send flow addresses — the
+   * driver's personal email is only a fallback for one not yet migrated.
+   *
+   * A booking can also be farmed out straight to a Partner *company* with no
+   * driver of theirs picked (Trip.directPartnerId — see TRIP_INCLUDE's note
+   * on directPartner). That case has no Driver.partner relation to walk at
+   * all, so it falls back to the trip's own directPartner once the
+   * driver-based lookup above comes up empty. Only applies when no override
+   * was requested — an override always names a specific driver, so it never
+   * makes sense to fall back to the trip's unrelated direct partner.
    *
    * The legacy fell back to any other record of the same company when the
    * chosen partner had none (common.js:2636) — because its data allowed an
@@ -865,15 +1457,21 @@ export class TripsService {
    * an internal driver has no email obligation.
    */
   private async resolvePartnerEmail(
-    trip: { partner: { email: string | null } | null },
+    trip: {
+      partner: { email: string | null; partner: { email: string } | null } | null;
+      directPartner: { email: string } | null;
+    },
     partnerRefOverride?: string,
   ): Promise<string | null> {
     const partner = partnerRefOverride
       ? await this.prisma.driver.findUnique({
           where: { ref: partnerRefOverride },
+          include: { partner: true },
         })
       : trip.partner;
-    return partner?.email ?? null;
+    const driverBased = partner?.partner?.email ?? partner?.email ?? null;
+    if (driverBased) return driverBased;
+    return partnerRefOverride ? null : (trip.directPartner?.email ?? null);
   }
 
   private async findByRefOrThrow(ref: string) {

@@ -8,7 +8,7 @@ export class NotificationsService {
     @Inject(WHATSAPP_PROVIDER) private readonly provider: WhatsAppProvider,
   ) {}
 
-  send(phone: string, body: string): Promise<void> {
-    return this.provider.send(phone, body);
+  send(phone: string, body: string, mediaUrl?: string): Promise<void> {
+    return this.provider.send(phone, body, mediaUrl);
   }
 }

@@ -34,7 +34,19 @@ export function PlanningList({
 }: PlanningListProps) {
   return (
     <TableCard>
-      <Table>
+      <Table className="table-fixed">
+        <colgroup>
+          <col className="w-[9%]" />
+          <col className="w-[8%]" />
+          <col className="w-[11%]" />
+          <col className="w-[39%]" />
+          <col className="w-[6%]" />
+          <col className="w-[5%]" />
+          <col className="w-[4%]" />
+          <col className="w-[6%]" />
+          <col className="w-[7%]" />
+          <col className="w-[5%]" />
+        </colgroup>
         <TableHeader>
           <TableRow>
             <TableHead>Pickup</TableHead>
@@ -85,7 +97,7 @@ export function PlanningList({
                     </div>
                     <div className="text-muted-foreground text-[10px]">{trip.passengerName}</div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs"><Itinerary trip={trip} /></TableCell>
+                  <TableCell className="text-muted-foreground text-xs whitespace-normal"><Itinerary trip={trip} /></TableCell>
                   <TableCell className="text-xs">{trip.vehicleType?.name ?? '—'}</TableCell>
                   <TableCell className="text-xs whitespace-nowrap">{trip.fleetVehicle?.acronym ?? '—'}</TableCell>
                   <TableCell className="text-center text-xs">

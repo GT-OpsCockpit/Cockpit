@@ -42,7 +42,17 @@ export function InvoicedTable({
 
   return (
     <TableCard>
-      <Table>
+      <Table className="table-fixed">
+        <colgroup>
+          <col className="w-[12%]" />
+          <col className="w-[20%]" />
+          <col className="w-[13%]" />
+          <col className="w-[12%]" />
+          <col className="w-[8%]" />
+          <col className="w-[12%]" />
+          <col className="w-[12%]" />
+          <col className="w-[11%]" />
+        </colgroup>
         <TableHeader>
           <TableRow>
             <TableHead>Period</TableHead>

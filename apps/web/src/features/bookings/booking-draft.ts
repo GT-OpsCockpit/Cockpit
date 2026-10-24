@@ -31,7 +31,9 @@ export interface BookingMeta {
 export interface LocatedAddress {
   tz: string | null
   countryCode: string | null
+  postalCode: string | null
   isAirport: boolean
+  isTrainStation: boolean
   iata: string | null
 }
 
@@ -59,11 +61,19 @@ function countryFromGeocode(
   countries: CountryEntity[],
   countryCode: string | null | undefined,
   tz: string | null | undefined,
+  currentCode?: string | null,
 ): CountryEntity | null {
   if (!countryCode) return null
   const upper = countryCode.toUpperCase()
   const candidates = countries.filter((c) => c.code === upper || c.code.startsWith(`${upper}-`))
   if (candidates.length <= 1) return candidates[0] ?? null
+  // Many US states share one timezone, and the geocode only ever names the
+  // country and the zone — never the state. So when the dispatcher has already
+  // picked an entry of this country whose zone fits the address, that choice
+  // stands: overriding it with "the first state in that zone" swapped the
+  // country under them and wiped the Area they had just typed.
+  const current = currentCode ? candidates.find((c) => c.code === currentCode) : undefined
+  if (current && (!tz || current.tz === tz)) return current
   return candidates.find((c) => c.tz === tz) ?? candidates[0]
 }
 
@@ -111,8 +121,26 @@ export function applyBookingEdit(
         // Kept apart from the IATA code: geocoding recognises an airport more
         // often than it can name one, and the flight block keys on this.
         [change.field === 'pickupLocation' ? 'pickupIsAirport' : 'dropoffIsAirport']: change.result.isAirport,
+        // A route priced by postal code (trip-form-fields.tsx's price list
+        // matching) needs this as structured data — the address's own display
+        // text often doesn't contain it at all.
+        [change.field === 'pickupLocation' ? 'pickupPostalCode' : 'dropoffPostalCode']: change.result.postalCode ?? '',
       }
-      if (change.field !== 'pickupLocation') return patch
+      // Train station only matters for the pickup side — it's what the
+      // Nameboard field's own "does this booking need one" rule keys on
+      // (trip-form-rules.ts), and only meet-and-greet pickups need a sign.
+      if (change.field === 'pickupLocation') {
+        patch.pickupIsTrainStation = change.result.isTrainStation
+      }
+      if (change.field !== 'pickupLocation') {
+        // The dropoff side never drives the booking's own countryCode/area/
+        // timezone (those stay pickup-only, as before) — this is purely so a
+        // price-list entry's own dropoffCountryCode can be cross-checked
+        // against the right end (trip-form-fields.tsx's endpointMatches).
+        const dropoffCountry = countryFromGeocode(meta.countries, change.result.countryCode, change.result.tz, values.dropoffCountryCode)
+        patch.dropoffCountryCode = dropoffCountry?.code ?? ''
+        return patch
+      }
       // A suggestion the geocoder couldn't resolve a zone for leaves the one
       // already on the draft alone rather than blanking it.
       if (change.result.tz) patch.pickupTimezone = change.result.tz
@@ -120,7 +148,7 @@ export function applyBookingEdit(
       // to (autoFillCountry, common.js:1399/1430) — and the Area goes with it,
       // exactly as it does on a manual country change: a city belongs to one
       // country, and "Local" is France-only.
-      const country = countryFromGeocode(meta.countries, change.result.countryCode, change.result.tz)
+      const country = countryFromGeocode(meta.countries, change.result.countryCode, change.result.tz, values.countryCode)
       if (country && country.code !== values.countryCode) {
         patch.countryCode = country.code
         patch.area = ''

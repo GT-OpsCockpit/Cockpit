@@ -28,6 +28,7 @@ export interface TripFormRulesInput {
   dropoffIata?: string | null
   pickupIsAirport?: boolean
   dropoffIsAirport?: boolean
+  pickupIsTrainStation?: boolean
   flightNumber?: string | null
   tailNbr?: string | null
   pickupDate?: string | null
@@ -49,6 +50,12 @@ export interface TripFormRules {
   dropoffApplies: boolean
   /** The flight block shows as soon as either end is known to be an airport. */
   showAirportInfo: boolean
+  /** The train block shows as soon as the pickup is known to be a train station. */
+  showTrainInfo: boolean
+  /** A sign only makes sense for a meet-and-greet pickup — an airport or a
+   * train station — so the Nameboard field stays locked otherwise, rather
+   * than inviting a name/file that has nowhere to be held up. */
+  nameboardApplies: boolean
   /**
    * A flight number was entered, so this is a commercial arrival — FBO and
    * Tail nbr belong to private aviation and are locked out.
@@ -98,6 +105,12 @@ function carriesFlightInfo(trip?: TripEntity | null): boolean {
   )
 }
 
+/** Same "what it carries says it" reasoning as carriesFlightInfo, for the train block. */
+function carriesTrainInfo(trip?: TripEntity | null): boolean {
+  if (!trip) return false
+  return !!trip.trainNumber?.trim() || !!trip.trainObservation?.trim()
+}
+
 export function tripFormRules(values: TripFormRulesInput, trip?: TripEntity | null): TripFormRules {
   const { service, countryCode, priceEur, partnerRateEur, hours } = values
 
@@ -136,6 +149,14 @@ export function tripFormRules(values: TripFormRulesInput, trip?: TripEntity | nu
       !!values.pickupIsAirport ||
       !!values.dropoffIsAirport ||
       carriesFlightInfo(trip),
+    showTrainInfo: !!values.pickupIsTrainStation || carriesTrainInfo(trip),
+    // Same "what it carries says it" reasoning as showAirportInfo above, for
+    // the one signal that does persist across a reopen: the IATA code. The
+    // live isTrainStation flag has no such persisted equivalent (no code to
+    // fall back on), so a saved trip instead falls back on tripToFormValues'
+    // own text-pattern check on the pickup address.
+    nameboardApplies:
+      !!values.pickupIata || !!values.pickupIsAirport || !!values.pickupIsTrainStation,
     // A flight number is only ever a commercial one — private aviation has
     // none to look up — and the handling agent and tail number only describe
     // the private case. The legacy locked them out rather than leaving them

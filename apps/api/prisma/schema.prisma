@@ -139,6 +139,22 @@ model Client {
   invoices         Invoice[]
   drivers          Driver[]       @relation("EventDrivers")
   fleetVehicles    FleetVehicle[] @relation("EventFleetVehicles")
+  contacts         ClientContact[]
+  passengers       Passenger[]
+  priceLists       PriceList[]    @relation("ClientPriceLists")
+}
+
+/** One of a client's points of contact (POC) -- "POC 1, POC 2..." in the UI, ordered by `order`. */
+model ClientContact {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String?
+  email     String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Driver {
@@ -148,7 +164,6 @@ model Driver {
   firstName      String?
   lastName       String?
   phone          String?               @unique
-  company        String?
   email          String?
   area           String                @default("Local")
   eventsOnly     Boolean               @default(false)
@@ -156,6 +171,19 @@ model Driver {
   eventArea      String?
   eventClientId  String?
   eventClient    Client?               @relation("EventDrivers", fields: [eventClientId], references: [id])
+  // Free-text partner tag — kept for now (ref-prefix generation, search, the
+  // create/update DTOs all still read it) alongside the new, structured
+  // `partnerId` below. A driver attached to a real Partner from the Drivers &
+  // Partners page gets both: `company` continues to drive the existing
+  // ref-prefix/search behaviour unchanged, `partnerId` is what the new
+  // Partner CRUD, roster and email-notification features read. Once every
+  // partner driver has a `partnerId` (after the migration + a follow-up
+  // cleanup pass), `company` can be retired.
+  company        String?
+  // Set only for a partner's own driver (attached from their roster on the
+  // Drivers & Partners page); null for an in-house/local driver.
+  partnerId      String?
+  partner        Partner?              @relation(fields: [partnerId], references: [id])
   active         Boolean               @default(true)
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
@@ -163,6 +191,35 @@ model Driver {
   trips          Trip[]                @relation("AssignedDriver")
   partnerTrips   Trip[]                @relation("PartnerDriver")
   fleetReserved  FleetVehicle?         @relation("ReservedForDriver")
+}
+
+/**
+ * A sub-contracted partner — a company with its own roster of drivers and
+ * vehicles, or a lone individual (`individual: true`, no company name).
+ * New, structured companion to the free-text `company`/`partnerCompany`
+ * convention on Driver/FleetVehicle: real contact info (so a job can be
+ * emailed to the partner automatically) and a real link between a partner's
+ * own drivers and vehicles, which the old text fields never had.
+ */
+model Partner {
+  id            String         @id @default(cuid())
+  ref           String         @unique // P-{n}
+  individual    Boolean        @default(false)
+  companyName   String? // null when individual — see NewPartner mockup
+  contactName   String // "Manager/dispatch name", or "Contact name" when individual
+  phone         String
+  // Second contact number, alongside phone — optional (a partner with only
+  // a landline still has a contact number, this is a convenience second one).
+  mobile        String?
+  email         String
+  countryCode   String?
+  area          String?
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  drivers       Driver[]
+  fleetVehicles FleetVehicle[]
+  directTrips   Trip[]         @relation("DirectPartner")
 }
 
 model DriverUnavailability {
@@ -176,14 +233,89 @@ model DriverUnavailability {
 }
 
 model VehicleType {
-  id            String         @id @default(cuid())
-  ref           String         @unique // V{n}
-  name          String         @unique
-  maxPax        Int
-  active        Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  fleetVehicles FleetVehicle[]
-  trips         Trip[]
+  id               String           @id @default(cuid())
+  ref              String           @unique // V{n}
+  name             String           @unique
+  maxPax           Int
+  active           Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  fleetVehicles    FleetVehicle[]
+  trips            Trip[]
+  passengerRoutes  PassengerRoute[]
+  priceListEntries PriceListEntry[]
+}
+
+model Passenger {
+  id        String             @id @default(cuid())
+  ref       String             @unique // PSG{n}
+  firstName String?
+  lastName  String?
+  phone     String?
+  email     String?
+  notes     String?
+  clientId  String?
+  client    Client?            @relation(fields: [clientId], references: [id])
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  routes    PassengerRoute[]
+  addresses PassengerAddress[]
+}
+
+model PassengerAddress {
+  id          String    @id @default(cuid())
+  passengerId String
+  passenger   Passenger @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  title       String
+  address     String
+  info        String?
+  countryCode String?
+  postalCode  String?
+  area        String?
+  isAirport   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model PassengerRoute {
+  id              String       @id @default(cuid())
+  passengerId     String
+  passenger       Passenger    @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  pickupLocation  String
+  dropoffLocation String?
+  vehicleTypeId   String?
+  vehicleType     VehicleType? @relation(fields: [vehicleTypeId], references: [id])
+  priceEur        Decimal
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model PriceList {
+  id        String           @id @default(cuid())
+  ref       String           @unique // PL{n}
+  name      String
+  active    Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  entries   PriceListEntry[]
+  clients   Client[]         @relation("ClientPriceLists")
+}
+
+model PriceListEntry {
+  id                 String       @id @default(cuid())
+  priceListId        String
+  priceList          PriceList    @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  pickupLocation     String?
+  pickupPostalCodes  String[]     @default([])
+  pickupCountryCode  String?
+  dropoffLocation    String?
+  dropoffPostalCodes String[]     @default([])
+  dropoffCountryCode String?
+  bidirectional      Boolean      @default(false)
+  vehicleTypeId      String?
+  vehicleType        VehicleType? @relation(fields: [vehicleTypeId], references: [id])
+  priceEur           Decimal
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 }
 
 model FleetVehicle {
@@ -202,7 +334,11 @@ model FleetVehicle {
   isLocal        Boolean               @default(true)
   countryCode    String?
   area           String?
+  // Kept for now alongside `partnerId` below — see Driver.company's comment.
   partnerCompany String?
+  // Set only for a partner's own vehicle; null for an in-house/local one.
+  partnerId      String?
+  partner        Partner?              @relation(fields: [partnerId], references: [id])
   driverId       String?               @unique
   driver         Driver?               @relation("ReservedForDriver", fields: [driverId], references: [id])
   eventsOnly     Boolean               @default(false)
@@ -266,13 +402,42 @@ model Trip {
   nameboardUrl          String? // fichier stocké (volume Docker), plus de base64 en mémoire
   pickupIata            String?
   dropoffIata           String?
+  trainNumber           String?
+  trainObservation      String?
   subContractor         Boolean          @default(false)
+  // Unchanged: still points at the Driver record standing in for the
+  // sub-contracted partner (see Driver.company/partnerId). The email that
+  // goes to the *partner company itself* (as opposed to this specific
+  // partner driver) is resolved from `partner.partner` — i.e. whichever
+  // real Partner this Driver is attached to — see resolvePartnerEmail.
   partnerId             String?
   partner               Driver?          @relation("PartnerDriver", fields: [partnerId], references: [id])
+  // Set when this booking is farmed out straight to a Partner *company*,
+  // with no specific driver of theirs picked yet (the "partenaire sans
+  // driver" case) — mutually exclusive with partnerId above, which points at
+  // one of that company's own Driver records instead. Dispatching one of
+  // these has no WhatsApp leg (there is no driver to message): the partner's
+  // own email is sent automatically as soon as the booking is saved against
+  // them, since there is no separate "Dispatch" click for a company with
+  // nobody named on file (see decideAssignment's `locked`).
+  directPartnerId       String?
+  directPartner         Partner?         @relation("DirectPartner", fields: [directPartnerId], references: [id])
   dispatched            Boolean          @default(false)
   invoiced              Boolean          @default(false)
   assignmentCancelled   Boolean          @default(false)
   assignmentCancelledAt DateTime?
+  // Set when the sub-contracted partner declined the booking from their email
+  // (the Decline button); cleared as soon as it is reassigned, edited or confirmed.
+  partnerDeclinedAt     DateTime?
+  // Who declined (their Driver or Partner ref): the partner is taken off the booking
+  // when they decline, but their old email links must keep resolving to them.
+  partnerDeclinedRef    String?
+  // The vehicle that was on the booking then (also taken off), kept only so the
+  // signed links of that email still verify.
+  partnerDeclinedRegNbr String?
+  // The booking was edited after being sent to its sub-contracted partner: the
+  // status reads "Updated - Send ?" until the updated email goes out.
+  partnerUpdatePending  Boolean          @default(false)
   cancellationFee       CancellationFee?
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt

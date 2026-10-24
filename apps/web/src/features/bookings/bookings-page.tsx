@@ -5,6 +5,7 @@ import { useTripsControllerList } from '@cockpit/shared/api'
 import { AdvanceStepConfirmDialog } from './advance-step-confirm-dialog'
 import { BookingCancelDialog } from './booking-cancel-dialog'
 import { BookingCreateDialog } from './booking-create-dialog'
+import { BookingAssignDialog } from './booking-assign-dialog'
 import { BookingEditDialog } from './booking-edit-dialog'
 import { BookingFiltersBar } from './booking-filters-bar'
 import { BookingsTable } from './bookings-table'
@@ -43,6 +44,7 @@ export function BookingsPage() {
   const trips = useTripsControllerList(boardView({ ...filters, search, passenger }))
   const [dispatchTarget, setDispatchTarget] = useState<TripEntity | null>(null)
   const [editTarget, setEditTarget] = useState<TripEntity | null>(null)
+  const [assignTarget, setAssignTarget] = useState<TripEntity | null>(null)
   const [cancelTarget, setCancelTarget] = useState<TripEntity | null>(null)
   const [advanceTarget, setAdvanceTarget] = useState<TripEntity | null>(null)
   const [nameboardTarget, setNameboardTarget] = useState<TripEntity | null>(null)
@@ -75,6 +77,7 @@ export function BookingsPage() {
           variant="local"
           loading={trips.isLoading}
           onEdit={setEditTarget}
+          onAssign={setAssignTarget}
           onCancel={setCancelTarget}
           onDispatch={setDispatchTarget}
           onAdvance={setAdvanceTarget}
@@ -91,6 +94,7 @@ export function BookingsPage() {
           variant="farmout"
           loading={trips.isLoading}
           onEdit={setEditTarget}
+          onAssign={setAssignTarget}
           onCancel={setCancelTarget}
           onDispatch={setDispatchTarget}
           onAdvance={setAdvanceTarget}
@@ -103,6 +107,7 @@ export function BookingsPage() {
       <BookingCreateDialog open={createOpen} onOpenChange={setCreateOpen} draftKey="newBookingDraft" />
       <DispatchConfirmDialog trip={dispatchTarget} onOpenChange={(open) => !open && setDispatchTarget(null)} />
       <BookingEditDialog trip={editTarget} onOpenChange={(open) => !open && setEditTarget(null)} />
+      <BookingAssignDialog trip={assignTarget} onOpenChange={(open) => !open && setAssignTarget(null)} />
       <BookingCancelDialog trip={cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)} />
       <AdvanceStepConfirmDialog trip={advanceTarget} onOpenChange={(open) => !open && setAdvanceTarget(null)} />
       <NameboardUploadDialog trip={nameboardTarget} onOpenChange={(open) => !open && setNameboardTarget(null)} />

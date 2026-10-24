@@ -32,7 +32,18 @@ export function ClientsTable({
 }: ClientsTableProps) {
   return (
     <TableCard>
-      <Table>
+      <Table className="table-fixed">
+        <colgroup>
+          <col className="w-[9%]" />
+          <col className="w-[9%]" />
+          <col className="w-[16%]" />
+          <col className="w-[9%]" />
+          <col className="w-[18%]" />
+          <col className="w-[12%]" />
+          <col className="w-[12%]" />
+          <col className="w-[8%]" />
+          <col className="w-[7%]" />
+        </colgroup>
         <TableHeader>
           <TableRow>
             <TableHead>Ref</TableHead>

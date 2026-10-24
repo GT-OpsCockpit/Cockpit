@@ -31,6 +31,12 @@ export const tripFormSchema = z
     fleetRegNbr: z.string().optional(),
     subContractor: z.boolean(),
     partnerRef: z.string().optional(),
+    // A Partner *company* to farm the job out to with no driver of theirs
+    // picked yet — mutually exclusive with partnerRef, see the superRefine
+    // below. The "Partner" field in the form flips between the two based on
+    // its own "No specific driver" toggle (subContractorNoDriver).
+    directPartnerRef: z.string().optional(),
+    subContractorNoDriver: z.boolean().optional(),
     priceEur: z.number().min(0, NEGATIVE_PRICE).optional(),
     partnerRateEur: z.number().min(0, NEGATIVE_PRICE).optional(),
     tracking: z.boolean(),
@@ -70,6 +76,28 @@ export const tripFormSchema = z
         })
       }
     }
+    // An airport pickup is a meet-and-greet: the booking cannot be created
+    // without its flight details. Commercial → the flight number. Private →
+    // the tail number AND the handling agent's address (FBO). The legacy forced
+    // its Flight info popup open here; the block is inline now, so nothing asked
+    // and the booking went out blind. Mirrored server-side in
+    // common/business/booking-fields.ts (which only knows the IATA code).
+    if (data.pickupIsAirport && !data.flightNumber?.trim()) {
+      if (!data.tailNbr?.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['flightNumber'],
+          message: 'Airport pickup: enter the flight number, or the tail number for a private flight.',
+        })
+      }
+      if (!data.fboAddress?.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['fboAddress'],
+          message: 'Private flight: the FBO address is required.',
+        })
+      }
+    }
     if (data.service === TripEntityService.SPEC && !data.instructions?.trim()) {
       ctx.addIssue({
         code: 'custom',
@@ -77,29 +105,27 @@ export const tripFormSchema = z
         message: 'Instructions are required for a SPEC service.',
       })
     }
-    // Farming a job out is agreeing a price for it: the legacy would not let
-    // the sub-contract popup be confirmed without one ("Enter the Partner rate
-    // net to validate the subcontracting", common.js:2812). That popup is not
-    // ported — this form is where a booking gets farmed out now, at creation
-    // as much as later, so the rule applies at both.
-    if (data.subContractor && (data.partnerRateEur === undefined || data.partnerRateEur <= 0)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['partnerRateEur'],
-        message: 'Partner rate net is required to sub-contract a booking.',
-      })
-    }
-    // …and naming who it is farmed out to. The legacy kept the submit button
+    // Farming a job out no longer requires agreeing a price for it up front —
+    // unlike the legacy's sub-contract popup ("Enter the Partner rate net to
+    // validate the subcontracting", common.js:2812), which this form replaces.
+    // Both Retail price and Partner rate net can be left blank at creation and
+    // filled in once they're known, same as for a booking that isn't farmed
+    // out at all.
+    // …naming who it is farmed out to is still required, though. The legacy kept the submit button
     // greyed out until the Partner company was entered (refreshFormGuards,
     // common.js:1046-1054). Saved without one, the booking is farmed out to
     // nobody: the server pins it at "Sent" and never re-arms Send
     // (decideAssignment's `locked`), so it quietly goes nowhere.
-    if (data.subContractor && !data.partnerRef?.trim()) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['partnerRef'],
-        message: 'Partner company is required to sub-contract a booking.',
-      })
+    if (data.subContractor) {
+      const hasDriver = !!data.partnerRef?.trim()
+      const hasCompanyOnly = !!data.directPartnerRef?.trim()
+      if (!hasDriver && !hasCompanyOnly) {
+        ctx.addIssue({
+          code: 'custom',
+          path: data.subContractorNoDriver ? ['directPartnerRef'] : ['partnerRef'],
+          message: 'Partner company is required to sub-contract a booking.',
+        })
+      }
     }
   })
 
@@ -130,6 +156,8 @@ export function tripFormDefaults(): TripFormValues {
     fleetRegNbr: '',
     subContractor: false,
     partnerRef: '',
+    directPartnerRef: '',
+    subContractorNoDriver: false,
     priceEur: undefined,
     partnerRateEur: undefined,
     tracking: true,

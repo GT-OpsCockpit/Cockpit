@@ -113,6 +113,22 @@ describe('SearchCombobox', () => {
     expect(screen.getByRole('combobox')).toHaveTextContent('France (FR)')
   })
 
+  it('shows the placeholder, not the seed label, once the value is cleared', () => {
+    render(
+      <SearchCombobox
+        value=""
+        onChange={vi.fn()}
+        options={[]}
+        placeholder="Driver…"
+        selectedLabel="Julien Sebrier (D-FR-INT-001)"
+        onSearchChange={vi.fn()}
+        searchValue=""
+      />,
+    )
+    expect(screen.getByRole('combobox')).toHaveTextContent('Driver…')
+    expect(screen.getByRole('combobox')).not.toHaveTextContent('Julien Sebrier')
+  })
+
   it('announces an in-flight search instead of claiming there are no results', () => {
     render(
       <SearchCombobox

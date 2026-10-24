@@ -1,6 +1,7 @@
 import { DriverUnavailKind } from '../../../generated/prisma/enums';
 import { ClientBaseEntity } from '../../clients/dto/client.entity';
 import { FleetVehicleBaseEntity } from '../../fleet/dto/fleet-vehicle.entity';
+import { PartnerBaseEntity } from '../../partners/dto/partner.entity';
 
 export class DriverUnavailabilityEntity {
   id: string;
@@ -20,6 +21,9 @@ export class DriverBaseEntity {
   lastName: string | null;
   phone: string | null;
   company: string | null;
+  // Structured companion to `company` above — set once this driver is
+  // attached to a real Partner record. See schema.prisma's comment on it.
+  partnerId: string | null;
   email: string | null;
   area: string;
   eventsOnly: boolean;
@@ -46,6 +50,9 @@ export class DriverEntity extends DriverBaseEntity {
   // padlock (legacy common.js:3538 linkedVehicleLine/unlinkVehicleFromDriver)
   // without a second lookup, same purpose as eventClient above.
   fleetReserved: FleetVehicleBaseEntity | null;
+  // The real Partner this driver is attached to (partnerId), if any — see
+  // DRIVER_INCLUDE's comment in drivers.service.ts.
+  partner: PartnerBaseEntity | null;
 }
 
 /**

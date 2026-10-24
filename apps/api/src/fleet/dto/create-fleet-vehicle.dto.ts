@@ -59,6 +59,13 @@ export class CreateFleetVehicleDto {
   @IsString()
   partnerCompany?: string;
 
+  // Attaches this vehicle to a real Partner's roster, alongside the legacy
+  // free-text `partnerCompany` above — see FleetVehicle.partnerId's comment
+  // in schema.prisma.
+  @IsOptional()
+  @IsString()
+  partnerRef?: string;
+
   /** Driver ref (e.g. "D-FR-INT-001") to reserve this vehicle for — external vehicles only. */
   @IsOptional()
   @IsString()

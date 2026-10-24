@@ -35,7 +35,7 @@ export function DispatchButton({
   return (
     <Button
       variant="ghost"
-      size="icon"
+      size="icon-xs"
       title={title}
       disabled={disabled}
       className={cn(dimmed && 'opacity-40')}
@@ -51,6 +51,8 @@ export interface TripRowActions {
   onCancel: (trip: TripEntity) => void
   onDispatch: (trip: TripEntity) => void
   onNameboard: (trip: TripEntity) => void
+  /** Opens the quick assign popup; without it a dimmed Send falls back to the full edit dialog. */
+  onAssign?: (trip: TripEntity) => void
 }
 
 /**
@@ -67,6 +69,7 @@ export function TripActionsCell({
   onCancel,
   onDispatch,
   onNameboard,
+  onAssign,
 }: TripRowActions & { trip: TripEntity }) {
   // Whether a Reg Nbr is expected before sending — asked of the booking itself
   // rather than taken from the caller, so a list that doesn't split Local from
@@ -74,21 +77,21 @@ export function TripActionsCell({
   const isLocal = isLocalTrip(trip)
   return (
     <TableCell className="whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-      <div className="flex gap-1">
-        <Button variant="ghost" size="icon" title="Edit" onClick={() => onEdit(trip)}>
+      <div className="-ml-3 flex gap-0.5">
+        <Button variant="ghost" size="icon-xs" title="Edit" onClick={() => onEdit(trip)}>
           <Pencil className="size-3.5" />
         </Button>
-        <DispatchButton trip={trip} isLocal={isLocal} onDispatch={onDispatch} onEdit={onEdit} />
+        <DispatchButton trip={trip} isLocal={isLocal} onDispatch={onDispatch} onEdit={onAssign ?? onEdit} />
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-xs"
           title={trip.nameboardUrl ? 'View / replace nameboard' : 'Upload nameboard'}
           className={cn(trip.nameboardUrl && 'text-primary')}
           onClick={() => onNameboard(trip)}
         >
           <Image className="size-3.5" />
         </Button>
-        <Button variant="ghost" size="icon" title="Cancel" onClick={() => onCancel(trip)}>
+        <Button variant="ghost" size="icon-xs" title="Cancel" onClick={() => onCancel(trip)}>
           <X className="size-3.5" />
         </Button>
       </div>

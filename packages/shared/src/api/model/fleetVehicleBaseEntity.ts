@@ -27,6 +27,8 @@ export interface FleetVehicleBaseEntity {
   /** @nullable */
   partnerCompany: string | null;
   /** @nullable */
+  partnerId: string | null;
+  /** @nullable */
   driverId: string | null;
   eventsOnly: boolean;
   /** @nullable */
