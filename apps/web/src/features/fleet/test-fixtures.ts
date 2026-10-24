@@ -31,6 +31,7 @@ export function baseVehicle(overrides: Partial<FleetVehicleEntity> = {}): FleetV
     countryCode: null,
     area: null,
     partnerCompany: null,
+    partnerId: null,
     driverId: null,
     driver: null,
     eventsOnly: false,

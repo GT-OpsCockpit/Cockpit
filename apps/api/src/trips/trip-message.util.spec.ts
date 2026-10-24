@@ -105,7 +105,10 @@ describe('buildTripMessageContext', () => {
 
 describe('pocRelevantChange', () => {
   it('is false for an edit the POC does not care about', () => {
-    expect(pocRelevantChange(BASE, { ...BASE, instructions: 'Other note', priceEur: 999 })).toBe(false);
+    // Built apart from the call: pocRelevantChange only compares the fields the
+    // POC sees, so the fields it ignores are not part of its parameter type.
+    const edited = { ...BASE, instructions: 'Other note', priceEur: 999 };
+    expect(pocRelevantChange(BASE, edited)).toBe(false);
   });
 
   it.each([

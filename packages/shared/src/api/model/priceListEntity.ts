@@ -5,7 +5,7 @@
  * Cockpit v2 dispatch/booking API
  * OpenAPI spec version: 1.0
  */
-import type { ClientBaseEntity } from './clientBaseEntity';
+import type { ClientEntity } from './clientEntity';
 import type { PriceListEntryEntity } from './priceListEntryEntity';
 
 export interface PriceListEntity {
@@ -17,5 +17,5 @@ export interface PriceListEntity {
   updatedAt: string;
   entries: PriceListEntryEntity[];
   /** Every client this list currently applies to. */
-  clients: ClientBaseEntity[];
+  clients: ClientEntity[];
 }

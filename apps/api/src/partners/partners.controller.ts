@@ -9,27 +9,14 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { Transform } from 'class-transformer';
-import { IsOptional, IsBoolean, IsString } from 'class-validator';
 import { PartnersService } from './partners.service';
 import { CreatePartnerDto } from './dto/create-partner.dto';
 import { UpdatePartnerDto } from './dto/update-partner.dto';
 import { PartnerEntity } from './dto/partner.entity';
+import { ListPartnersQueryDto } from './dto/list-partners-query.dto';
 import { SetActiveDto } from '../common/dto/set-active.dto';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
-
-class ListPartnersQueryDto {
-  @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
-  @IsBoolean()
-  includeInactive?: boolean;
-
-  /** Drivers & Partners page "Vehicle category" filter — matches a partner whose own roster includes a vehicle of this Category name. */
-  @IsOptional()
-  @IsString()
-  category?: string;
-}
 
 @Controller('partners')
 export class PartnersController {

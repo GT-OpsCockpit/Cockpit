@@ -83,6 +83,13 @@ export interface InvoiceTripRecordEntity {
   assignmentCancelled: boolean;
   /** @nullable */
   assignmentCancelledAt: string | null;
+  /**
+     * The sub-contracted partner declined it (Decline button in their email) — shows as Declined, to be reassigned.
+     * @nullable
+     */
+  partnerDeclinedAt: string | null;
+  /** Edited since it was sent to its partner — shows "Updated - Send ?" until the updated email is sent. */
+  partnerUpdatePending: boolean;
   /** @nullable */
   cancellationFee: InvoiceTripRecordEntityCancellationFee;
   createdAt: string;

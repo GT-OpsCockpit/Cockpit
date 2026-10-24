@@ -164,6 +164,7 @@ describe('DriversTable', () => {
         countryCode: null,
         area: null,
         partnerCompany: 'Uber',
+        partnerId: null,
         driverId: 'driver-1',
         eventsOnly: false,
         eventCountry: null,

@@ -143,6 +143,7 @@ describe('VehiclesTable', () => {
         lastName: 'Partner',
         phone: '+33611111111',
         company: 'Acme',
+        partnerId: null,
         email: 'bob@acme.test',
         area: 'Paris',
         eventsOnly: false,

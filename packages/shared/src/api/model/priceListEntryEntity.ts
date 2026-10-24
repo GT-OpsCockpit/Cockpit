@@ -5,10 +5,10 @@
  * Cockpit v2 dispatch/booking API
  * OpenAPI spec version: 1.0
  */
-import type { Decimal2 } from './decimal2';
 import type { VehicleTypeEntity } from './vehicleTypeEntity';
 
 export interface PriceListEntryEntity {
+  priceEur: string;
   id: string;
   priceListId: string;
   /** @nullable */
@@ -26,7 +26,6 @@ export interface PriceListEntryEntity {
   vehicleTypeId: string | null;
   /** @nullable */
   vehicleType: VehicleTypeEntity | null;
-  priceEur: Decimal2;
   createdAt: string;
   updatedAt: string;
 }

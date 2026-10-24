@@ -1,4 +1,4 @@
-import { ClientBaseEntity } from '../../clients/dto/client.entity';
+import { ClientEntity } from '../../clients/dto/client.entity';
 import { PriceListEntryEntity } from './price-list-entry.entity';
 
 export class PriceListEntity {
@@ -10,5 +10,5 @@ export class PriceListEntity {
   updatedAt: Date;
   entries: PriceListEntryEntity[];
   /** Every client this list currently applies to. */
-  clients: ClientBaseEntity[];
+  clients: ClientEntity[];
 }

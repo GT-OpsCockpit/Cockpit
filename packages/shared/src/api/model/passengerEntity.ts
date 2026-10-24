@@ -5,14 +5,14 @@
  * Cockpit v2 dispatch/booking API
  * OpenAPI spec version: 1.0
  */
-import type { ClientBaseEntity } from './clientBaseEntity';
+import type { ClientEntity } from './clientEntity';
 import type { PassengerAddressEntity } from './passengerAddressEntity';
 import type { PassengerRouteEntity } from './passengerRouteEntity';
 
 export interface PassengerEntity {
   name: string;
   /** @nullable */
-  client: ClientBaseEntity | null;
+  client: ClientEntity | null;
   routes: PassengerRouteEntity[];
   addresses: PassengerAddressEntity[];
   id: string;

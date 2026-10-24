@@ -48,6 +48,20 @@ export const tripFormSchema = z
     pickupIata: z.string().optional(),
     dropoffIata: z.string().optional(),
     pickupTimezone: z.string().optional(),
+    // Located addresses' postal codes and the drop-off's country: form-only
+    // (never sent) — used to match a customer's price list and to swap the
+    // route. Without them in the schema the resolver silently drops them.
+    pickupPostalCode: z.string().optional(),
+    dropoffPostalCode: z.string().optional(),
+    dropoffCountryCode: z.string().optional(),
+    // The registered passenger picked for this booking (form-only; the
+    // passenger's name and phone are what is saved on the booking).
+    passengerRef: z.string().optional(),
+    // Train pickup details — persisted (Trip.trainNumber/trainObservation).
+    trainNumber: z.string().optional(),
+    trainObservation: z.string().optional(),
+    /** Whether the located pickup is a train station (form-only, like pickupIsAirport). */
+    pickupIsTrainStation: z.boolean().optional(),
     /**
      * Whether the located pickup/drop-off is an airport. Form-only, never
      * sent: the flight block used to appear only once an IATA code was known,

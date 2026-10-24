@@ -31,7 +31,9 @@ function withClientNames<
   T extends {
     clients: { ref: string; company: string | null; contactFirstName: string | null; contactLastName: string | null }[];
   },
->(priceList: T): T {
+>(
+  priceList: T,
+): Omit<T, 'clients'> & { clients: (T['clients'][number] & { name: string })[] } {
   return {
     ...priceList,
     clients: priceList.clients.map((c) => ({ ...c, name: clientDisplayName(c) })),

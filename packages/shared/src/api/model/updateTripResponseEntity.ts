@@ -12,5 +12,10 @@ export interface UpdateTripResponseEntity {
   trip: TripEntity;
   /** @nullable */
   notifyWarning: string | null;
+  /**
+     * The save changed what a sub-contracted partner was sent (and not the
+     * partner itself): the status went back to Sent and the form should open
+     * the review-then-send screen with the "updated booking" email.
+     */
   subcontractUpdateRequired: boolean;
 }

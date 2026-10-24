@@ -37,9 +37,14 @@ const INCLUDE = {
 // regardless of how fresh the fetch was.
 function withName<
   T extends Pick<Passenger, 'firstName' | 'lastName'> & {
-    client?: { ref: string; company: string | null; contactFirstName: string | null; contactLastName: string | null } | null;
+    client: { ref: string; company: string | null; contactFirstName: string | null; contactLastName: string | null } | null;
   },
->(passenger: T): T & { name: string } {
+>(
+  passenger: T,
+): Omit<T, 'client'> & {
+  name: string;
+  client: T['client'] extends infer C ? (C extends null ? null : C & { name: string }) : never;
+} {
   const name = [passenger.firstName, passenger.lastName]
     .filter(Boolean)
     .join(' ')
@@ -48,7 +53,8 @@ function withName<
     ...passenger,
     name,
     ...(passenger.client ? { client: { ...passenger.client, name: clientDisplayName(passenger.client) } } : {}),
-  };
+    // TypeScript cannot prove the conditional `client` type from the spread above.
+  } as unknown as ReturnType<typeof withName<T>>;
 }
 
 @Injectable()

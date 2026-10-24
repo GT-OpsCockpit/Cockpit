@@ -39,7 +39,7 @@ export const NO_STATUS_LABEL = 'Send ?'
 
 // Steps kept as a solid badge; everything else is plain colored text (matches
 // the legacy's HIGHLIGHTED_STEPS distinction).
-export const HIGHLIGHTED_STEPS: (TripStepEntityStep | 'CANCELLED')[] = [
+export const HIGHLIGHTED_STEPS: NonNullable<TripStatus>[] = [
   TripStepEntityStep.TRANSMITTED,
   TripStepEntityStep.RECEIVED,
   TripStepEntityStep.ACCEPTED,
@@ -89,7 +89,15 @@ export function isStatusHighlighted(status: TripStatus): boolean {
 
 export function isStatusAdvanceable(trip: TripEntity): boolean {
   const status = currentStatus(trip)
-  return !isStatusLocked(trip) && !!status && status !== 'CANCELLED' && ADVANCEABLE_STEPS.includes(status)
+  // Stop / Declined / "Updated - Send ?" are not steps: nothing to validate next.
+  return (
+    !isStatusLocked(trip) &&
+    !!status &&
+    status !== 'CANCELLED' &&
+    status !== 'DECLINED' &&
+    status !== 'UPDATE_PENDING' &&
+    ADVANCEABLE_STEPS.includes(status)
+  )
 }
 
 /**

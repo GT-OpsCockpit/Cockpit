@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon'
+import { clientDisplayName } from '@cockpit/shared'
 import type { TripEntity } from '@cockpit/shared/api'
 import type { FinanceBreakdownDimension, FinanceFilters, FinanceScope } from './finance-filters'
 
@@ -196,11 +197,9 @@ function groupKey(
   countryNames?: Record<string, string>,
 ): { key: string; label: string } {
   if (dimension === 'client') {
-    // `client.name` is a derived display name (company, or contact first+last)
-    // and is normally always set — but a record created with none of those
-    // filled in has nothing to derive it from, so fall back to the ref rather
-    // than crash the chart on an edge case in the underlying data.
-    return { key: trip.client.ref, label: trip.client.name || trip.client.ref }
+    // A trip's embedded client carries no derived `name`: compute it, with the
+    // same fallback (company, contact name, then the ref) as everywhere else.
+    return { key: trip.client.ref, label: clientDisplayName(trip.client) }
   }
   if (dimension === 'vehicle') {
     return trip.vehicleType

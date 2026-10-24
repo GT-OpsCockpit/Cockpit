@@ -1,4 +1,4 @@
-import { ClientBaseEntity } from '../../clients/dto/client.entity';
+import { ClientEntity } from '../../clients/dto/client.entity';
 import { PassengerRouteEntity } from './passenger-route.entity';
 import { PassengerAddressEntity } from './passenger-address.entity';
 
@@ -18,7 +18,7 @@ export class PassengerBaseEntity {
 /** A Passenger, plus the derived display `name` (passengerDisplayName), its routes and saved addresses. */
 export class PassengerEntity extends PassengerBaseEntity {
   name: string;
-  client: ClientBaseEntity | null;
+  client: ClientEntity | null;
   routes: PassengerRouteEntity[];
   addresses: PassengerAddressEntity[];
 }

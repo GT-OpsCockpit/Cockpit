@@ -879,7 +879,7 @@ export function TripFormFields({
                       // country after a swap.
                       const pickupCountry = form.getValues('countryCode')
                       const dropoffCountry = form.getValues('dropoffCountryCode')
-                      form.setValue('pickupLocation', dropoff, { shouldDirty: true })
+                      form.setValue('pickupLocation', dropoff ?? '', { shouldDirty: true })
                       form.setValue('dropoffLocation', pickup, { shouldDirty: true })
                       form.setValue('pickupIata', dropoffIata, { shouldDirty: true })
                       form.setValue('dropoffIata', pickupIata, { shouldDirty: true })

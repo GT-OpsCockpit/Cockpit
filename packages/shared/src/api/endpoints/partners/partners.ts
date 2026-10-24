@@ -28,6 +28,7 @@ import type {
   CreatePartnerDto,
   OkResponseEntity,
   PartnerEntity,
+  PartnersControllerListParams,
   SetActiveDto,
   UpdatePartnerDto
 } from '../../model';
@@ -54,17 +55,24 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export const getPartnersControllerListUrl = () => {
+export const getPartnersControllerListUrl = (params?: PartnersControllerListParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/partners`
+  return stringifiedParams.length > 0 ? `/api/partners?${stringifiedParams}` : `/api/partners`
 }
 
-export const partnersControllerList = async ( options?: Parameters<typeof fetcher>[1]): Promise<PartnerEntity[]> => {
+export const partnersControllerList = async (params?: PartnersControllerListParams, options?: Parameters<typeof fetcher>[1]): Promise<PartnerEntity[]> => {
 
-  return fetcher<PartnerEntity[]>(getPartnersControllerListUrl(),
+  return fetcher<PartnerEntity[]>(getPartnersControllerListUrl(params),
   {
     ...options,
     method: 'GET'
@@ -77,23 +85,23 @@ export const partnersControllerList = async ( options?: Parameters<typeof fetche
 
 
 
-export const getPartnersControllerListQueryKey = () => {
+export const getPartnersControllerListQueryKey = (params?: PartnersControllerListParams,) => {
     return [
-    `/api/partners`
+    `/api/partners`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getPartnersControllerListQueryOptions = <TData = Awaited<ReturnType<typeof partnersControllerList>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof partnersControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+export const getPartnersControllerListQueryOptions = <TData = Awaited<ReturnType<typeof partnersControllerList>>, TError = unknown>(params?: PartnersControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof partnersControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getPartnersControllerListQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getPartnersControllerListQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof partnersControllerList>>> = ({ signal }) => partnersControllerList({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof partnersControllerList>>> = ({ signal }) => partnersControllerList(params, { signal, ...requestOptions });
 
 
 
@@ -107,7 +115,7 @@ export type PartnersControllerListQueryError = unknown
 
 
 export function usePartnersControllerList<TData = Awaited<ReturnType<typeof partnersControllerList>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof partnersControllerList>>, TError, TData>> & Pick<
+ params: undefined |  PartnersControllerListParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof partnersControllerList>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof partnersControllerList>>,
           TError,
@@ -117,7 +125,7 @@ export function usePartnersControllerList<TData = Awaited<ReturnType<typeof part
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function usePartnersControllerList<TData = Awaited<ReturnType<typeof partnersControllerList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof partnersControllerList>>, TError, TData>> & Pick<
+ params?: PartnersControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof partnersControllerList>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof partnersControllerList>>,
           TError,
@@ -127,16 +135,16 @@ export function usePartnersControllerList<TData = Awaited<ReturnType<typeof part
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function usePartnersControllerList<TData = Awaited<ReturnType<typeof partnersControllerList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof partnersControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ params?: PartnersControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof partnersControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 
 export function usePartnersControllerList<TData = Awaited<ReturnType<typeof partnersControllerList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof partnersControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ params?: PartnersControllerListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof partnersControllerList>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getPartnersControllerListQueryOptions(options)
+  const queryOptions = getPartnersControllerListQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
