@@ -40,7 +40,8 @@ services:
       retries: 10
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # Built on the server: MinIO no longer publishes images (see minio/Dockerfile).
+    build: ./minio
     restart: unless-stopped
     command: server /data --console-address ':9001'
     environment:
