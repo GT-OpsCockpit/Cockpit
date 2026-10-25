@@ -19,5 +19,8 @@ if "${COMPOSE[@]}" ps --status running postgres 2>/dev/null | grep -q postgres; 
 "${COMPOSE[@]}" up -d postgres minio
 "${COMPOSE[@]}" run --rm migrate
 "${COMPOSE[@]}" up -d
+# Caddy reads its config file only at start, and `up -d` leaves it running when
+# only the Caddyfile changed: reload it so edits take effect.
+"${COMPOSE[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 docker image prune -f >/dev/null
 "${COMPOSE[@]}" ps
