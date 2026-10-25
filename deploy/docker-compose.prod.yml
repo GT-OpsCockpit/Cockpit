@@ -68,7 +68,7 @@ services:
       PORT: 3000
       AUTH_DEV_OTP: 'false'
       DATABASE_URL: postgresql://${POSTGRES_USER:-cockpit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cockpit}?schema=public
-      PUBLIC_API_URL: https://${DOMAIN}/api
+      PUBLIC_API_URL: https://${DOMAIN}
       CORS_ORIGIN: https://${DOMAIN}
       S3_ENDPOINT: http://minio:9000
       S3_REGION: ${S3_REGION:-us-east-1}
@@ -88,8 +88,8 @@ services:
       dockerfile: apps/web/Dockerfile
       target: prod
       args:
-        # Same origin as the site: Caddy forwards /api/* to the API.
-        VITE_API_URL: https://${DOMAIN}/api
+        # Same origin as the site: Caddy forwards /api/* to the API (the client adds /api itself).
+        VITE_API_URL: https://${DOMAIN}
     restart: unless-stopped
 
   # One-off tasks (not started by `up`): database migrations and the baseline

@@ -2,9 +2,9 @@
 {$DOMAIN} {
 	encode gzip
 
-	# /api/* -> the API, with the /api prefix removed (the API has no prefix).
+	# /api/* -> the API, path unchanged (the API itself serves everything under /api).
 	# flush_interval -1 keeps the live-updates stream (/events) flowing.
-	handle_path /api/* {
+	handle /api/* {
 		reverse_proxy api:3000 {
 			flush_interval -1
 		}
