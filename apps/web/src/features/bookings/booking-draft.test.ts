@@ -31,6 +31,8 @@ const geocode = (overrides: Partial<GeocodeTzEntity> = {}): GeocodeTzEntity => (
   lat: 43.66,
   lon: 7.21,
   displayName: 'Nice Côte d’Azur Airport',
+  fullAddress: null,
+  placeId: null,
   countryCode: 'FR',
   postalCode: null,
   isAirport: true,

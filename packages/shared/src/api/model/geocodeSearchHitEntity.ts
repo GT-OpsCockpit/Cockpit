@@ -8,6 +8,10 @@
 
 export interface GeocodeSearchHitEntity {
   displayName: string;
+  /** @nullable */
+  fullAddress: string | null;
+  /** @nullable */
+  placeId: string | null;
   lat: number;
   lon: number;
   /** @nullable */

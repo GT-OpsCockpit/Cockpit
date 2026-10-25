@@ -16,8 +16,14 @@ import {
   isAirportResult,
   isTrainStationResult,
   extractIata,
+  extractPlaceId,
   NominatimResult,
 } from './nominatim.util';
+import {
+  GOOGLE_PLACE_FIELD_MASK,
+  GooglePlace,
+  googlePlaceToResult,
+} from './google-places.util';
 import { FlightCheckDto } from './dto/flight-check.dto';
 import {
   GeocodeTzEntity,
@@ -29,6 +35,8 @@ import {
 } from './dto/geo-response.entity';
 
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+const GOOGLE_PLACES_SEARCH_URL =
+  'https://places.googleapis.com/v1/places:searchText';
 const FX_API_URL = 'https://open.er-api.com/v6/latest/EUR';
 const FLIGHT_NUMBER_PATTERN = /^([A-Z]{2,3})\s?(\d{1,4}[A-Z]?)$/;
 const FLIGHT_TOLERANCE_MS = 90 * 60 * 1000;
@@ -56,12 +64,78 @@ export class GeoService {
     return res.json() as Promise<NominatimResult[]>;
   }
 
+  /**
+   * Google Places text search, adapted to the Nominatim result shape. Google
+   * finds businesses and landmarks ("Maserati Cannes") that OpenStreetMap
+   * mostly doesn't, but gives no IATA code, so airports borrow it from a
+   * best-effort Nominatim lookup of their name.
+   */
+  private async googleSearch(
+    q: string,
+    limit: number,
+    apiKey: string,
+  ): Promise<NominatimResult[]> {
+    const res = await fetch(GOOGLE_PLACES_SEARCH_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': GOOGLE_PLACE_FIELD_MASK,
+      },
+      body: JSON.stringify({
+        textQuery: q,
+        languageCode: 'en',
+        maxResultCount: Math.min(Math.max(limit, 1), 20),
+      }),
+    });
+    if (!res.ok) throw new Error(`google_http_${res.status}`);
+    const body = (await res.json()) as { places?: GooglePlace[] };
+    const results = (body.places ?? [])
+      .map(googlePlaceToResult)
+      .filter((r): r is NominatimResult => r !== null);
+    await Promise.all(
+      results
+        .filter((r) => r.class === 'aeroway')
+        .map(async (r) => {
+          try {
+            const [osm] = await this.nominatimSearch(
+              r.address?.aeroway ?? r.display_name,
+              1,
+            );
+            if (osm?.extratags) r.extratags = osm.extratags;
+          } catch {
+            // best effort: the airport is still found, just without its IATA code
+          }
+        }),
+    );
+    return results;
+  }
+
+  /** Google when GOOGLE_MAPS_API_KEY is set (and answering), OpenStreetMap otherwise. */
+  private async placeSearch(
+    q: string,
+    limit: number,
+  ): Promise<NominatimResult[]> {
+    const apiKey = this.config.get('GOOGLE_MAPS_API_KEY', { infer: true });
+    if (apiKey) {
+      try {
+        const results = await this.googleSearch(q, limit, apiKey);
+        if (results.length > 0) return results;
+      } catch (err) {
+        this.logger.warn(
+          `[places] Google failed, falling back to OpenStreetMap: ${(err as Error).message}`,
+        );
+      }
+    }
+    return this.nominatimSearch(q, limit);
+  }
+
   async geocodeTz(q: string): Promise<GeocodeTzEntity> {
     if (!q.trim())
       throw new BadRequestException('Missing q parameter (address).');
     let results: NominatimResult[];
     try {
-      results = await this.nominatimSearch(q.trim(), 1);
+      results = await this.placeSearch(q.trim(), 1);
     } catch (err) {
       this.logger.warn(`[geocode-tz] failed: ${(err as Error).message}`);
       throw new BadGatewayException(
@@ -81,6 +155,8 @@ export class GeoService {
       lat,
       lon,
       displayName: simplifyAddress(r0),
+      fullAddress: r0.display_name || null,
+      placeId: extractPlaceId(r0),
       countryCode: r0.address?.country_code?.toUpperCase() ?? null,
       postalCode: r0.address?.postcode ?? null,
       isAirport: isAirportResult(r0),
@@ -95,7 +171,7 @@ export class GeoService {
   ): Promise<GeocodeSearchResponseEntity> {
     if (q.trim().length < 2) return { results: [] };
     try {
-      const results = await this.nominatimSearch(
+      const results = await this.placeSearch(
         q.trim(),
         Math.min(limit || 5, 8),
       );
@@ -109,6 +185,8 @@ export class GeoService {
           }
           return {
             displayName: simplifyAddress(r),
+            fullAddress: r.display_name || null,
+            placeId: extractPlaceId(r),
             lat: parseFloat(r.lat),
             lon: parseFloat(r.lon),
             tz,

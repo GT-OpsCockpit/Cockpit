@@ -34,6 +34,11 @@ export interface NominatimResult {
   lon: string;
   display_name: string;
   address?: NominatimAddress;
+  /** OSM object, when the hit comes from Nominatim. */
+  osm_type?: string;
+  osm_id?: number;
+  /** Provider-prefixed id (`google:…`), set when the hit comes from Google. */
+  placeId?: string;
   extratags?: { iata?: string; icao?: string; railway?: string; aeroway?: string };
 }
 
@@ -112,4 +117,10 @@ export function isTrainStationResult(r: NominatimResult | undefined): boolean {
 
 export function extractIata(r: NominatimResult): string | null {
   return r.extratags?.iata ?? r.extratags?.icao ?? null;
+}
+
+/** Stable id of the place in its source (`google:…` or `osm:node/123`), or null. */
+export function extractPlaceId(r: NominatimResult): string | null {
+  if (r.placeId) return r.placeId;
+  return r.osm_type && r.osm_id ? `osm:${r.osm_type}/${r.osm_id}` : null;
 }

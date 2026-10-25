@@ -6,6 +6,10 @@ export class GeocodeTzEntity {
   lat: number;
   lon: number;
   displayName: string;
+  /** The provider's complete address (several segments), kept for the record; `displayName` is the short label. */
+  fullAddress: string | null;
+  /** Stable id of the place at its source (`google:…` / `osm:…`). */
+  placeId: string | null;
   countryCode: string | null;
   postalCode: string | null;
   isAirport: boolean;
@@ -15,6 +19,8 @@ export class GeocodeTzEntity {
 
 export class GeocodeSearchHitEntity {
   displayName: string;
+  fullAddress: string | null;
+  placeId: string | null;
   lat: number;
   lon: number;
   tz: string | null;

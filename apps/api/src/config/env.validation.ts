@@ -119,6 +119,11 @@ export class EnvironmentVariables {
   @IsString()
   FLIGHTSTATS_APP_KEY?: string;
 
+  /** Google Places API (New) key for address search; OpenStreetMap is used when unset. */
+  @IsOptional()
+  @IsString()
+  GOOGLE_MAPS_API_KEY?: string;
+
   @IsString()
   NOMINATIM_USER_AGENT: string = 'CockpitV2/1.0';
 

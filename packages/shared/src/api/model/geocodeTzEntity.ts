@@ -11,6 +11,16 @@ export interface GeocodeTzEntity {
   lat: number;
   lon: number;
   displayName: string;
+  /**
+     * The provider's complete address (several segments), kept for the record; `displayName` is the short label.
+     * @nullable
+     */
+  fullAddress: string | null;
+  /**
+     * Stable id of the place at its source (`google:…` / `osm:…`).
+     * @nullable
+     */
+  placeId: string | null;
   /** @nullable */
   countryCode: string | null;
   /** @nullable */

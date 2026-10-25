@@ -90,6 +90,78 @@ describe('GeoService', () => {
     });
   });
 
+  describe('Google Places', () => {
+    const googleBody = {
+      places: [
+        {
+          id: 'ChIJmaserati',
+          displayName: { text: 'Maserati Cannes' },
+          formattedAddress: '440 Av. du Campon, 06110 Le Cannet, France',
+          location: { latitude: 43.5698, longitude: 7.0123 },
+          types: ['car_dealer', 'point_of_interest', 'establishment'],
+          addressComponents: [
+            { longText: 'Le Cannet', shortText: 'Le Cannet', types: ['locality'] },
+            { longText: 'France', shortText: 'FR', types: ['country'] },
+            { longText: '06110', shortText: '06110', types: ['postal_code'] },
+          ],
+        },
+      ],
+    };
+
+    it('searches Google when a key is set and returns short labels plus the full address', async () => {
+      const fetchMock = mockFetch(() =>
+        Promise.resolve({ ok: true, json: () => Promise.resolve(googleBody) }),
+      );
+      const service = new GeoService(
+        {} as PrismaService,
+        makeConfig({ GOOGLE_MAPS_API_KEY: 'test-key' }),
+      );
+      const { results } = await service.geocodeSearch('Maserati Cannes', 5);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(String(fetchMock.mock.calls[0][0])).toContain('places.googleapis.com');
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual(
+        expect.objectContaining({
+          displayName: 'Maserati Cannes, Le Cannet, France',
+          fullAddress: '440 Av. du Campon, 06110 Le Cannet, France',
+          placeId: 'google:ChIJmaserati',
+          postalCode: '06110',
+          countryCode: 'FR',
+          tz: 'Europe/Paris',
+        }),
+      );
+    });
+
+    it('falls back to OpenStreetMap when Google fails', async () => {
+      const fetchMock = mockFetch((url) =>
+        String(url).includes('googleapis')
+          ? Promise.resolve({ ok: false, status: 403 })
+          : Promise.resolve({
+              ok: true,
+              json: () =>
+                Promise.resolve([
+                  {
+                    lat: '43.55',
+                    lon: '7.01',
+                    display_name: 'Cannes, Alpes-Maritimes, France',
+                    osm_type: 'relation',
+                    osm_id: 1,
+                    address: { city: 'Cannes', country: 'France', country_code: 'fr' },
+                  },
+                ]),
+            }),
+      );
+      const service = new GeoService(
+        {} as PrismaService,
+        makeConfig({ GOOGLE_MAPS_API_KEY: 'bad-key' }),
+      );
+      const { results } = await service.geocodeSearch('Cannes', 5);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(results[0].placeId).toBe('osm:relation/1');
+      expect(results[0].fullAddress).toBe('Cannes, Alpes-Maritimes, France');
+    });
+  });
+
   describe('fboLookup', () => {
     it('matches an airport by name or code', () => {
       const service = new GeoService({} as PrismaService, makeConfig());
