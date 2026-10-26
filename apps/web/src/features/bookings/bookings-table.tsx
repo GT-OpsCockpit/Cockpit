@@ -16,6 +16,7 @@ import {
   shortDriverName,
   tripDriverName,
   urgencyRowClass,
+  customerTitle,
 } from './trip-display'
 import { Itinerary } from './itinerary'
 import { PickupTime } from './pickup-time'
@@ -113,7 +114,7 @@ export function BookingsTable({
                   </TableCell>
                   <TableCell className="text-xs font-medium">{trip.ref}</TableCell>
                   <TableCell className="text-xs">
-                    <div>
+                    <div className="max-w-[14rem] truncate" title={customerTitle(account)}>
                       {account.primary}
                       {account.secondary && (
                         <span className="text-muted-foreground text-[10px]"> ({account.secondary})</span>
@@ -179,7 +180,7 @@ export function BookingsTable({
  */
 function PassengerLine({ trip }: { trip: TripEntity }) {
   const poc = pocTooltipLabel(trip)
-  const name = <div className="text-muted-foreground text-[10px]">{trip.passengerName}</div>
+  const name = <div className="text-muted-foreground max-w-[14rem] truncate text-[10px]">{trip.passengerName}</div>
   if (!poc) return name
 
   return (

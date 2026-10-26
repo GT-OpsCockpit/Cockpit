@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { TableCard } from '@/components/table-card'
 import { EmptyState } from '@/components/empty-state'
 import { StatusBadge } from '../bookings/status-badge'
-import { clientAccountLabel, tripDriverName, urgencyRowClass } from '../bookings/trip-display'
+import { clientAccountLabel, customerTitle, tripDriverName, urgencyRowClass } from '../bookings/trip-display'
 import { Itinerary } from '../bookings/itinerary'
 import { PickupTime } from '../bookings/pickup-time'
 import { TripActionsCell, type TripRowActions } from '../bookings/trip-actions-cell'
@@ -89,13 +89,13 @@ export function PlanningList({
                   </TableCell>
                   <TableCell className="text-xs font-medium">{trip.ref}</TableCell>
                   <TableCell className="text-xs">
-                    <div>
+                    <div className="max-w-[14rem] truncate" title={customerTitle(account)}>
                       {account.primary}
                       {account.secondary && (
                         <span className="text-muted-foreground text-[10px]"> ({account.secondary})</span>
                       )}
                     </div>
-                    <div className="text-muted-foreground text-[10px]">{trip.passengerName}</div>
+                    <div className="text-muted-foreground max-w-[14rem] truncate text-[10px]">{trip.passengerName}</div>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs whitespace-normal"><Itinerary trip={trip} /></TableCell>
                   <TableCell className="text-xs">{trip.vehicleType?.name ?? '—'}</TableCell>

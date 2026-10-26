@@ -41,6 +41,11 @@ export function clientAccountLabel(trip: TripEntity): { primary: string; seconda
   return { primary: clientDisplayName(trip.client) }
 }
 
+/** Full account label for the hover title when the cell is truncated. */
+export function customerTitle(account: { primary: string; secondary?: string }): string {
+  return account.secondary ? `${account.primary} (${account.secondary})` : account.primary
+}
+
 /** Farm-out or Local: driver name, falling back to the sub-contracted partner's name. */
 /**
  * What to say on hover over the passenger line, or null to say nothing.
