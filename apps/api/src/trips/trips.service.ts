@@ -9,6 +9,7 @@ import {
 import { DateTime } from 'luxon';
 import { randomUUID } from 'node:crypto';
 import { basename, extname } from 'node:path';
+import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
@@ -77,6 +78,7 @@ import {
 } from './trip-message.util';
 import { toPublicTrip } from './public-trip.mapper';
 import { tripWindow } from './trip-window';
+import { subcontractCompletionBlocker } from './trip-completion';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { AssignTripDto } from './dto/assign-trip.dto';
@@ -747,6 +749,40 @@ export class TripsService {
     ]);
     this.realtime.emitTripChanged(ref);
     return { ok: true, trip: await this.findByRefOrThrow(ref), notifyWarning };
+  }
+
+  /**
+   * Closes a sub-contracted booking by hand (Sent/Confirmed → Done) so it can
+   * be invoiced. The partner has no driver link to mark it Done, so an admin
+   * does it, re-entering their own password as the final check.
+   */
+  async completeSubcontract(
+    ref: string,
+    password: string,
+    user: AuthenticatedUser,
+  ): Promise<TripActionResponseEntity> {
+    const account = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { passwordHash: true },
+    });
+    if (!account || !(await argon2.verify(account.passwordHash, password))) {
+      throw new ForbiddenException('Wrong password.');
+    }
+
+    const trip = await this.findByRefOrThrow(ref);
+    const blocker = subcontractCompletionBlocker(trip);
+    if (blocker) throw new BadRequestException(blocker);
+
+    // Every step the partner never reported is filled in, so the booking
+    // reads Done and its history stays a complete pipeline.
+    const present = new Set(trip.steps.map((s) => s.step));
+    await this.prisma.tripStep.createMany({
+      data: TRIP_STEP_ORDER.filter((step) => !present.has(step)).map(
+        (step) => ({ tripId: trip.id, step }),
+      ),
+    });
+    this.realtime.emitTripChanged(ref);
+    return { ok: true, trip: await this.findByRefOrThrow(ref) };
   }
 
   async advanceStep(ref: string): Promise<TripActionResponseEntity> {

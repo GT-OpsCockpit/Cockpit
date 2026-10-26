@@ -12,6 +12,7 @@ export type AuthMeEntityPermissionsItem = typeof AuthMeEntityPermissionsItem[key
 export const AuthMeEntityPermissionsItem = {
   'trip:cancel': 'trip:cancel',
   'trip:edit-past': 'trip:edit-past',
+  'trip:complete-subcontract': 'trip:complete-subcontract',
   'trip:edit-price': 'trip:edit-price',
   'client:edit': 'client:edit',
   'company:edit': 'company:edit',

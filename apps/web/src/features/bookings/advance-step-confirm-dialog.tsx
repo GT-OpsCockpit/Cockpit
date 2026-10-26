@@ -4,6 +4,9 @@ import { getTripsControllerListQueryKey, useTripsControllerAdvanceStep } from '@
 import { queryClient } from '@/lib/query-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
+import { usePermission } from '@/features/auth/use-permission'
+import { CompleteSubcontractDialog } from './complete-subcontract-dialog'
+import { isStatusCompletable } from './trip-status'
 
 export function AdvanceStepConfirmDialog({
   trip,
@@ -13,6 +16,7 @@ export function AdvanceStepConfirmDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const advanceStep = useTripsControllerAdvanceStep()
+  const canComplete = usePermission('trip:complete-subcontract')
 
   const confirm = async () => {
     if (!trip) return
@@ -25,6 +29,12 @@ export function AdvanceStepConfirmDialog({
     } finally {
       onOpenChange(false)
     }
+  }
+
+  // An admin clicking a sub-contracted Sent/Confirmed badge ends the trip (behind
+  // their password) rather than nudging it one step.
+  if (trip && canComplete && isStatusCompletable(trip)) {
+    return <CompleteSubcontractDialog trip={trip} onOpenChange={onOpenChange} />
   }
 
   return (

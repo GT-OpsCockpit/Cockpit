@@ -2,8 +2,9 @@ import { Send } from 'lucide-react'
 import type { TripEntity } from '@cockpit/shared/api'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { usePermission } from '@/features/auth/use-permission'
 import { STEP_ICONS } from './trip-step-icons'
-import { NO_STATUS_LABEL, currentStatus, isStatusAdvanceable, isStatusHighlighted, statusLabel, type TripStatus } from './trip-status'
+import { NO_STATUS_LABEL, currentStatus, isStatusAdvanceable, isStatusCompletable, isStatusHighlighted, statusLabel, type TripStatus } from './trip-status'
 
 // Pill-outline (tinted background + border and text in the status colour), on
 // theme tokens rather than raw Tailwind palette classes.
@@ -35,6 +36,7 @@ function StatusIcon({ status }: { status: NonNullable<TripStatus> }) {
 
 /** Mirrors the legacy's statusBadgeAndRowClass() badge half — pill-outline badge for highlighted steps, plain colored text otherwise. */
 export function StatusBadge({ trip, onAdvance }: { trip: TripEntity; onAdvance?: (trip: TripEntity) => void }) {
+  const canComplete = usePermission('trip:complete-subcontract')
   const status = currentStatus(trip)
   if (!status) {
     return (
@@ -48,9 +50,13 @@ export function StatusBadge({ trip, onAdvance }: { trip: TripEntity; onAdvance?:
   const label = statusLabel(status)
   const badgeColor =
     status === 'ACCEPTED' && trip.subContractor ? PARTNER_CONFIRMED_COLOR : HIGHLIGHTED_COLORS[status]
-  const clickable = onAdvance && isStatusAdvanceable(trip)
+  const completable = canComplete && isStatusCompletable(trip)
+  const clickable = onAdvance && (completable || isStatusAdvanceable(trip))
   const clickProps = clickable
-    ? { title: 'Click to validate the next step', onClick: () => onAdvance(trip) }
+    ? {
+        title: completable ? 'Click to end this trip' : 'Click to validate the next step',
+        onClick: () => onAdvance(trip),
+      }
     : undefined
 
   if (isStatusHighlighted(status)) {

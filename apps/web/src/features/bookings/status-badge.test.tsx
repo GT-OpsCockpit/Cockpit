@@ -4,7 +4,13 @@ import { TripStepEntityStep } from '@cockpit/shared/api'
 import { StatusBadge } from './status-badge'
 import { baseTrip, step } from './test-fixtures'
 
-afterEach(cleanup)
+let canComplete = false
+vi.mock('@/features/auth/use-permission', () => ({ usePermission: () => canComplete }))
+
+afterEach(() => {
+  cleanup()
+  canComplete = false
+})
 
 describe('StatusBadge', () => {
   it('shows "Send ?" and is not clickable when no step has been recorded yet', () => {
@@ -76,5 +82,38 @@ describe('StatusBadge', () => {
 
     expect(screen.getByText('OTW')).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  describe('ending a sub-contracted trip by hand', () => {
+    const sentToPartnerCompany = () =>
+      baseTrip({ subContractor: true, partnerId: null, steps: [step(TripStepEntityStep.TRANSMITTED)] })
+
+    it('lets an admin click a Sent sub-contracted trip, even one sent to a partner company', () => {
+      canComplete = true
+      const onAdvance = vi.fn()
+      const trip = sentToPartnerCompany()
+      render(<StatusBadge trip={trip} onAdvance={onAdvance} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Sent' }))
+      expect(onAdvance).toHaveBeenCalledWith(trip)
+    })
+
+    it('lets an admin click a Confirmed sub-contracted trip', () => {
+      canComplete = true
+      const trip = baseTrip({
+        subContractor: true,
+        partnerId: null,
+        steps: [step(TripStepEntityStep.TRANSMITTED), step(TripStepEntityStep.ACCEPTED)],
+      })
+      render(<StatusBadge trip={trip} onAdvance={vi.fn()} />)
+
+      expect(screen.getByRole('button', { name: 'Confirmed' })).toBeInTheDocument()
+    })
+
+    it('keeps it locked for anyone without the permission', () => {
+      render(<StatusBadge trip={sentToPartnerCompany()} onAdvance={vi.fn()} />)
+
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    })
   })
 })

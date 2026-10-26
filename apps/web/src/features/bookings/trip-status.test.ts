@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { TripStepEntityStep } from '@cockpit/shared/api'
-import { currentStatus, dispatchButtonState, isStatusAdvanceable, isStatusLocked } from './trip-status'
+import { currentStatus, dispatchButtonState, isStatusAdvanceable, isStatusCompletable, isStatusLocked } from './trip-status'
 import { baseTrip, step } from './test-fixtures'
 
 describe('currentStatus', () => {
@@ -140,5 +140,31 @@ describe('dispatchButtonState', () => {
       false,
     )
     expect(state.dimmed).toBe(false)
+  })
+})
+
+describe('isStatusCompletable', () => {
+  const sent = [step(TripStepEntityStep.TRANSMITTED)]
+
+  it('is true for a sub-contracted trip at Sent', () => {
+    expect(isStatusCompletable(baseTrip({ subContractor: true, steps: sent }))).toBe(true)
+  })
+
+  it('is true for a sub-contracted trip at Confirmed', () => {
+    const steps = [step(TripStepEntityStep.TRANSMITTED), step(TripStepEntityStep.ACCEPTED)]
+    expect(isStatusCompletable(baseTrip({ subContractor: true, steps }))).toBe(true)
+  })
+
+  it('is false for a trip run by our own driver', () => {
+    expect(isStatusCompletable(baseTrip({ subContractor: false, steps: sent }))).toBe(false)
+  })
+
+  it('is false once on the way, declined or already invoiced', () => {
+    const onTheWay = [step(TripStepEntityStep.TRANSMITTED), step(TripStepEntityStep.ENROUTE)]
+    expect(isStatusCompletable(baseTrip({ subContractor: true, steps: onTheWay }))).toBe(false)
+    expect(
+      isStatusCompletable(baseTrip({ subContractor: true, steps: sent, partnerDeclinedAt: new Date().toISOString() })),
+    ).toBe(false)
+    expect(isStatusCompletable(baseTrip({ subContractor: true, steps: sent, invoiced: true }))).toBe(false)
   })
 })

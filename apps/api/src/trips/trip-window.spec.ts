@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { tripWindow } from './trip-window';
-import { ClientType, Service } from '../../generated/prisma/enums';
+import { ClientType, Service, TripStepKind } from '../../generated/prisma/enums';
 
 // 2026-06-15 is a Monday. 10:00 UTC is 12:00 in Paris, so "today (Paris)"
 // starts at 22:00 UTC the previous day — the offset every date case below
@@ -276,13 +276,15 @@ describe('tripWindow — the five Trip list views', () => {
       },
       invoiced: false,
       // Billable rule: never once the partner declined; a job given to a partner
-      // company only a minute after its pickup time has passed.
+      // company only a minute after its pickup time has passed, or once an admin
+      // has ended it by hand (it then carries the Done step).
       AND: [
         { partnerDeclinedAt: null },
         {
           OR: [
             { directPartnerId: null },
             { pickupAt: { lt: new Date('2026-06-15T09:59:00.000Z') } },
+            { steps: { some: { step: TripStepKind.DROPPED } } },
           ],
         },
       ],

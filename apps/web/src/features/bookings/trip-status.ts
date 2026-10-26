@@ -75,6 +75,20 @@ export function isStatusLocked(trip: TripEntity): boolean {
   return trip.subContractor && !trip.partnerId
 }
 
+/**
+ * A sub-contracted booking at Sent or Confirmed can be closed by hand by an
+ * admin (the partner has no driver link to mark it Done), which is what lets it
+ * be invoiced. Mirrors the API's subcontractCompletionBlocker.
+ */
+export function isStatusCompletable(trip: TripEntity): boolean {
+  const status = currentStatus(trip)
+  return (
+    trip.subContractor &&
+    !trip.invoiced &&
+    (status === TripStepEntityStep.TRANSMITTED || status === TripStepEntityStep.ACCEPTED)
+  )
+}
+
 export function statusLabel(status: TripStatus): string {
   if (!status) return NO_STATUS_LABEL
   if (status === 'CANCELLED') return CANCELLED_LABEL

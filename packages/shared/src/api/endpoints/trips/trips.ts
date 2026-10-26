@@ -28,6 +28,7 @@ import type {
   AssignTripDto,
   CancelAssignmentDto,
   CancelAssignmentResponseEntity,
+  CompleteSubcontractDto,
   CreateTripDto,
   NotifyStepDto,
   PublicTripActionResponseEntity,
@@ -807,6 +808,78 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getTripsControllerAdvanceStepMutationOptions(options), queryClient);
+    }
+    export const getTripsControllerCompleteSubcontractUrl = (ref: string,) => {
+
+
+
+
+  return `/api/trips/${ref}/complete-subcontract`
+}
+
+export const tripsControllerCompleteSubcontract = async (ref: string,
+    completeSubcontractDto: CompleteSubcontractDto, options?: Parameters<typeof fetcher>[1]): Promise<TripActionResponseEntity> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+return fetcher<TripActionResponseEntity>(getTripsControllerCompleteSubcontractUrl(ref),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(completeSubcontractDto)
+  }
+);}
+
+
+
+
+
+export const getTripsControllerCompleteSubcontractMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tripsControllerCompleteSubcontract>>, TError,TripsControllerCompleteSubcontractMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof tripsControllerCompleteSubcontract>>, TError,TripsControllerCompleteSubcontractMutationVariables, TContext> => {
+
+const mutationKey = ['tripsControllerCompleteSubcontract'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tripsControllerCompleteSubcontract>>, TripsControllerCompleteSubcontractMutationVariables> = (props) => {
+          const {ref,data} = props ?? {};
+
+          return  tripsControllerCompleteSubcontract(ref,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TripsControllerCompleteSubcontractMutationResult = NonNullable<Awaited<ReturnType<typeof tripsControllerCompleteSubcontract>>>
+    export type TripsControllerCompleteSubcontractMutationBody = CompleteSubcontractDto
+    export type TripsControllerCompleteSubcontractMutationError = unknown
+    export type TripsControllerCompleteSubcontractMutationVariables = {ref: string;data: CompleteSubcontractDto}
+
+    export const useTripsControllerCompleteSubcontract = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tripsControllerCompleteSubcontract>>, TError,TripsControllerCompleteSubcontractMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof tripsControllerCompleteSubcontract>>,
+        TError,
+        TripsControllerCompleteSubcontractMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTripsControllerCompleteSubcontractMutationOptions(options), queryClient);
     }
     export const getTripsControllerNotifyUrl = (ref: string,) => {
 

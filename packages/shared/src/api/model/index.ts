@@ -27,6 +27,7 @@ export * from './clientsControllerListExcludeType';
 export * from './clientsControllerListParams';
 export * from './clientsControllerListType';
 export * from './companyInfoEntity';
+export * from './completeSubcontractDto';
 export * from './countryEntity';
 export * from './createClientContactDto';
 export * from './createClientDto';

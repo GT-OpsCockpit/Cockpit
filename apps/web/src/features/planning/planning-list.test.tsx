@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { PlanningList } from './planning-list'
 import { baseTrip } from '../bookings/test-fixtures'
 
+vi.mock('@/features/auth/use-permission', () => ({ usePermission: () => false }))
 vi.mock('sonner', () => ({ toast: { warning: vi.fn(), success: vi.fn(), error: vi.fn() } }))
 
 afterEach(cleanup)

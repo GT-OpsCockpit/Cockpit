@@ -28,6 +28,7 @@ import { UpdateTripDto } from './dto/update-trip.dto';
 import { AssignTripDto } from './dto/assign-trip.dto';
 import { CancelAssignmentDto } from './dto/cancel-assignment.dto';
 import { NotifyStepDto } from './dto/notify-step.dto';
+import { CompleteSubcontractDto } from './dto/complete-subcontract.dto';
 import { ListTripsQueryDto } from './dto/list-trips-query.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
@@ -118,6 +119,16 @@ export class TripsController {
   @Post(':ref/advance-step')
   advanceStep(@Param('ref') ref: string): Promise<TripActionResponseEntity> {
     return this.tripsService.advanceStep(ref);
+  }
+
+  @RequirePermission('trip:complete-subcontract')
+  @Post(':ref/complete-subcontract')
+  completeSubcontract(
+    @Param('ref') ref: string,
+    @Body() dto: CompleteSubcontractDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TripActionResponseEntity> {
+    return this.tripsService.completeSubcontract(ref, dto.password, user);
   }
 
   @Public()

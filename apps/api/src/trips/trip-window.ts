@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import type { Prisma } from '../../generated/prisma/client';
-import { ClientType, Service } from '../../generated/prisma/enums';
+import { ClientType, Service, TripStepKind } from '../../generated/prisma/enums';
 import type { TripCategory, TripPeriod } from './dto/list-trips-query.dto';
 
 /**
@@ -193,13 +193,15 @@ export function tripWindow(
     where.invoiced = false;
     // Billable only once it can no longer be called off: a job sub-contracted
     // to a partner company (no driver steps to mark it Done) becomes billable
-    // one minute after its pickup time, and one the partner declined never is.
+    // one minute after its pickup time — or as soon as an admin has ended it
+    // by hand — and one the partner declined never is.
     const billable: Prisma.TripWhereInput[] = [
       { partnerDeclinedAt: null },
       {
         OR: [
           { directPartnerId: null },
           { pickupAt: { lt: now.minus({ minutes: 1 }).toJSDate() } },
+          { steps: { some: { step: TripStepKind.DROPPED } } },
         ],
       },
     ];

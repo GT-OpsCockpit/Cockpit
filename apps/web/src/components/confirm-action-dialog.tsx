@@ -25,6 +25,8 @@ export function ConfirmActionDialog({
   confirmLabel,
   cancelLabel = 'Cancel',
   pending,
+  confirmDisabled,
+  children,
   onConfirm,
 }: {
   open: boolean
@@ -34,6 +36,10 @@ export function ConfirmActionDialog({
   confirmLabel: string
   cancelLabel?: string
   pending?: boolean
+  /** Holds the confirm button back until the caller's extra input (a password, say) is filled in. */
+  confirmDisabled?: boolean
+  /** Extra input shown between the description and the buttons. */
+  children?: ReactNode
   onConfirm: () => void | Promise<void>
 }) {
   return (
@@ -43,9 +49,10 @@ export function ConfirmActionDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction disabled={pending} onClick={() => void onConfirm()}>
+          <AlertDialogAction disabled={pending || confirmDisabled} onClick={() => void onConfirm()}>
             {pending && <Spinner />}
             {confirmLabel}
           </AlertDialogAction>
