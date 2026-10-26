@@ -207,9 +207,10 @@ model Partner {
   individual    Boolean        @default(false)
   companyName   String? // null when individual — see NewPartner mockup
   contactName   String // "Manager/dispatch name", or "Contact name" when individual
-  phone         String
-  // Second contact number, alongside phone — optional (a partner with only
-  // a landline still has a contact number, this is a convenience second one).
+  // Landline — optional (the email is the one contact a partner must have);
+  // an Individual partner still needs this or the mobile for their own driver record.
+  phone         String?
+  // Second contact number, alongside phone — optional.
   mobile        String?
   email         String
   countryCode   String?

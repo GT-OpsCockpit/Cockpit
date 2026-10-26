@@ -11,7 +11,7 @@ export interface CreatePartnerDto {
   companyName?: string;
   /** "Manager / dispatch name" for a company, "Contact name" for an individual. */
   contactName: string;
-  phone: string;
+  phone?: string;
   mobile?: string;
   email: string;
   countryCode?: string;

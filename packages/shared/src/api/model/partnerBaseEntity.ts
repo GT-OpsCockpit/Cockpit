@@ -13,7 +13,8 @@ export interface PartnerBaseEntity {
   /** @nullable */
   companyName: string | null;
   contactName: string;
-  phone: string;
+  /** @nullable */
+  phone: string | null;
   /** @nullable */
   mobile: string | null;
   email: string;

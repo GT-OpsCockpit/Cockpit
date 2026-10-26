@@ -1,16 +1,17 @@
 import { z } from 'zod'
-import { optionalPhone, requiredEmail, requiredPhone } from '@/lib/contact-fields'
+import { optionalPhone, requiredEmail } from '@/lib/contact-fields'
 
-// Both phone and email are required, unlike Driver's — a partner Cockpit
-// can't email or call back defeats the point of this feature (automatic
-// notification on assign/unassign/cancel). See
+// The email is required, unlike Driver's — a partner Cockpit can't email
+// defeats the point of this feature (automatic notification on
+// assign/unassign/cancel). The phone (landline) and mobile are both optional,
+// except that an Individual needs one of them for their own driver record. See
 // docs/feature-requests/partner-companies.md.
 const partnerFormBaseSchema = z.object({
   individual: z.boolean(),
   companyName: z.string().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  phone: requiredPhone('Phone is required.'),
+  phone: optionalPhone(),
   mobile: optionalPhone(),
   email: requiredEmail('Email is required.'),
   countryCode: z.string().optional(),
@@ -34,6 +35,14 @@ function requireIdentity(data: z.infer<typeof partnerFormBaseSchema>, ctx: z.Ref
       code: 'custom',
       path: ['companyName'],
       message: 'Company name is required unless this partner is an individual.',
+    })
+  }
+  // An Individual partner's own driver record needs a number to be reached on.
+  if (data.individual && !data.phone?.trim() && !data.mobile?.trim()) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['phone'],
+      message: 'Enter a phone or a mobile number for an individual partner.',
     })
   }
   if (!data.firstName?.trim()) {

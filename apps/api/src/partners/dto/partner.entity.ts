@@ -5,7 +5,7 @@ export class PartnerBaseEntity {
   individual: boolean;
   companyName: string | null;
   contactName: string;
-  phone: string;
+  phone: string | null;
   mobile: string | null;
   email: string;
   countryCode: string | null;

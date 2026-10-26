@@ -38,12 +38,16 @@ describe('CreatePartnerDto', () => {
     expect(await errorsFor()).toHaveLength(0);
   });
 
-  // Both required — a partner Cockpit can't email or call back defeats the
-  // point of the feature (automatic notification on assign/unassign/cancel).
-  describe('phone/email — always required, unlike Driver\'s', () => {
-    it('rejects a missing phone', async () => {
-      const errors = await errorsFor({ phone: undefined });
-      expect(errors.map((e) => e.property)).toContain('phone');
+  // The email is required — a partner Cockpit can't email defeats the point of
+  // the feature (automatic notification on assign/unassign/cancel). The
+  // landline is optional, but never malformed when given.
+  describe('phone optional, email required — unlike Driver\'s', () => {
+    it('accepts a missing phone', async () => {
+      expect(await errorsFor({ phone: undefined })).toHaveLength(0);
+    });
+
+    it('accepts a blank phone — what the edit form sends to clear it', async () => {
+      expect(await errorsFor({ phone: '' })).toHaveLength(0);
     });
 
     it('rejects a malformed phone', async () => {

@@ -46,9 +46,21 @@ describe('partnerFormSchema', () => {
     }
   })
 
-  it('rejects a missing phone', () => {
-    const result = partnerFormSchema.safeParse(validBase({ phone: '' }))
-    expect(result.success).toBe(false)
+  it('accepts a company partner with no landline — only the email is required', () => {
+    expect(partnerFormSchema.safeParse(validBase({ phone: '' })).success).toBe(true)
+  })
+
+  it('rejects a malformed phone', () => {
+    expect(partnerFormSchema.safeParse(validBase({ phone: 'not a phone' })).success).toBe(false)
+  })
+
+  it('asks an individual for a phone or a mobile — their own driver record needs one', () => {
+    const none = partnerFormSchema.safeParse(validIndividual({ phone: '', mobile: '' }))
+    expect(none.success).toBe(false)
+    if (!none.success) expect(none.error.issues.map((i) => i.path[0])).toContain('phone')
+
+    expect(partnerFormSchema.safeParse(validIndividual({ phone: '', mobile: '+33612345679' })).success).toBe(true)
+    expect(partnerFormSchema.safeParse(validIndividual({ phone: '+33612345678', mobile: '' })).success).toBe(true)
   })
 
   it('rejects a missing email', () => {

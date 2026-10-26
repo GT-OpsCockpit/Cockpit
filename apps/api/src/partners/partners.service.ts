@@ -99,6 +99,13 @@ export class PartnersService {
         'Company name is required unless this partner is an individual.',
       );
     }
+    // The landline is optional, but an Individual partner's own driver record
+    // (created below) needs a number to reach them on.
+    if (dto.individual && !dto.phone && !dto.mobile) {
+      throw new BadRequestException(
+        'A phone or a mobile number is required for an individual partner.',
+      );
+    }
     const seq = await this.refCounter.next('partner');
     const partner = await this.prisma.partner.create({
       data: {
@@ -106,7 +113,7 @@ export class PartnersService {
         individual: !!dto.individual,
         companyName: dto.individual ? null : dto.companyName!.trim(),
         contactName: dto.contactName,
-        phone: dto.phone,
+        phone: dto.phone || null,
         mobile: dto.mobile || null,
         email: dto.email,
         countryCode: dto.countryCode ?? null,
@@ -268,7 +275,7 @@ export class PartnersService {
             companyName: dto.companyName?.trim() || null,
           }),
         ...(dto.contactName !== undefined && { contactName: dto.contactName }),
-        ...(dto.phone !== undefined && { phone: dto.phone }),
+        ...(dto.phone !== undefined && { phone: dto.phone || null }),
         ...(dto.mobile !== undefined && { mobile: dto.mobile || null }),
         ...(dto.email !== undefined && { email: dto.email }),
         ...(dto.countryCode !== undefined && { countryCode: dto.countryCode || null }),

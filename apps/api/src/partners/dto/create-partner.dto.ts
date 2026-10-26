@@ -21,10 +21,13 @@ export class CreatePartnerDto {
   @IsString()
   contactName: string;
 
-  // Both required: a partner Cockpit can't email or call back defeats the
-  // point of this feature (automatic notification on assign/unassign/cancel).
+  // Landline — optional. A blank string is accepted too (the edit form sends
+  // it to clear the number). The email below is the one contact a partner must
+  // have: automatic notification on assign/unassign/cancel goes there.
+  @IsOptional()
+  @ValidateIf((o: CreatePartnerDto) => o.phone !== '')
   @IsPhone()
-  phone: string;
+  phone?: string;
 
   // Second contact number, alongside phone — optional.
   @IsOptional()

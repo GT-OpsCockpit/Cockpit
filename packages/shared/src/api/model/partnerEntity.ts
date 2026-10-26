@@ -15,7 +15,8 @@ export interface PartnerEntity {
   /** @nullable */
   companyName: string | null;
   contactName: string;
-  phone: string;
+  /** @nullable */
+  phone: string | null;
   /** @nullable */
   mobile: string | null;
   email: string;

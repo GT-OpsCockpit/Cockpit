@@ -222,7 +222,7 @@ export function PartnersSection() {
                     <CountryLabel code={partner.countryCode} />
                   </TableCell>
                   <TableCell className="text-xs">{partner.area ?? '—'}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{partner.phone}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{partner.phone ?? '—'}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{partner.email}</TableCell>
                   <TableCell className="pl-6 whitespace-nowrap">
                     <div className="flex justify-end gap-1">
