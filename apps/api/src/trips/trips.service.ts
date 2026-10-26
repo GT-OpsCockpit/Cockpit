@@ -51,6 +51,7 @@ import {
 } from '../common/business/assignability';
 import {
   decideAssignment,
+  isPriceChange,
   refuseEditPermission,
   type EditRefusal,
   type TripBeforeEdit,
@@ -78,7 +79,10 @@ import {
 } from './trip-message.util';
 import { toPublicTrip } from './public-trip.mapper';
 import { tripWindow } from './trip-window';
-import { subcontractCompletionBlocker } from './trip-completion';
+import {
+  isTripCompleted,
+  subcontractCompletionBlocker,
+} from './trip-completion';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { AssignTripDto } from './dto/assign-trip.dto';
@@ -317,6 +321,15 @@ export class TripsService {
       options,
     );
     if (denied) throw toException(denied);
+    // Changing a price is also behind the admin's password, on top of the role.
+    if (
+      isPriceChange(toBeforeEdit(trip), {
+        priceEur: dto.priceEur ?? null,
+        partnerRateEur: dto.partnerRateEur ?? null,
+      })
+    ) {
+      await this.requireAdminPassword(user, dto.adminPassword);
+    }
 
     const previousDriverId = trip.driverId;
     const previousPartnerId = trip.partnerId;
@@ -713,6 +726,11 @@ export class TripsService {
     dto: CancelAssignmentDto,
   ): Promise<CancelAssignmentResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
+    if (isTripCompleted(trip, new Date())) {
+      throw new BadRequestException(
+        'A completed trip cannot be cancelled: it stays in the invoicing.',
+      );
+    }
 
     // Automatic, unlike a fresh partner-driver dispatch — there's no "Send"
     // click to gate this behind, and the whole point of cancelling is that
@@ -751,6 +769,24 @@ export class TripsService {
     return { ok: true, trip: await this.findByRefOrThrow(ref), notifyWarning };
   }
 
+  /** The "admin code": the signed-in user's own password, asked again before a sensitive change. */
+  private async requireAdminPassword(
+    user: AuthenticatedUser,
+    password: string | undefined,
+  ): Promise<void> {
+    const account = password
+      ? await this.prisma.user.findUnique({
+          where: { id: user.id },
+          select: { passwordHash: true },
+        })
+      : null;
+    if (!account || !(await argon2.verify(account.passwordHash, password!))) {
+      throw new ForbiddenException(
+        password ? 'Wrong password.' : 'Enter your admin code to continue.',
+      );
+    }
+  }
+
   /**
    * Closes a sub-contracted booking by hand (Sent/Confirmed → Done) so it can
    * be invoiced. The partner has no driver link to mark it Done, so an admin
@@ -761,13 +797,7 @@ export class TripsService {
     password: string,
     user: AuthenticatedUser,
   ): Promise<TripActionResponseEntity> {
-    const account = await this.prisma.user.findUnique({
-      where: { id: user.id },
-      select: { passwordHash: true },
-    });
-    if (!account || !(await argon2.verify(account.passwordHash, password))) {
-      throw new ForbiddenException('Wrong password.');
-    }
+    await this.requireAdminPassword(user, password);
 
     const trip = await this.findByRefOrThrow(ref);
     const blocker = subcontractCompletionBlocker(trip);

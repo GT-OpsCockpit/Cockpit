@@ -89,6 +89,20 @@ export function isStatusCompletable(trip: TripEntity): boolean {
   )
 }
 
+/**
+ * Done, already invoiced, or given to a partner company and a minute past its
+ * pickup (billable by then): it can no longer be cancelled, so it stays in the
+ * invoicing. Mirrors the API's isTripCompleted.
+ */
+export function isTripCompleted(trip: TripEntity, now: Date = new Date()): boolean {
+  if (trip.invoiced || trip.steps.some((s) => s.step === TripStepEntityStep.DROPPED)) return true
+  return (
+    !!trip.directPartnerId &&
+    !trip.partnerDeclinedAt &&
+    new Date(trip.pickupAt).getTime() < now.getTime() - 60_000
+  )
+}
+
 export function statusLabel(status: TripStatus): string {
   if (!status) return NO_STATUS_LABEL
   if (status === 'CANCELLED') return CANCELLED_LABEL

@@ -1,6 +1,7 @@
 import { Check, Pencil, ReceiptText, X } from 'lucide-react'
 import type { TripEntity } from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
 import { EmptyState } from '@/components/empty-state'
@@ -20,6 +21,9 @@ export function PendingTripsTable({
   onCancel,
   onDispatch,
   onAdvance,
+  selectedRefs,
+  onToggle,
+  onToggleAll,
   hasActiveFilters,
   onResetFilters,
 }: {
@@ -28,6 +32,10 @@ export function PendingTripsTable({
   onCancel: (trip: TripEntity) => void
   onDispatch: (trip: TripEntity) => void
   onAdvance: (trip: TripEntity) => void
+  /** Refs of the trips ticked for the next invoice. */
+  selectedRefs: ReadonlySet<string>
+  onToggle: (trip: TripEntity) => void
+  onToggleAll: (checked: boolean) => void
   hasActiveFilters?: boolean
   onResetFilters?: () => void
 }) {
@@ -35,10 +43,11 @@ export function PendingTripsTable({
     <TableCard>
       <Table className="table-fixed">
         <colgroup>
+          <col className="w-[4%]" />
           <col className="w-[8%]" />
           <col className="w-[9%]" />
           <col className="w-[11%]" />
-          <col className="w-[26%]" />
+          <col className="w-[22%]" />
           <col className="w-[8%]" />
           <col className="w-[9%]" />
           <col className="w-[6%]" />
@@ -48,6 +57,14 @@ export function PendingTripsTable({
         </colgroup>
         <TableHeader>
           <TableRow>
+            <TableHead>
+              <Checkbox
+                aria-label="Select all trips"
+                disabled={trips.length === 0}
+                checked={trips.length > 0 && trips.every((t) => selectedRefs.has(t.ref))}
+                onCheckedChange={(checked) => onToggleAll(checked === true)}
+              />
+            </TableHead>
             <TableHead>Date</TableHead>
             <TableHead>Booking ref</TableHead>
             <TableHead>Cust / Pax</TableHead>
@@ -63,7 +80,7 @@ export function PendingTripsTable({
         <TableBody>
           {trips.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={10} className="p-0 whitespace-normal">
+              <TableCell colSpan={11} className="p-0 whitespace-normal">
                 <EmptyState
                   icon={ReceiptText}
                   title="No trips to display for this period"
@@ -78,7 +95,14 @@ export function PendingTripsTable({
               const account = clientAccountLabel(trip)
               const isEvent = trip.client.clientType === 'EVENT'
               return (
-                <TableRow key={trip.ref}>
+                <TableRow key={trip.ref} data-state={selectedRefs.has(trip.ref) ? 'selected' : undefined}>
+                  <TableCell>
+                    <Checkbox
+                      aria-label={`Select trip ${trip.ref}`}
+                      checked={selectedRefs.has(trip.ref)}
+                      onCheckedChange={() => onToggle(trip)}
+                    />
+                  </TableCell>
                   <TableCell className="whitespace-nowrap text-xs">
                     <PickupTime trip={trip} />
                   </TableCell>

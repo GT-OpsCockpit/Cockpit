@@ -5,7 +5,7 @@ import { isLocalTrip } from '@cockpit/shared'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { TableCell } from '@/components/ui/table'
-import { dispatchButtonState } from './trip-status'
+import { dispatchButtonState, isTripCompleted } from './trip-status'
 
 export function DispatchButton({
   trip,
@@ -91,7 +91,13 @@ export function TripActionsCell({
         >
           <Image className="size-3.5" />
         </Button>
-        <Button variant="ghost" size="icon-xs" title="Cancel" onClick={() => onCancel(trip)}>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          title={isTripCompleted(trip) ? 'A completed trip cannot be cancelled' : 'Cancel'}
+          disabled={isTripCompleted(trip)}
+          onClick={() => onCancel(trip)}
+        >
           <X className="size-3.5" />
         </Button>
       </div>

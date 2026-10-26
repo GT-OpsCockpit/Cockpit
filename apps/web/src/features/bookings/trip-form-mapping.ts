@@ -131,9 +131,13 @@ export function toCreateTripDto(values: TripFormValues, { dispatch }: { dispatch
   return dto
 }
 
-export function toUpdateTripDto(values: TripFormValues, { notifyDriver }: { notifyDriver: boolean }): UpdateTripDto {
+export function toUpdateTripDto(
+  values: TripFormValues,
+  { notifyDriver, adminPassword }: { notifyDriver: boolean; adminPassword?: string },
+): UpdateTripDto {
   return {
     ...toTripDto(values),
+    adminPassword: adminPassword || undefined,
     // Unlike the creation bar, the edit dialog is also where driver/vehicle/partner
     // reassignment happens (the legacy's per-cell quick-popups were deliberately not
     // ported — see the handoff doc) — so these are always sent, never gated.

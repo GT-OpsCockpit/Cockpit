@@ -6,8 +6,7 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 
 /**
- * "Invoice" button confirm step — snapshots the Pending trips currently on
- * screen into one invoice line (POST /api/invoices — server recomputes
+ * "Invoice" button confirm step — snapshots the ticked Pending trips into one invoice line (POST /api/invoices — server recomputes
  * totals from the authoritative trip.priceEur and flips trip.invoiced=true
  * on each one). Mirrors invoicing.html:392-418.
  */
@@ -19,6 +18,7 @@ export function InvoiceCreateDialog({
   eventRef,
   periodStart,
   periodEnd,
+  onCreated,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -27,6 +27,7 @@ export function InvoiceCreateDialog({
   eventRef: string
   periodStart: string
   periodEnd: string
+  onCreated?: () => void
 }) {
   const createInvoice = useInvoicesControllerCreate()
 
@@ -42,6 +43,7 @@ export function InvoiceCreateDialog({
         },
       })
       toast.success(`Invoice ${invoice.ref} created.`)
+      onCreated?.()
       void queryClient.invalidateQueries({ queryKey: getTripsControllerListQueryKey() })
       void queryClient.invalidateQueries({ queryKey: getInvoicesControllerListQueryKey() })
     } catch (error) {

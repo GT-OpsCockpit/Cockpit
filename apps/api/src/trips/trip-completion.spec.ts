@@ -1,4 +1,5 @@
 import {
+  isTripCompleted,
   subcontractCompletionBlocker,
   type TripForCompletion,
 } from './trip-completion';
@@ -48,5 +49,49 @@ describe('subcontractCompletionBlocker', () => {
     expect(subcontractCompletionBlocker(trip({ steps: onTheWay }))).toMatch(
       /Sent or Confirmed/,
     );
+  });
+});
+
+describe('isTripCompleted', () => {
+  const NOW = new Date('2026-10-26T12:00:00Z');
+  const base = {
+    invoiced: false,
+    steps: [{ step: 'TRANSMITTED' }],
+    directPartnerId: null,
+    partnerDeclinedAt: null,
+    pickupAt: new Date('2026-10-27T12:00:00Z'),
+  };
+
+  it('is true once the trip is Done', () => {
+    const steps = [{ step: 'TRANSMITTED' }, { step: 'DROPPED' }];
+    expect(isTripCompleted({ ...base, steps }, NOW)).toBe(true);
+  });
+
+  it('is true once the trip is invoiced', () => {
+    expect(isTripCompleted({ ...base, invoiced: true }, NOW)).toBe(true);
+  });
+
+  it('is false while the trip is still to be done', () => {
+    expect(isTripCompleted(base, NOW)).toBe(false);
+  });
+
+  it('is true for a partner-company job a minute past its pickup — it is billable by then', () => {
+    const job = {
+      ...base,
+      directPartnerId: 'p1',
+      pickupAt: new Date('2026-10-26T11:58:00Z'),
+    };
+    expect(isTripCompleted(job, NOW)).toBe(true);
+  });
+
+  it('is false for a partner-company job not yet past its pickup, or one the partner declined', () => {
+    expect(isTripCompleted({ ...base, directPartnerId: 'p1' }, NOW)).toBe(false);
+    const declined = {
+      ...base,
+      directPartnerId: 'p1',
+      partnerDeclinedAt: new Date('2026-10-25T10:00:00Z'),
+      pickupAt: new Date('2026-10-26T11:00:00Z'),
+    };
+    expect(isTripCompleted(declined, NOW)).toBe(false);
   });
 });

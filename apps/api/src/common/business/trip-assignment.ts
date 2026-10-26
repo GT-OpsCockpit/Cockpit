@@ -137,6 +137,17 @@ export function decideAssignment(
   };
 }
 
+/** Whether an edit changes the Retail net or the Partner rate net. */
+export function isPriceChange(
+  before: Pick<TripBeforeEdit, 'priceEur' | 'partnerRateEur'>,
+  after: Pick<TripEditIntent, 'priceEur' | 'partnerRateEur'>,
+): boolean {
+  return (
+    after.priceEur !== before.priceEur ||
+    after.partnerRateEur !== before.partnerRateEur
+  );
+}
+
 /**
  * The two conditional permission gates, answerable from the request alone —
  * nothing has to be looked up first.
@@ -168,10 +179,7 @@ export function refuseEditPermission(
     };
   }
 
-  const priceChanged =
-    after.priceEur !== before.priceEur ||
-    after.partnerRateEur !== before.partnerRateEur;
-  if (priceChanged && !roleHasPermission(user.role, 'trip:edit-price')) {
+  if (isPriceChange(before, after) && !roleHasPermission(user.role, 'trip:edit-price')) {
     return {
       kind: 'forbidden',
       message:

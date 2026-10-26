@@ -13,7 +13,7 @@ import { BookingEditDialog } from '../bookings/booking-edit-dialog'
 import { DispatchConfirmDialog } from '../bookings/dispatch-confirm-dialog'
 import { clientDisplayName } from '@cockpit/shared'
 import { CustomerFiltersBar } from './customer-filters-bar'
-import { applyInvoiceFilters, customerFilterTarget, defaultCustomerFilters } from './customer-filters'
+import { applyInvoiceFilters, defaultCustomerFilters } from './customer-filters'
 import { billingView } from '../bookings/trip-views'
 import { downloadCustomerPendingExcel, downloadInvoicesExcel } from './invoice-excel'
 import { InvoiceCreateDialog } from './invoice-create-dialog'
@@ -57,15 +57,36 @@ export function CustomerTab() {
   const [dispatchTarget, setDispatchTarget] = useState<TripEntity | null>(null)
   const [advanceTarget, setAdvanceTarget] = useState<TripEntity | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // The trips ticked for the next invoice. Kept as refs, so a ticked trip that
+  // a filter change drops from the list simply stops counting.
+  const [selectedRefs, setSelectedRefs] = useState<ReadonlySet<string>>(new Set())
 
   // Every filter this tab carries is a parameter of the query above — the
   // rows that come back are already the rows to bill.
   const pendingTrips = trips.data ?? []
   const filteredInvoices = applyInvoiceFilters(invoices.data ?? [], filters)
 
-  const target = customerFilterTarget(filters)
-  const canInvoice = pendingTrips.length > 0 && !!target
-  const targetLabel = target && pendingTrips[0] ? clientDisplayName(pendingTrips[0].client) : 'AllClients'
+  const selectedTrips = pendingTrips.filter((t) => selectedRefs.has(t.ref))
+  // One invoice bills one account: the ticked trips must all belong to the same
+  // Client or Event, whatever the filter above is set to.
+  const accounts = new Set(selectedTrips.map((t) => t.client.ref))
+  const account = accounts.size === 1 ? selectedTrips[0].client : null
+  const canInvoice = !!account
+  const invoiceHint =
+    selectedTrips.length === 0
+      ? 'Tick the trips to invoice'
+      : accounts.size > 1
+        ? 'Tick trips of a single Client or Event'
+        : undefined
+  const targetLabel = account ? clientDisplayName(account) : 'AllClients'
+
+  const toggleTrip = (trip: TripEntity) =>
+    setSelectedRefs((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(trip.ref)) next.add(trip.ref)
+      return next
+    })
+  const toggleAll = (checked: boolean) => setSelectedRefs(checked ? new Set(pendingTrips.map((t) => t.ref)) : new Set())
 
   return (
     <div className="grid gap-6">
@@ -88,11 +109,11 @@ export function CustomerTab() {
             </Button>
             <Button
               disabled={!canInvoice}
-              title={canInvoice ? undefined : 'Turn the trips currently shown here into one invoice line (requires a specific Client or Event selected above)'}
+              title={invoiceHint}
               onClick={() => setConfirmOpen(true)}
             >
               <ReceiptText />
-              Invoice
+              Invoice{selectedTrips.length > 0 ? ` (${selectedTrips.length})` : ''}
             </Button>
           </div>
         </div>
@@ -102,6 +123,9 @@ export function CustomerTab() {
           onCancel={setCancelTarget}
           onDispatch={setDispatchTarget}
           onAdvance={setAdvanceTarget}
+          selectedRefs={selectedRefs}
+          onToggle={toggleTrip}
+          onToggleAll={toggleAll}
           hasActiveFilters={hasActiveFilters}
           onResetFilters={resetFilters}
         />
@@ -129,9 +153,10 @@ export function CustomerTab() {
       <InvoiceCreateDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        pendingTrips={pendingTrips}
-        clientRef={filters.eventsMode ? '' : filters.clientRef}
-        eventRef={filters.eventsMode ? filters.eventRef : ''}
+        pendingTrips={selectedTrips}
+        clientRef={account && account.clientType !== 'EVENT' ? account.ref : ''}
+        eventRef={account?.clientType === 'EVENT' ? account.ref : ''}
+        onCreated={() => setSelectedRefs(new Set())}
         periodStart={filters.dateStart}
         periodEnd={filters.dateEnd}
       />

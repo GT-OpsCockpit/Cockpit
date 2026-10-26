@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { TripStepEntityStep } from '@cockpit/shared/api'
-import { currentStatus, dispatchButtonState, isStatusAdvanceable, isStatusCompletable, isStatusLocked } from './trip-status'
+import { currentStatus, dispatchButtonState, isStatusAdvanceable, isStatusCompletable, isStatusLocked, isTripCompleted } from './trip-status'
 import { baseTrip, step } from './test-fixtures'
 
 describe('currentStatus', () => {
@@ -166,5 +166,37 @@ describe('isStatusCompletable', () => {
       isStatusCompletable(baseTrip({ subContractor: true, steps: sent, partnerDeclinedAt: new Date().toISOString() })),
     ).toBe(false)
     expect(isStatusCompletable(baseTrip({ subContractor: true, steps: sent, invoiced: true }))).toBe(false)
+  })
+})
+
+describe('isTripCompleted', () => {
+  it('is true once Done, so the trip can no longer be cancelled', () => {
+    const steps = [step(TripStepEntityStep.TRANSMITTED), step(TripStepEntityStep.DROPPED)]
+    expect(isTripCompleted(baseTrip({ steps }))).toBe(true)
+  })
+
+  it('is true once invoiced', () => {
+    expect(isTripCompleted(baseTrip({ invoiced: true }))).toBe(true)
+  })
+
+  it('is false while the trip is still to be done', () => {
+    expect(isTripCompleted(baseTrip({ steps: [step(TripStepEntityStep.ACCEPTED)] }))).toBe(false)
+  })
+
+  it('is true for a partner-company job a minute past its pickup — it is billable by then', () => {
+    const now = new Date('2026-10-26T12:00:00Z')
+    const job = baseTrip({ directPartnerId: 'p1', pickupAt: '2026-10-26T11:58:00.000Z' })
+    expect(isTripCompleted(job, now)).toBe(true)
+  })
+
+  it('is false for a partner-company job still ahead of its pickup, or one the partner declined', () => {
+    const now = new Date('2026-10-26T12:00:00Z')
+    expect(isTripCompleted(baseTrip({ directPartnerId: 'p1', pickupAt: '2026-10-27T12:00:00.000Z' }), now)).toBe(false)
+    const declined = baseTrip({
+      directPartnerId: 'p1',
+      pickupAt: '2026-10-26T11:00:00.000Z',
+      partnerDeclinedAt: '2026-10-25T10:00:00.000Z',
+    })
+    expect(isTripCompleted(declined, now)).toBe(false)
   })
 })

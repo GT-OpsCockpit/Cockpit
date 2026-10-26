@@ -34,3 +34,27 @@ export function subcontractCompletionBlocker(
   }
   return null;
 }
+
+/**
+ * A finished booking — marked Done, already on an invoice, or given to a partner
+ * company and past its pickup time (billable from a minute after it, see
+ * tripWindow). It can no longer be cancelled: cancelling would pull a job that
+ * was done out of the billing.
+ */
+export function isTripCompleted(
+  trip: {
+    invoiced: boolean;
+    steps: { step: string }[];
+    directPartnerId: string | null;
+    partnerDeclinedAt: Date | null;
+    pickupAt: Date;
+  },
+  now: Date,
+): boolean {
+  if (trip.invoiced || trip.steps.some((s) => s.step === 'DROPPED')) return true;
+  return (
+    !!trip.directPartnerId &&
+    !trip.partnerDeclinedAt &&
+    trip.pickupAt.getTime() < now.getTime() - 60_000
+  );
+}

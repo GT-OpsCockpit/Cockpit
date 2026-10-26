@@ -60,4 +60,6 @@ export interface UpdateTripDto {
   directPartnerRef?: string;
   /** "Confirm and send" checkbox — best-effort WhatsApp to the POC after saving. */
   notifyDriver?: boolean;
+  /** The admin's own password — required whenever the Retail net or Partner rate net changes. */
+  adminPassword?: string;
 }

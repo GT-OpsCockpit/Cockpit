@@ -6,31 +6,31 @@ const NOW = DateTime.fromISO('2026-03-17T11:00:00', { zone: 'Europe/Paris' });
 const at = (iso: string) => new Date(iso);
 
 describe('invoicingDefaultPeriod', () => {
-  it('opens on the whole of last month — invoicing bills completed months', () => {
+  it('opens on last month through the end of the current one, so a finished trip can be billed at once', () => {
     expect(invoicingDefaultPeriod(null, NOW)).toEqual({
       start: '2026-02-01',
-      end: '2026-02-28',
+      end: '2026-03-31',
     });
   });
 
   it('reaches back to the month of the oldest unbilled booking, so a backlog stays in view', () => {
     expect(invoicingDefaultPeriod(at('2025-11-20T10:00:00Z'), NOW)).toEqual({
       start: '2025-11-01',
-      end: '2026-02-28',
+      end: '2026-03-31',
     });
   });
 
-  it('stays on last month when the oldest unbilled booking is already inside it', () => {
+  it('starts on last month when the oldest unbilled booking is already inside it', () => {
     expect(invoicingDefaultPeriod(at('2026-02-14T10:00:00Z'), NOW)).toEqual({
       start: '2026-02-01',
-      end: '2026-02-28',
+      end: '2026-03-31',
     });
   });
 
-  it('stays on last month when the only unbilled bookings are still ahead', () => {
+  it('starts on last month when the only unbilled bookings are still ahead', () => {
     expect(invoicingDefaultPeriod(at('2026-06-01T10:00:00Z'), NOW)).toEqual({
       start: '2026-02-01',
-      end: '2026-02-28',
+      end: '2026-03-31',
     });
   });
 

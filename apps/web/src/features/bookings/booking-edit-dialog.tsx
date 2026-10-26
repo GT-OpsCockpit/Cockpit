@@ -6,6 +6,8 @@ import { useRecordForm } from '@/lib/use-record-form'
 import { RecordFormDialog } from '@/components/record-form-dialog'
 import { usePermission } from '@/features/auth/use-permission'
 import { PermissionWarning } from '@/components/permission-warning'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { TripFormFields } from './trip-form-fields'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
 import { toUpdateTripDto, tripToFormValues } from './trip-form-mapping'
@@ -45,6 +47,8 @@ export function BookingEditDialog({
   const isPast = !!trip && new Date(trip.pickupAt) < new Date()
   const pastLockout = isPast && !canEditPast
   const priceLockout = !canEditPrice
+  // Changing a price also asks for the admin's password (the API checks it).
+  const [adminPassword, setAdminPassword] = useState('')
 
   const record = useRecordForm<TripFormValues, SavedEdit>({
     schema: tripFormSchema,
@@ -58,14 +62,17 @@ export function BookingEditDialog({
       const wasFarmedOut = trip!.subContractor
       const response = await updateTrip.mutateAsync({
         ref: trip!.ref,
-        data: toUpdateTripDto(values, { notifyDriver: hadDriver }),
+        data: toUpdateTripDto(values, { notifyDriver: hadDriver, adminPassword }),
       })
       return { response, outgoingPartnerRef, outgoingDirectPartnerRef, wasFarmedOut }
     },
     success: () => `Trip ${trip?.ref} updated.`,
     error: 'Error updating booking.',
     invalidate: [getTripsControllerListQueryKey()],
-    close: () => onOpenChange(false),
+    close: () => {
+      setAdminPassword('')
+      onOpenChange(false)
+    },
     onSuccess: async ({ response, outgoingPartnerRef, outgoingDirectPartnerRef, wasFarmedOut }, values) => {
       if (response.notifyWarning) toast.warning(response.notifyWarning)
       // Farmed out here: recap the mission to the partner. Taken back off
@@ -90,6 +97,13 @@ export function BookingEditDialog({
     disabled: !trip || pastLockout,
   })
 
+  const priceEur = record.form.watch('priceEur')
+  const partnerRateEur = record.form.watch('partnerRateEur')
+  const priceChanged =
+    !!trip &&
+    (Number(priceEur ?? 0) !== Number(trip.priceEur ?? 0) ||
+      Number(partnerRateEur ?? 0) !== Number(trip.partnerRateEur ?? 0))
+
   return (
     <>
       <RecordFormDialog
@@ -98,7 +112,7 @@ export function BookingEditDialog({
         title={`Edit booking${trip ? ` — ${trip.ref}` : ''}`}
         record={record}
         submitLabel={hadDriver ? 'Confirm and send' : 'Confirm'}
-        submitDisabled={pastLockout}
+        submitDisabled={pastLockout || (priceChanged && !adminPassword)}
         contentClassName="sm:max-w-6xl"
         layout="scroll-body"
       >
@@ -119,6 +133,18 @@ export function BookingEditDialog({
                 : undefined
             }
           />
+          {priceChanged && (
+            <div className="grid max-w-xs gap-1.5">
+              <Label htmlFor="trip-admin-password">Admin code (your login password) — required to change a price</Label>
+              <Input
+                id="trip-admin-password"
+                type="password"
+                autoComplete="current-password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+              />
+            </div>
+          )}
         </div>
       </RecordFormDialog>
       <SubcontractEmailDialog target={emailTarget} onOpenChange={(open) => !open && setEmailTarget(null)} />

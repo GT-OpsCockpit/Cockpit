@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { OmitType } from '@nestjs/swagger';
 import { CreateTripDto } from './create-trip.dto';
 
@@ -13,4 +13,9 @@ export class UpdateTripDto extends OmitType(CreateTripDto, [
   @IsOptional()
   @IsBoolean()
   notifyDriver?: boolean;
+
+  /** The admin's own password — required whenever the Retail net or Partner rate net changes. */
+  @IsOptional()
+  @IsString()
+  adminPassword?: string;
 }

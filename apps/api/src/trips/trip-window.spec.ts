@@ -275,16 +275,18 @@ describe('tripWindow — the five Trip list views', () => {
         lt: new Date('2026-06-01T00:00:00.000Z'),
       },
       invoiced: false,
-      // Billable rule: never once the partner declined; a job given to a partner
-      // company only a minute after its pickup time has passed, or once an admin
-      // has ended it by hand (it then carries the Done step).
+      // Billable rule: never once the partner declined; only a finished job — Done,
+      // cancelled with a fee, or given to a partner company a minute past its pickup.
       AND: [
         { partnerDeclinedAt: null },
         {
           OR: [
-            { directPartnerId: null },
-            { pickupAt: { lt: new Date('2026-06-15T09:59:00.000Z') } },
             { steps: { some: { step: TripStepKind.DROPPED } } },
+            { assignmentCancelled: true },
+            {
+              directPartnerId: { not: null },
+              pickupAt: { lt: new Date('2026-06-15T09:59:00.000Z') },
+            },
           ],
         },
       ],

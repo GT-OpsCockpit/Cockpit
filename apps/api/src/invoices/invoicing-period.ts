@@ -5,12 +5,13 @@ const PARIS_ZONE = 'Europe/Paris';
 /**
  * The billing period the Customer tab opens on.
  *
- * Date out is the end of the month BEFORE the current one — invoicing targets
- * completed past months, not the still-running one. Date in is the 1st of that
- * same month, UNLESS an even older booking is still unbilled, in which case it
+ * Date out is the end of the CURRENT month, so a trip can be invoiced as soon
+ * as it is finished (the legacy stopped at the end of the previous month,
+ * invoicing.html:221-233, which left the running month out of view). Date in is
+ * the 1st of the previous month, UNLESS an even older booking is still unbilled, in which case it
  * pulls back to the 1st of THAT booking's month, so a backlog from further back
- * never silently falls outside the default view. Ported from the legacy's
- * computeCustomerDefaultPeriod (invoicing.html:221-233).
+ * never silently falls outside the default view. Adapted from the legacy's
+ * computeCustomerDefaultPeriod.
  *
  * The browser used to work this out by scanning every unbilled trip it had
  * downloaded, which is why the tab asked for the whole history. It only ever
@@ -22,7 +23,7 @@ export function invoicingDefaultPeriod(
 ): { start: string; end: string } {
   const paris = now.setZone(PARIS_ZONE);
   const previousMonthStart = paris.startOf('month').minus({ months: 1 });
-  const previousMonthEnd = paris.startOf('month').minus({ days: 1 });
+  const currentMonthEnd = paris.endOf('month');
 
   let start = previousMonthStart;
   if (oldestUnbilledPickup) {
@@ -31,5 +32,5 @@ export function invoicingDefaultPeriod(
       .startOf('month');
     if (backlogMonthStart < previousMonthStart) start = backlogMonthStart;
   }
-  return { start: start.toISODate()!, end: previousMonthEnd.toISODate()! };
+  return { start: start.toISODate()!, end: currentMonthEnd.toISODate()! };
 }
