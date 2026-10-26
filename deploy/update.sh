@@ -15,7 +15,9 @@ COMPOSE=(docker compose -f docker-compose.prod.yml)
 # Safety net: a fresh backup right before touching the database.
 if "${COMPOSE[@]}" ps --status running postgres 2>/dev/null | grep -q postgres; then ./backup.sh || echo "WARNING: backup failed — continuing."; fi
 
-"${COMPOSE[@]}" build
+# `--profile tools` so the migrate/seed image is rebuilt too: left out, it keeps
+# the migrations of the first deploy and reports "No pending migrations".
+"${COMPOSE[@]}" --profile tools build
 "${COMPOSE[@]}" up -d postgres minio
 "${COMPOSE[@]}" run --rm migrate
 "${COMPOSE[@]}" up -d
