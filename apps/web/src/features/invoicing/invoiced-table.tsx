@@ -1,8 +1,8 @@
 import { Check, FileDown, FileSpreadsheet, PenSquare, ReceiptText, Send } from 'lucide-react'
-import { toast } from 'sonner'
 import type { InvoiceEntity } from '@cockpit/shared/api'
 import { useMetaControllerGetMeta } from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
+import { usePermission } from '@/features/auth/use-permission'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableCard } from '@/components/table-card'
 import { EmptyState } from '@/components/empty-state'
@@ -17,10 +17,12 @@ import { buildInvoiceMailto } from './invoice-send'
  */
 export function InvoicedTable({
   invoices,
+  onCorrect,
   hasActiveFilters,
   onResetFilters,
 }: {
   invoices: InvoiceEntity[]
+  onCorrect: (invoice: InvoiceEntity) => void
   hasActiveFilters?: boolean
   onResetFilters?: () => void
 }) {
@@ -29,12 +31,8 @@ export function InvoicedTable({
 
   const sorted = invoices.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
-  // "Correct" is gated behind the Manager password in legacy, but the workflow
-  // behind it was never defined there either (docs/agents/permissions.md:103
-  // — nothing to port) — replicated as the same no-op stub, without a fake
-  // password prompt that would imply a security check that doesn't exist.
-  const correctInvoice = (invoice: InvoiceEntity) =>
-    toast.info(`Invoice ${invoice.ref}: the correction workflow is not defined yet.`)
+  // Taking an invoice back is an admin action (the API checks it, and asks for the password).
+  const canCorrect = usePermission('invoice:correct')
 
   const sendInvoice = (invoice: InvoiceEntity) => {
     window.location.href = buildInvoiceMailto(invoice)
@@ -117,7 +115,13 @@ export function InvoicedTable({
                       <Button variant="ghost" size="icon" title="Send" onClick={() => sendInvoice(invoice)}>
                         <Send className="size-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" title="Correct" onClick={() => correctInvoice(invoice)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title={canCorrect ? 'Correct' : 'Only an admin can correct an invoice'}
+                        disabled={!canCorrect}
+                        onClick={() => onCorrect(invoice)}
+                      >
                         <PenSquare className="size-3.5" />
                       </Button>
                     </div>

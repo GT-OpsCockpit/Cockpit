@@ -25,9 +25,11 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CorrectInvoiceDto,
   CreateInvoiceDto,
   InvoiceEntity,
-  InvoicingPeriodEntity
+  InvoicingPeriodEntity,
+  OkResponseEntity
 } from '../../model';
 
 import { fetcher } from '../../fetcher';
@@ -311,3 +313,75 @@ export function useInvoicesControllerDefaultPeriod<TData = Awaited<ReturnType<ty
 
 
 
+export const getInvoicesControllerCorrectUrl = (ref: string,) => {
+
+
+
+
+  return `/api/invoices/${ref}/correct`
+}
+
+export const invoicesControllerCorrect = async (ref: string,
+    correctInvoiceDto: CorrectInvoiceDto, options?: Parameters<typeof fetcher>[1]): Promise<OkResponseEntity> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+return fetcher<OkResponseEntity>(getInvoicesControllerCorrectUrl(ref),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(correctInvoiceDto)
+  }
+);}
+
+
+
+
+
+export const getInvoicesControllerCorrectMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerCorrect>>, TError,InvoicesControllerCorrectMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+): UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerCorrect>>, TError,InvoicesControllerCorrectMutationVariables, TContext> => {
+
+const mutationKey = ['invoicesControllerCorrect'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof invoicesControllerCorrect>>, InvoicesControllerCorrectMutationVariables> = (props) => {
+          const {ref,data} = props ?? {};
+
+          return  invoicesControllerCorrect(ref,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InvoicesControllerCorrectMutationResult = NonNullable<Awaited<ReturnType<typeof invoicesControllerCorrect>>>
+    export type InvoicesControllerCorrectMutationBody = CorrectInvoiceDto
+    export type InvoicesControllerCorrectMutationError = unknown
+    export type InvoicesControllerCorrectMutationVariables = {ref: string;data: CorrectInvoiceDto}
+
+    export const useInvoicesControllerCorrect = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerCorrect>>, TError,InvoicesControllerCorrectMutationVariables, TContext>, request?: SecondParameter<typeof fetcher>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof invoicesControllerCorrect>>,
+        TError,
+        InvoicesControllerCorrectMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInvoicesControllerCorrectMutationOptions(options), queryClient);
+    }

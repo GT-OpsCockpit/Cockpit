@@ -9,6 +9,8 @@ import { Role } from '../../../generated/prisma/enums';
 export const PERMISSIONS = {
   'trip:cancel': [Role.ADMIN],
   'trip:edit-past': [Role.ADMIN],
+  // Taking an invoice back so its trips return to the to-invoice list.
+  'invoice:correct': [Role.ADMIN],
   // Closing a sub-contracted booking by hand (Sent/Confirmed → Done) so it can be invoiced.
   'trip:complete-subcontract': [Role.ADMIN],
   'trip:edit-price': [Role.ADMIN],

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { TripEntity } from '@cockpit/shared/api'
+import type { InvoiceEntity, TripEntity } from '@cockpit/shared/api'
 import {
   useInvoicesControllerDefaultPeriod,
   useInvoicesControllerList,
@@ -17,6 +17,7 @@ import { applyInvoiceFilters, defaultCustomerFilters } from './customer-filters'
 import { billingView } from '../bookings/trip-views'
 import { downloadCustomerPendingExcel, downloadInvoicesExcel } from './invoice-excel'
 import { InvoiceCreateDialog } from './invoice-create-dialog'
+import { InvoiceCorrectDialog } from './invoice-correct-dialog'
 import { InvoicedTable } from './invoiced-table'
 import { PendingTripsTable } from './pending-trips-table'
 import { FilterCard } from '@/components/filter-card'
@@ -57,6 +58,7 @@ export function CustomerTab() {
   const [dispatchTarget, setDispatchTarget] = useState<TripEntity | null>(null)
   const [advanceTarget, setAdvanceTarget] = useState<TripEntity | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [correctTarget, setCorrectTarget] = useState<InvoiceEntity | null>(null)
   // The trips ticked for the next invoice. Kept as refs, so a ticked trip that
   // a filter change drops from the list simply stops counting.
   const [selectedRefs, setSelectedRefs] = useState<ReadonlySet<string>>(new Set())
@@ -147,7 +149,7 @@ export function CustomerTab() {
             Export to Excel
           </Button>
         </div>
-        <InvoicedTable invoices={filteredInvoices} hasActiveFilters={hasActiveFilters} onResetFilters={resetFilters} />
+        <InvoicedTable invoices={filteredInvoices} onCorrect={setCorrectTarget} hasActiveFilters={hasActiveFilters} onResetFilters={resetFilters} />
       </div>
 
       <InvoiceCreateDialog
@@ -160,6 +162,7 @@ export function CustomerTab() {
         periodStart={filters.dateStart}
         periodEnd={filters.dateEnd}
       />
+      <InvoiceCorrectDialog invoice={correctTarget} onOpenChange={(open) => !open && setCorrectTarget(null)} />
       <BookingEditDialog trip={editTarget} onOpenChange={(open) => !open && setEditTarget(null)} />
       <BookingCancelDialog trip={cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)} />
       <DispatchConfirmDialog trip={dispatchTarget} onOpenChange={(open) => !open && setDispatchTarget(null)} />

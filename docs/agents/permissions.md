@@ -100,7 +100,7 @@ same `PERMISSIONS` map (add an entry, it likely already exists — check first).
 | `common.js:3596` — reactivate a deactivated driver/partner | always | *(none yet)* | ❌ not built. Suggested name: `driver:reactivate` |
 | `vehicles.html:574` — reactivate a deactivated fleet vehicle | always | *(none yet)* | ❌ not built. Suggested name: `vehicle:reactivate` |
 | `clients.html:474` / `events.html:439` — create an Events client / Event with a past start date | start date in the past | `client:create-past-event` | ✅ wired (`ClientsService.create`) |
-| `invoicing.html:616` — "Correct" an invoice | always | *(none yet)* | ❌ not built in legacy either (`alert('to be specified next')`) — nothing to port |
+| `invoicing.html:616` — "Correct" an invoice | always | `invoice:correct` + the admin's password | ✅ built in v2 (`InvoicesController.correct`): the invoice is removed and its trips return to the Pending list (the legacy never defined it) |
 
 Two legacy passwords collapsed into one role-based system: legacy had
 `ADMIN_PASSWORD` (dashboard login + most gates, via `/api/auth/verify-password`)

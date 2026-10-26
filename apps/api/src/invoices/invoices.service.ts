@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { RefCounterService } from '../common/ref-counter/ref-counter.service';
@@ -8,6 +12,9 @@ import { InvoiceEntity } from './dto/invoice.entity';
 import { InvoicingPeriodEntity } from './dto/invoicing-period.entity';
 import { invoicingDefaultPeriod } from './invoicing-period';
 import { DateTime } from 'luxon';
+import { requireAdminPassword } from '../common/auth/admin-password';
+import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
+import { OkResponseEntity } from '../common/dto/ok-response.entity';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -135,5 +142,34 @@ export class InvoicesService {
       where: { ref: invoice.ref },
       include: INVOICE_INCLUDE,
     });
+  }
+
+  /**
+   * Takes an invoice back so it can be corrected: its trips go back to the
+   * to-invoice list and the invoice is removed. Behind the admin's password.
+   * The invoice number is not reused — the counter keeps going.
+   */
+  async correct(
+    ref: string,
+    password: string,
+    user: AuthenticatedUser,
+  ): Promise<OkResponseEntity> {
+    await requireAdminPassword(this.prisma, user.id, password);
+
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { ref },
+      include: { trips: { select: { tripId: true } } },
+    });
+    if (!invoice) throw new NotFoundException(`Invoice ${ref} not found.`);
+
+    await this.prisma.$transaction([
+      this.prisma.trip.updateMany({
+        where: { id: { in: invoice.trips.map((t) => t.tripId) } },
+        data: { invoiced: false },
+      }),
+      this.prisma.invoiceTrip.deleteMany({ where: { invoiceId: invoice.id } }),
+      this.prisma.invoice.delete({ where: { id: invoice.id } }),
+    ]);
+    return { ok: true };
   }
 }

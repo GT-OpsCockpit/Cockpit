@@ -9,7 +9,7 @@ import {
 import { DateTime } from 'luxon';
 import { randomUUID } from 'node:crypto';
 import { basename, extname } from 'node:path';
-import * as argon2 from 'argon2';
+import { requireAdminPassword } from '../common/auth/admin-password';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
@@ -769,22 +769,11 @@ export class TripsService {
     return { ok: true, trip: await this.findByRefOrThrow(ref), notifyWarning };
   }
 
-  /** The "admin code": the signed-in user's own password, asked again before a sensitive change. */
-  private async requireAdminPassword(
+  private requireAdminPassword(
     user: AuthenticatedUser,
     password: string | undefined,
   ): Promise<void> {
-    const account = password
-      ? await this.prisma.user.findUnique({
-          where: { id: user.id },
-          select: { passwordHash: true },
-        })
-      : null;
-    if (!account || !(await argon2.verify(account.passwordHash, password!))) {
-      throw new ForbiddenException(
-        password ? 'Wrong password.' : 'Enter your admin code to continue.',
-      );
-    }
+    return requireAdminPassword(this.prisma, user.id, password);
   }
 
   /**
