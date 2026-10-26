@@ -55,6 +55,7 @@ import { NameboardPreviewDialog } from './nameboard-preview-dialog'
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 import { applyBookingEdit, type BookingChange, type BookingMeta, type LocatedAddress } from './booking-draft'
 import { clientDisplayName, partnerLabel } from '@cockpit/shared'
+import { partnerServesBooking, type BookingEnd } from './partner-zone'
 import { driverOptionLabel } from '@/features/drivers/driver-status'
 
 /**
@@ -453,8 +454,15 @@ export function TripFormFields({
     ? driverOptionLabel(trip.driver)
     : (driverSeedOption?.label ?? undefined)
 
+  // A sub-contracted job is offered only to partners based at its pickup or its
+  // drop-off (same country and zone) — see partner-zone.ts.
+  const bookingEnds: BookingEnd[] = [
+    { countryCode, text: `${area ?? ''} ${pickupLocation ?? ''}` },
+    { countryCode: dropoffCountryCode, text: dropoffLocation },
+  ]
+
   const partnerResults = (partners.data?.data ?? [])
-    .filter((d) => d.active && d.partnerId)
+    .filter((d) => d.active && d.partnerId && d.partner && partnerServesBooking(d.partner, bookingEnds))
     .map((d) => ({ value: d.ref, label: partnerLabel(d) }))
   const partnerOptions = partnerResults
   const partnerSelectedLabel = trip?.partner
@@ -463,7 +471,7 @@ export function TripFormFields({
 
   const directPartnerSearchLower = directPartnerSearch.trim().toLowerCase()
   const directPartnerResults = (directPartners.data ?? [])
-    .filter((p) => p.active)
+    .filter((p) => p.active && partnerServesBooking(p, bookingEnds))
     .map((p) => ({ value: p.ref, label: `${p.companyName || p.contactName} (${p.ref})` }))
     .filter((o) => !directPartnerSearchLower || o.label.toLowerCase().includes(directPartnerSearchLower))
   const directPartnerOptions = directPartnerResults
