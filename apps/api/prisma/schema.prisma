@@ -123,7 +123,7 @@ model Client {
   city             String?
   countryCode      String?
   vatNumber        String?
-  email            String?   @unique // normalized (trimmed+lowercased) by ClientsService before write
+  email            String?   // normalized (trimmed+lowercased) by ClientsService before write; NOT unique — one client can have an account per country/entity sharing an address
   billing          Billing?
   pocName          String?
   pocPhone         String?

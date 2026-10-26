@@ -61,7 +61,7 @@
 
 | # | Type | Écart |
 |---|------|-------|
-| 3.1 | 🟠 | `email` devient **unique en base**, validé au format et normalisé (trim + lowercase). Le legacy acceptait n'importe quoi, doublons compris. Deux comptes ne peuvent plus partager un email. |
+| 3.1 | 🟠 | `email` est validé au format et normalisé (trim + lowercase). Le legacy acceptait n'importe quoi. **Rectification 2026-10-26 :** l'unicité introduite d'abord est retirée — un même client peut avoir un compte par pays/entité sous la même adresse ; comme le legacy, deux comptes peuvent partager un email. |
 | 3.2 | 🟠 | `pocEmail` validé au format (legacy : texte libre). |
 | 3.3 | 🟠 | Le `DELETE` définitif est **refusé** si le compte porte des courses ou des factures. Le legacy supprimait toujours (laissant des `clientRef` orphelins). |
 | 3.4 | 🟠 | Le `PUT` exige désormais pays/area/plage de dates pour un compte Event. Le legacy ne contrôlait que `company` en édition (le contrôle complet n'existait qu'à la création). |

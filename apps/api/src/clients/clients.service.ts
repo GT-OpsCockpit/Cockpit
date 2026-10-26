@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -149,7 +148,6 @@ export class ClientsService {
     const email = dto.email?.trim() ? normalizeEmail(dto.email) : null;
     if (email) {
       this.assertValidEmailFormat(email, 'email address');
-      await this.assertEmailAvailable(email);
     }
     const pocEmail = dto.pocEmail?.trim() ? normalizeEmail(dto.pocEmail) : null;
     if (pocEmail) this.assertValidEmailFormat(pocEmail, 'POC email address');
@@ -232,7 +230,6 @@ export class ClientsService {
       email = dto.email?.trim() ? normalizeEmail(dto.email) : null;
       if (email) {
         this.assertValidEmailFormat(email, 'email address');
-        await this.assertEmailAvailable(email, existing.id);
       }
     }
     let pocEmail: string | null | undefined;
@@ -584,17 +581,6 @@ export class ClientsService {
   private assertValidEmailFormat(email: string, fieldLabel: string): void {
     if (!isValidEmail(email)) {
       throw new BadRequestException(`Please enter a valid ${fieldLabel}.`);
-    }
-  }
-
-  /** `excludeId` lets update() ignore the record it's editing when checking for a conflict. */
-  private async assertEmailAvailable(
-    email: string,
-    excludeId?: string,
-  ): Promise<void> {
-    const existing = await this.prisma.client.findUnique({ where: { email } });
-    if (existing && existing.id !== excludeId) {
-      throw new ConflictException('An account with this email already exists.');
     }
   }
 }

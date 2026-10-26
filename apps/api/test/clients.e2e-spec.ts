@@ -321,7 +321,7 @@ describe('Clients (e2e)', () => {
       .expect(400);
   });
 
-  it('normalizes email casing/whitespace and rejects a duplicate — on create and on update, case-insensitively', async () => {
+  it('normalizes email casing/whitespace, and lets two accounts share an address — on create and on update', async () => {
     const first = await request(server())
       .post('/api/clients')
       .set('Cookie', cookie)
@@ -336,8 +336,9 @@ describe('Clients (e2e)', () => {
       'jane.doe@example.com',
     );
 
-    // Same address, different casing/whitespace — must still collide.
-    await request(server())
+    // One client, an account per country/entity: the same address, whatever
+    // its casing or whitespace, is accepted on a second account.
+    const second = await request(server())
       .post('/api/clients')
       .set('Cookie', cookie)
       .send({
@@ -346,10 +347,13 @@ describe('Clients (e2e)', () => {
         contactLastName: 'B',
         email: 'jane.doe@EXAMPLE.com',
       })
-      .expect(409);
+      .expect(201);
+    expect((second.body as ClientBody & { email: string }).email).toBe(
+      'jane.doe@example.com',
+    );
 
-    // A second, distinct account can update into the same address just as little.
-    const second = await request(server())
+    // And an existing account can be edited into an address another one uses.
+    const third = await request(server())
       .post('/api/clients')
       .set('Cookie', cookie)
       .send({
@@ -359,23 +363,21 @@ describe('Clients (e2e)', () => {
         email: 'other@example.com',
       })
       .expect(201);
-    await request(server())
-      .put(`/api/clients/${(second.body as ClientBody).ref}`)
+    const updated = await request(server())
+      .put(`/api/clients/${(third.body as ClientBody).ref}`)
       .set('Cookie', cookie)
       .send({ email: 'JANE.DOE@example.com' })
-      .expect(409);
+      .expect(200);
+    expect((updated.body as ClientBody & { email: string }).email).toBe(
+      'jane.doe@example.com',
+    );
 
-    // But updating a record with its own (unchanged) email must not self-conflict.
+    // The format is still checked.
     await request(server())
       .put(`/api/clients/${(first.body as ClientBody).ref}`)
       .set('Cookie', cookie)
-      .send({ acronym: 'JD' })
-      .expect(200);
-    await request(server())
-      .put(`/api/clients/${(first.body as ClientBody).ref}`)
-      .set('Cookie', cookie)
-      .send({ email: 'Jane.Doe@example.com' })
-      .expect(200);
+      .send({ email: 'not-an-email' })
+      .expect(400);
   });
 
   it('filters, searches and paginates the list server-side', async () => {
