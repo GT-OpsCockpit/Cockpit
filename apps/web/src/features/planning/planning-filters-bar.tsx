@@ -1,9 +1,11 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FilterField } from '@/components/filter-field'
 import type { TripPeriod } from '../bookings/booking-filters'
-import type { PlanningCategory, PlanningFilters, PlanningView } from './planning-status'
+import { shiftDate, type PlanningCategory, type PlanningFilters, type PlanningView } from './planning-status'
 
 const PERIOD_OPTIONS: { value: TripPeriod; label: string }[] = [
   { value: 'upcoming', label: 'Upcoming' },
@@ -88,15 +90,37 @@ export function PlanningFiltersBar({ filters, onChange, resourceOptions, resourc
 
         {filters.view === 'timeline' && (
           <>
-            <FilterField label="Date" htmlFor="pl-filter-date" className="w-40">
-              <Input
-                id="pl-filter-date"
-                type="date"
-                className="w-full"
-                value={filters.timelineDate}
-                onChange={(e) => set('timelineDate', e.target.value)}
-              />
-            </FilterField>
+            <div className="flex items-end gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Previous day"
+                title="Previous day"
+                onClick={() => set('timelineDate', shiftDate(filters.timelineDate, -1))}
+              >
+                <ChevronLeft />
+              </Button>
+              <FilterField label="Date" htmlFor="pl-filter-date" className="w-40">
+                <Input
+                  id="pl-filter-date"
+                  type="date"
+                  className="w-full"
+                  value={filters.timelineDate}
+                  onChange={(e) => set('timelineDate', e.target.value)}
+                />
+              </FilterField>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Next day"
+                title="Next day"
+                onClick={() => set('timelineDate', shiftDate(filters.timelineDate, 1))}
+              >
+                <ChevronRight />
+              </Button>
+            </div>
             <Tabs
               value={String(filters.timelineDays)}
               onValueChange={(v) => set('timelineDays', Number(v) as 1 | 2 | 3)}

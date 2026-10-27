@@ -68,6 +68,11 @@ export function vehicleTypeColor(vehicleType: string | null | undefined, allVehi
   return TIMELINE_FALLBACK_PALETTE[(idx === -1 ? uncoloredTypes.length : idx) % TIMELINE_FALLBACK_PALETTE.length]
 }
 
+/** The date (`yyyy-MM-dd`) a number of days before or after another — what the timeline's previous/next arrows step by. */
+export function shiftDate(dateStr: string, days: number): string {
+  return DateTime.fromFormat(dateStr, 'yyyy-MM-dd', { zone: PARIS_ZONE }).plus({ days }).toFormat('yyyy-MM-dd')
+}
+
 /** ASD trips carry their own duration (Nb H); every other service gets a fixed 1h block just to stay visible/clickable — common.js:2000-2008. */
 export function tripDurationMinutes(trip: TripEntity): number {
   if (trip.service === TripEntityService.ASD && trip.hours) {

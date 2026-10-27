@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { TripEntityService } from '@cockpit/shared/api'
 import { baseTrip } from '../bookings/test-fixtures'
-import { coversDate, tripDurationMinutes, vehicleTypeColor } from './planning-status'
+import { coversDate, shiftDate, tripDurationMinutes, vehicleTypeColor } from './planning-status'
 
 describe('vehicleTypeColor', () => {
   it('returns the dedicated color for a known category', () => {
@@ -60,5 +60,22 @@ describe('coversDate', () => {
     expect(coversDate(window, '2026-06-10')).toBe(true)
     expect(coversDate(window, '2026-05-31')).toBe(false)
     expect(coversDate(window, '2026-06-11')).toBe(false)
+  })
+})
+
+describe('shiftDate', () => {
+  it('steps a day forward or back', () => {
+    expect(shiftDate('2026-10-28', 1)).toBe('2026-10-29')
+    expect(shiftDate('2026-10-28', -1)).toBe('2026-10-27')
+  })
+
+  it('crosses a month and a year', () => {
+    expect(shiftDate('2026-10-31', 1)).toBe('2026-11-01')
+    expect(shiftDate('2026-01-01', -1)).toBe('2025-12-31')
+  })
+
+  it('stays on whole days across the autumn clock change', () => {
+    expect(shiftDate('2026-10-25', 1)).toBe('2026-10-26')
+    expect(shiftDate('2026-10-26', -1)).toBe('2026-10-25')
   })
 })
