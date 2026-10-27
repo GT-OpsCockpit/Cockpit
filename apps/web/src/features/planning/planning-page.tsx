@@ -30,6 +30,9 @@ import { PlanningFiltersBar } from './planning-filters-bar'
 import { PlanningList } from './planning-list'
 import { coversDate, defaultPlanningFilters, vehicleTypeColor, type PlanningResource } from './planning-status'
 import { PlanningTimeline, type TimelineRow } from './planning-timeline'
+import { farmOutRowKey, farmOutRows, isOnFarmOutBoard } from './farm-out-board'
+import { computeTimelineWindow } from './planning-timeline-math'
+import { shortMake } from './vehicle-label'
 import { planningListView, planningTimelineView } from '../bookings/trip-views'
 import { FilterCard } from '@/components/filter-card'
 import { PageTitle } from '@/components/layout/page-title'
@@ -120,7 +123,10 @@ export function PlanningPage() {
       }
     })
 
+  // The Local board holds our own vehicles; a partner's vehicle appears on the
+  // Farm out board, through the trips it carries.
   const vehicleRows: TimelineRow[] = (vehicles.data?.data ?? [])
+    .filter((v) => v.isLocal)
     .slice()
     .sort((a, b) => a.regNbr.localeCompare(b.regNbr))
     .map((v) => {
@@ -128,7 +134,7 @@ export function PlanningPage() {
       return {
         key: v.regNbr,
         label: [v.regNbr, v.category.name].filter(Boolean).join(' · '),
-        subLabel: [v.make, v.model].filter(Boolean).join(' '),
+        subLabel: [shortMake(v.make), v.model].filter(Boolean).join(' '),
         icon: v.isLocal
           ? {
               icon: Wrench,
@@ -141,6 +147,16 @@ export function PlanningPage() {
         statusLabel: active ? vehicleUnavailabilityLabel(v.unavailability) : null,
       }
     })
+
+  // Trips handed to a partner live on the Farm out board, the rest on the Local one.
+  const allTrips = trips.data ?? []
+  const localTrips = allTrips.filter((t) => !isOnFarmOutBoard(t))
+  const farmOutTrips = allTrips.filter(isOnFarmOutBoard)
+  const farmOutBoardRows = farmOutRows(
+    farmOutTrips,
+    computeTimelineWindow(filters.timelineDate, filters.timelineDays),
+    filters.resource,
+  )
 
   return (
     <div className="grid gap-6">
@@ -174,45 +190,68 @@ export function PlanningPage() {
           hasActiveFilters={hasActiveFilters}
           onResetFilters={resetFilters}
         />
-      ) : filters.resource === 'drivers' ? (
-        <PlanningTimeline
-          trips={trips.data ?? []}
-          rows={driverRows}
-          dateStr={filters.timelineDate}
-          days={filters.timelineDays}
-          getRowKey={(trip) => trip.driver?.ref ?? ''}
-          colorFor={(trip) => vehicleTypeColor(trip.vehicleType?.name, vehicleTypeNames)}
-          isEditable={isEditable}
-          onAssign={(trip, rowKey) => void runAssign(trip, { driverRef: rowKey })}
-          onUnassign={(trip) => void runAssign(trip, { driverRef: '' })}
-          onOpenTrip={setEditTarget}
-          legend={legend}
-        />
       ) : (
-        <PlanningTimeline
-          trips={trips.data ?? []}
-          rows={vehicleRows}
-          dateStr={filters.timelineDate}
-          days={filters.timelineDays}
-          getRowKey={(trip) => trip.fleetVehicle?.regNbr ?? ''}
-          colorFor={(trip) => vehicleTypeColor(trip.vehicleType?.name, vehicleTypeNames)}
-          isEditable={isEditable}
-          onAssign={(trip, rowKey) => void runAssign(trip, { fleetRegNbr: rowKey })}
-          onUnassign={(trip) => void runAssign(trip, { fleetRegNbr: '' })}
-          onOpenTrip={setEditTarget}
-          canDrop={(trip, row) => {
-            if (!trip.vehicleType) return true
-            const vehicle = (vehicles.data?.data ?? []).find((v) => v.regNbr === row.key)
-            if (!vehicle) return true
-            const allowed = meta.data?.vehicleCompatibility?.[trip.vehicleType.name] ?? [trip.vehicleType.name]
-            return allowed.includes(vehicle.category.name)
-          }}
-          incompatibleMessage={(trip, row) => {
-            const vehicle = (vehicles.data?.data ?? []).find((v) => v.regNbr === row.key)
-            return `Vehicle ${row.key} (${vehicle?.category.name ?? '?'}) cannot service a ${trip.vehicleType?.name ?? '?'} trip.`
-          }}
-          legend={legend}
-        />
+        <>
+          <div className="grid gap-2">
+            <h2 className="text-lg font-semibold">Local</h2>
+            {filters.resource === 'drivers' ? (
+              <PlanningTimeline
+                trips={localTrips}
+                rows={driverRows}
+                dateStr={filters.timelineDate}
+                days={filters.timelineDays}
+                getRowKey={(trip) => trip.driver?.ref ?? ''}
+                colorFor={(trip) => vehicleTypeColor(trip.vehicleType?.name, vehicleTypeNames)}
+                isEditable={isEditable}
+                onAssign={(trip, rowKey) => void runAssign(trip, { driverRef: rowKey })}
+                onUnassign={(trip) => void runAssign(trip, { driverRef: '' })}
+                onOpenTrip={setEditTarget}
+                legend={legend}
+              />
+            ) : (
+              <PlanningTimeline
+                trips={localTrips}
+                rows={vehicleRows}
+                dateStr={filters.timelineDate}
+                days={filters.timelineDays}
+                getRowKey={(trip) => trip.fleetVehicle?.regNbr ?? ''}
+                colorFor={(trip) => vehicleTypeColor(trip.vehicleType?.name, vehicleTypeNames)}
+                isEditable={isEditable}
+                onAssign={(trip, rowKey) => void runAssign(trip, { fleetRegNbr: rowKey })}
+                onUnassign={(trip) => void runAssign(trip, { fleetRegNbr: '' })}
+                onOpenTrip={setEditTarget}
+                canDrop={(trip, row) => {
+                  if (!trip.vehicleType) return true
+                  const vehicle = (vehicles.data?.data ?? []).find((v) => v.regNbr === row.key)
+                  if (!vehicle) return true
+                  const allowed = meta.data?.vehicleCompatibility?.[trip.vehicleType.name] ?? [trip.vehicleType.name]
+                  return allowed.includes(vehicle.category.name)
+                }}
+                incompatibleMessage={(trip, row) => {
+                  const vehicle = (vehicles.data?.data ?? []).find((v) => v.regNbr === row.key)
+                  return `Vehicle ${row.key} (${vehicle?.category.name ?? '?'}) cannot service a ${trip.vehicleType?.name ?? '?'} trip.`
+                }}
+                legend={legend}
+              />
+            )}
+          </div>
+
+          <div className="grid gap-2">
+            <h2 className="text-lg font-semibold">Farm out</h2>
+            {/* Read-only: a partner's trip is reassigned from its booking, not by dragging. */}
+            <PlanningTimeline
+              trips={farmOutTrips}
+              rows={farmOutBoardRows}
+              dateStr={filters.timelineDate}
+              days={filters.timelineDays}
+              getRowKey={(trip) => farmOutRowKey(trip, filters.resource)}
+              colorFor={(trip) => vehicleTypeColor(trip.vehicleType?.name, vehicleTypeNames)}
+              isEditable={isEditable}
+              onOpenTrip={setEditTarget}
+              emptyMessage="No farmed-out trips for this period."
+            />
+          </div>
+        </>
       )}
 
       <BookingEditDialog trip={editTarget} onOpenChange={(open) => !open && setEditTarget(null)} />

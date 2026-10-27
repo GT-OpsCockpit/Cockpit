@@ -40,8 +40,11 @@ export interface PlanningTimelineProps {
   getRowKey: (trip: TripEntity) => string
   colorFor: (trip: TripEntity) => string
   isEditable: (trip: TripEntity) => boolean
-  onAssign: (trip: TripEntity, rowKey: string) => void
-  onUnassign: (trip: TripEntity) => void
+  /** Without them the board is read-only: no drag&drop and no Unassigned pile (the Farm out board). */
+  onAssign?: (trip: TripEntity, rowKey: string) => void
+  onUnassign?: (trip: TripEntity) => void
+  /** What an empty board says. */
+  emptyMessage?: string
   canDrop?: (trip: TripEntity, row: TimelineRow) => boolean
   incompatibleMessage?: (trip: TripEntity, row: TimelineRow) => string
   onOpenTrip: (trip: TripEntity) => void
@@ -68,6 +71,7 @@ export function PlanningTimeline({
   isEditable,
   onAssign,
   onUnassign,
+  emptyMessage = 'No rows to display.',
   canDrop,
   incompatibleMessage,
   onOpenTrip,
@@ -75,6 +79,7 @@ export function PlanningTimeline({
 }: PlanningTimelineProps) {
   const [dragOverRowKey, setDragOverRowKey] = useState<string | null>(null)
   const [pileDragOver, setPileDragOver] = useState(false)
+  const readOnly = !onAssign || !onUnassign
 
   const window_ = computeTimelineWindow(dateStr, days)
   const nowPct = nowLinePercent(window_)
@@ -108,7 +113,7 @@ export function PlanningTimeline({
       toast.error(incompatibleMessage ? incompatibleMessage(trip, row) : 'This assignment is not compatible.')
       return
     }
-    onAssign(trip, row.key)
+    onAssign?.(trip, row.key)
   }
 
   function attemptUnassign(trip: TripEntity) {
@@ -116,7 +121,7 @@ export function PlanningTimeline({
       toast.warning('Editing a booking whose pickup is already in the past requires the Admin role.')
       return
     }
-    onUnassign(trip)
+    onUnassign?.(trip)
   }
 
   const headerRows = window_.daysCount > 1 ? 2 : 1
@@ -189,7 +194,7 @@ export function PlanningTimeline({
                 className="col-span-2 col-start-1 p-8 text-center text-sm text-muted-foreground"
                 style={{ gridRow: headerRows + 1 }}
               >
-                No rows to display.
+                {emptyMessage}
               </div>
             ) : (
               rows.map((row, rowIndex) => {
@@ -232,11 +237,13 @@ export function PlanningTimeline({
                       )}
                       style={{ gridRow: headerRows + 1 + rowIndex }}
                       onDragOver={(e) => {
+                        if (readOnly) return
                         e.preventDefault()
                         setDragOverRowKey(row.key)
                       }}
                       onDragLeave={() => setDragOverRowKey((k) => (k === row.key ? null : k))}
                       onDrop={(e) => {
+                        if (readOnly) return
                         e.preventDefault()
                         setDragOverRowKey(null)
                         const ref = e.dataTransfer.getData('text/plain')
@@ -259,7 +266,7 @@ export function PlanningTimeline({
                         return (
                           <div
                             key={trip.ref}
-                            draggable
+                            draggable={!readOnly}
                             data-ref={trip.ref}
                             title={`${trip.ref} — ${account.primary} — ${itineraryLabel(trip)}`}
                             className="absolute top-1.5 bottom-1.5 cursor-pointer overflow-hidden rounded-md px-1.5 py-0.5 text-[10px] leading-tight font-medium text-white shadow-sm ring-1 ring-black/10 transition-all hover:shadow-md hover:brightness-105 active:cursor-grabbing"
@@ -295,65 +302,67 @@ export function PlanningTimeline({
         </div>
       </div>
 
-      <div className="grid gap-2">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          Unassigned trips
-          {unassigned.length > 0 && (
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground tabular-nums">
-              {unassigned.length}
-            </span>
-          )}
-        </div>
-        <div
-          data-drop-zone="unassigned-pile"
-          className={cn(
-            'flex min-h-16 flex-wrap gap-2 rounded-xl border border-dashed p-3 transition-colors',
-            pileDragOver ? 'border-primary bg-primary/5' : 'border-border/70',
-          )}
-          onDragOver={(e) => {
-            e.preventDefault()
-            setPileDragOver(true)
-          }}
-          onDragLeave={() => setPileDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault()
-            setPileDragOver(false)
-            const ref = e.dataTransfer.getData('text/plain')
-            const trip = assignedTrips.find((t) => t.ref === ref)
-            if (!trip) return
-            attemptUnassign(trip)
-          }}
-        >
-          {unassigned.length === 0 ? (
-            <div className="flex w-full items-center justify-center py-2 text-sm text-muted-foreground">
-              No unassigned trips for this {days > 1 ? 'period' : 'day'}.
-            </div>
-          ) : (
-            unassigned.map((trip) => {
-              const account = clientAccountLabel(trip)
-              return (
-                <div
-                  key={trip.ref}
-                  draggable
-                  data-ref={trip.ref}
-                  className="w-56 cursor-grab rounded-lg border bg-card p-2 text-[11px] shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing"
-                  style={{ borderLeftWidth: 3, borderLeftColor: colorFor(trip) }}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/plain', trip.ref)
-                    e.dataTransfer.effectAllowed = 'move'
-                  }}
-                  onClick={() => onOpenTrip(trip)}
-                >
-                  <div className="truncate font-medium text-foreground">
-                    {account.primary} · {trip.vehicleType?.name ?? '—'}
+      {!readOnly && (
+        <div className="grid gap-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            Unassigned trips
+            {unassigned.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground tabular-nums">
+                {unassigned.length}
+              </span>
+            )}
+          </div>
+          <div
+            data-drop-zone="unassigned-pile"
+            className={cn(
+              'flex min-h-16 flex-wrap gap-2 rounded-xl border border-dashed p-3 transition-colors',
+              pileDragOver ? 'border-primary bg-primary/5' : 'border-border/70',
+            )}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setPileDragOver(true)
+            }}
+            onDragLeave={() => setPileDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setPileDragOver(false)
+              const ref = e.dataTransfer.getData('text/plain')
+              const trip = assignedTrips.find((t) => t.ref === ref)
+              if (!trip) return
+              attemptUnassign(trip)
+            }}
+          >
+            {unassigned.length === 0 ? (
+              <div className="flex w-full items-center justify-center py-2 text-sm text-muted-foreground">
+                No unassigned trips for this {days > 1 ? 'period' : 'day'}.
+              </div>
+            ) : (
+              unassigned.map((trip) => {
+                const account = clientAccountLabel(trip)
+                return (
+                  <div
+                    key={trip.ref}
+                    draggable
+                    data-ref={trip.ref}
+                    className="w-56 cursor-grab rounded-lg border bg-card p-2 text-[11px] shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing"
+                    style={{ borderLeftWidth: 3, borderLeftColor: colorFor(trip) }}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', trip.ref)
+                      e.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onClick={() => onOpenTrip(trip)}
+                  >
+                    <div className="truncate font-medium text-foreground">
+                      {account.primary} · {trip.vehicleType?.name ?? '—'}
+                    </div>
+                    <div className="truncate text-muted-foreground">{trip.pickupLocation}</div>
                   </div>
-                  <div className="truncate text-muted-foreground">{trip.pickupLocation}</div>
-                </div>
-              )
-            })
-          )}
+                )
+              })
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
