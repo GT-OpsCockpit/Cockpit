@@ -321,8 +321,10 @@ export class TripsService {
       options,
     );
     if (denied) throw toException(denied);
-    // Changing a price is also behind the admin's password, on top of the role.
+    // Once a trip is finished or invoiced, changing a price is also behind the
+    // admin's password, on top of the role. Before that it is a plain edit.
     if (
+      isTripCompleted(trip, now) &&
       isPriceChange(toBeforeEdit(trip), {
         priceEur: dto.priceEur ?? null,
         partnerRateEur: dto.partnerRateEur ?? null,

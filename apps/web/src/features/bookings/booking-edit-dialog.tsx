@@ -9,6 +9,7 @@ import { PermissionWarning } from '@/components/permission-warning'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { TripFormFields } from './trip-form-fields'
+import { isTripCompleted } from './trip-status'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
 import { toUpdateTripDto, tripToFormValues } from './trip-form-mapping'
 import { SubcontractEmailDialog, type SubcontractEmailTarget } from './subcontract-email-dialog'
@@ -47,7 +48,7 @@ export function BookingEditDialog({
   const isPast = !!trip && new Date(trip.pickupAt) < new Date()
   const pastLockout = isPast && !canEditPast
   const priceLockout = !canEditPrice
-  // Changing a price also asks for the admin's password (the API checks it).
+  // Changing a price on a finished or invoiced trip also asks for the admin's password (the API checks it).
   const [adminPassword, setAdminPassword] = useState('')
 
   const record = useRecordForm<TripFormValues, SavedEdit>({
@@ -101,6 +102,7 @@ export function BookingEditDialog({
   const partnerRateEur = record.form.watch('partnerRateEur')
   const priceChanged =
     !!trip &&
+    isTripCompleted(trip) &&
     (Number(priceEur ?? 0) !== Number(trip.priceEur ?? 0) ||
       Number(partnerRateEur ?? 0) !== Number(trip.partnerRateEur ?? 0))
 
@@ -135,7 +137,7 @@ export function BookingEditDialog({
           />
           {priceChanged && (
             <div className="grid max-w-xs gap-1.5">
-              <Label htmlFor="trip-admin-password">Admin code (your login password) — required to change a price</Label>
+              <Label htmlFor="trip-admin-password">Admin code (your login password) — required to change the price of a finished trip</Label>
               <Input
                 id="trip-admin-password"
                 type="password"
