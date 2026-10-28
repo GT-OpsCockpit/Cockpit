@@ -64,8 +64,8 @@ export async function downloadInvoicePdf(
   const rows = invoiceLineRows(invoice)
   autoTable(doc, {
     startY: y + 5,
-    head: [['Date', 'Passenger', 'Itinerary', 'Category', 'Net €', 'VAT €', 'Gross €']],
-    body: rows.map((r) => [r.date, r.passenger, `${r.pickup} -> ${r.dropoff}`, r.category, r.net.toFixed(2), r.vat.toFixed(2), r.gross.toFixed(2)]),
+    head: [['Date', 'Passenger', 'Itinerary', 'Category', 'Unit €', 'Qty', 'Net €', 'VAT €', 'Gross €']],
+    body: rows.map((r) => [r.date, r.passenger, `${r.pickup} -> ${r.dropoff}`, r.category, r.unitPrice.toFixed(2), String(r.quantity), r.net.toFixed(2), r.vat.toFixed(2), r.gross.toFixed(2)]),
     styles: { fontSize: 8.5 },
     margin: { left: 14, right: 14 },
   })

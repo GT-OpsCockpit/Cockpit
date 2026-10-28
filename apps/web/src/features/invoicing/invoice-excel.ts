@@ -147,12 +147,12 @@ export async function downloadInvoiceDetailExcel(
     ['Ref/PO', invoice.refPo ?? ''],
     ...(invoice.isEvent ? [['Event', clientDisplayName(invoice.client)]] : []),
     [],
-    ['Ref', 'Date', 'Time', 'Passenger', 'Pickup', 'Dropoff', 'Category', 'Net (€)', 'VAT (€)', 'Gross (€)'],
-    ...rows.map((r) => [r.ref, r.date, r.time, r.passenger, r.pickup, r.dropoff, r.category, r.net, r.vat, r.gross]),
+    ['Ref', 'Date', 'Time', 'Passenger', 'Pickup', 'Dropoff', 'Category', 'Unit price (€)', 'Qty', 'Net (€)', 'VAT (€)', 'Gross (€)'],
+    ...rows.map((r) => [r.ref, r.date, r.time, r.passenger, r.pickup, r.dropoff, r.category, r.unitPrice, r.quantity, r.net, r.vat, r.gross]),
     [],
-    ['Total Net', '', '', '', '', '', '', totalHT],
-    ['VAT', '', '', '', '', '', '', totalVat],
-    ['Total Gross', '', '', '', '', '', '', totalTTC],
+    ['Total Net', '', '', '', '', '', '', '', '', totalHT],
+    ['VAT', '', '', '', '', '', '', '', '', totalVat],
+    ['Total Gross', '', '', '', '', '', '', '', '', totalTTC],
   ]
   const { utils, writeFile } = await import('xlsx')
   const ws = utils.aoa_to_sheet(aoa)

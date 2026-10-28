@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { TripEntityService } from '@cockpit/shared/api'
 import { baseTrip } from '../bookings/test-fixtures'
 import { baseInvoice } from './test-fixtures'
 import { invoiceLineRows, round2 } from './invoice-calc'
@@ -29,6 +30,20 @@ describe('invoiceLineRows', () => {
     expect(r1.net).toBe(100)
     expect(r1.vat).toBe(10)
     expect(r1.gross).toBe(110)
+  })
+
+  it('details a transfer at quantity 1 and an ASD at its hourly rate times the hours', () => {
+    const transfer = baseTrip({ ref: 'R1', priceEur: '120', service: TripEntityService.TSF })
+    const asd = baseTrip({ ref: 'R2', priceEur: '250', hours: 4, service: TripEntityService.ASD })
+    const invoice = baseInvoice({
+      trips: [
+        { invoiceId: 'invoice-1', tripId: 'trip-1', trip: transfer },
+        { invoiceId: 'invoice-1', tripId: 'trip-2', trip: asd },
+      ],
+    })
+    const rows = invoiceLineRows(invoice)
+    expect(rows.find((r) => r.ref === 'R1')).toMatchObject({ unitPrice: 120, quantity: 1, net: 120 })
+    expect(rows.find((r) => r.ref === 'R2')).toMatchObject({ unitPrice: 250, quantity: 4, net: 1000 })
   })
 
   it('treats a null priceEur as 0', () => {
