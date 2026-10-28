@@ -20,8 +20,19 @@ function normalize(value: string): string {
     .trim()
 }
 
+/**
+ * Monaco has no partner network of its own: the French partners of the Riviera
+ * serve it. It also is the country a drop-off inherits when a saved route is
+ * reversed (the route fills addresses, not countries), so a Monaco → Nice
+ * transfer can carry Monaco at both ends. For matching a partner, Monaco
+ * counts as France.
+ */
+function servedCountry(code: string): string {
+  return code === 'MC' ? 'FR' : code
+}
+
 function partnerServesEnd(partner: { countryCode?: string | null; area?: string | null }, end: BookingEnd): boolean {
-  if (!end.countryCode || partner.countryCode !== end.countryCode) return false
+  if (!end.countryCode || !partner.countryCode || servedCountry(partner.countryCode) !== servedCountry(end.countryCode)) return false
   const area = normalize(partner.area ?? '')
   // No zone on file, or "Local" (a French on-site base, not a named city): the country is all there is to match.
   if (!area || area === 'local') return true

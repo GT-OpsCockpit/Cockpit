@@ -36,6 +36,13 @@ describe('partnerServesBooking', () => {
     expect(partnerServesBooking({ countryCode: 'FR', area: 'Local' }, [niceEnd])).toBe(true)
   })
 
+  it('counts Monaco as France: a French local partner serves a Monaco → Nice transfer', () => {
+    const frenchLocal = { countryCode: 'FR', area: 'Local' }
+    const ends: BookingEnd[] = [{ countryCode: 'MC', text: 'Monaco' }, { countryCode: 'MC', text: 'Nice' }]
+    expect(partnerServesBooking(frenchLocal, ends)).toBe(true)
+    expect(partnerServesBooking(zurich, ends)).toBe(false)
+  })
+
   it('does not offer a partner with no country on file', () => {
     expect(partnerServesBooking({ countryCode: null, area: 'Zurich' }, [zurichAirport])).toBe(false)
   })
