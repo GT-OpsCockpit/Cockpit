@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { partnerServesBooking, type BookingEnd } from './partner-zone'
+import { partnerCarFits, partnerServesBooking, type BookingEnd } from './partner-zone'
 
 const zurich = { countryCode: 'CH', area: 'Zurich' }
 const bls = { countryCode: 'CH', area: 'Bern' }
@@ -49,5 +49,19 @@ describe('partnerServesBooking', () => {
 
   it('offers every partner while no end of the booking is located yet', () => {
     expect(partnerServesBooking(bls, [{ countryCode: '' }, {}])).toBe(true)
+  })
+})
+
+describe('partnerCarFits', () => {
+  const eBusiness = { fleetReserved: { categoryId: 'e-business' } }
+
+  it('rules out a partner whose single car is of another category than the one asked for', () => {
+    expect(partnerCarFits(eBusiness, 'van')).toBe(false)
+    expect(partnerCarFits(eBusiness, 'e-business')).toBe(true)
+  })
+
+  it('keeps a driver with no reserved car, and any partner while no category is chosen', () => {
+    expect(partnerCarFits({ fleetReserved: null }, 'van')).toBe(true)
+    expect(partnerCarFits(eBusiness, undefined)).toBe(true)
   })
 })

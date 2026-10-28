@@ -55,7 +55,7 @@ import { NameboardPreviewDialog } from './nameboard-preview-dialog'
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 import { applyBookingEdit, type BookingChange, type BookingMeta, type LocatedAddress } from './booking-draft'
 import { clientDisplayName, partnerLabel } from '@cockpit/shared'
-import { partnerServesBooking, type BookingEnd } from './partner-zone'
+import { partnerCarFits, partnerServesBooking, type BookingEnd } from './partner-zone'
 import { entryCurrencies, eurFromForeign, foreignFromEur } from './price-currency'
 import { driverOptionLabel } from '@/features/drivers/driver-status'
 
@@ -478,8 +478,17 @@ export function TripFormFields({
     { countryCode: dropoffCountryCode, text: dropoffLocation },
   ]
 
+  // …and, for a partner with a single car, only when that car is of the category asked for.
+  const requestedVehicleTypeId = meta.data?.vehicleTypes.find((v) => v.name === vehicleType)?.id
   const partnerResults = (partners.data?.data ?? [])
-    .filter((d) => d.active && d.partnerId && d.partner && partnerServesBooking(d.partner, bookingEnds))
+    .filter(
+      (d) =>
+        d.active &&
+        d.partnerId &&
+        d.partner &&
+        partnerServesBooking(d.partner, bookingEnds) &&
+        partnerCarFits(d, requestedVehicleTypeId),
+    )
     .map((d) => ({ value: d.ref, label: partnerLabel(d) }))
   const partnerOptions = partnerResults
   const partnerSelectedLabel = trip?.partner

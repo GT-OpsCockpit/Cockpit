@@ -52,3 +52,18 @@ export function partnerServesBooking(
   if (known.length === 0) return true
   return known.some((end) => partnerServesEnd(partner, end))
 }
+
+/**
+ * Whether a partner's driver can take a job asking for this vehicle category. A
+ * partner with a single car reserved to them (`fleetReserved`) offers only that
+ * car's category — a Van booking is not offered to the owner of an E-Business
+ * sedan. A driver with no reserved car brings whatever their company has, so
+ * nothing rules them out; nor does a booking with no category chosen yet.
+ */
+export function partnerCarFits(
+  driver: { fleetReserved?: { categoryId: string } | null },
+  vehicleTypeId: string | undefined,
+): boolean {
+  if (!vehicleTypeId || !driver.fleetReserved) return true
+  return driver.fleetReserved.categoryId === vehicleTypeId
+}
