@@ -1,5 +1,5 @@
 import type { InvoiceEntity, TripEntity } from '@cockpit/shared/api'
-import { clientDisplayName, driverLabel } from '@cockpit/shared'
+import { billedAmount, clientDisplayName, driverLabel } from '@cockpit/shared'
 import { currentStatus, statusLabel } from '../bookings/trip-status'
 import { pickupLocalInstant } from '../bookings/trip-display'
 import { invoiceLineRows, round2 } from './invoice-calc'
@@ -29,7 +29,7 @@ export function tripsExcelRows(trips: TripEntity[]) {
       'Reg Nbr': t.fleetVehicle?.regNbr ?? '',
       'Driver / Partner': (t.driver && driverLabel(t.driver)) || (t.partner && driverLabel(t.partner)) || '',
       'Sub-C': t.subContractor ? 'Yes' : 'No',
-      'Retail net (€)': t.priceEur != null ? Number(t.priceEur) : '',
+      'Retail net (€)': billedAmount({ rate: t.priceEur != null ? Number(t.priceEur) : null, hours: t.hours, service: t.service }) ?? '',
       Status: exportedStatus(t),
     }
   })
@@ -62,7 +62,7 @@ export function partnerTripsExcelRows(trips: TripEntity[]) {
       Vehicle: t.vehicleType?.name ?? '',
       'Reg Nbr': t.fleetVehicle?.regNbr ?? '',
       Partner: (t.partner && driverLabel(t.partner)) || '',
-      'Partner rate (€)': t.partnerRateEur != null ? Number(t.partnerRateEur) : '',
+      'Partner rate (€)': billedAmount({ rate: t.partnerRateEur != null ? Number(t.partnerRateEur) : null, hours: t.hours, service: t.service }) ?? '',
       Status: exportedStatus(t),
     }
   })

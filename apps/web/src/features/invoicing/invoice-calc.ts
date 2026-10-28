@@ -1,3 +1,4 @@
+import { billedAmount } from '@cockpit/shared'
 import type { InvoiceEntity } from '@cockpit/shared/api'
 import { pickupLocalInstant } from '../bookings/trip-display'
 
@@ -37,7 +38,7 @@ export function invoiceLineRows(invoice: InvoiceEntity): InvoiceLineRow[] {
     .map(({ trip }) => trip)
     .sort((a, b) => a.pickupAt.localeCompare(b.pickupAt))
     .map((trip) => {
-      const net = round2(trip.priceEur != null ? Number(trip.priceEur) : 0)
+      const net = round2(billedAmount({ rate: trip.priceEur != null ? Number(trip.priceEur) : null, hours: trip.hours, service: trip.service }) ?? 0)
       const vat = round2(net * vatRate)
       const gross = round2(net + vat)
       const local = pickupLocalInstant(trip)

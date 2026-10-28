@@ -12,6 +12,7 @@ import { InvoiceEntity } from './dto/invoice.entity';
 import { InvoicingPeriodEntity } from './dto/invoicing-period.entity';
 import { invoicingDefaultPeriod } from './invoicing-period';
 import { DateTime } from 'luxon';
+import { billedAmount } from '@cockpit/shared';
 import { requireAdminPassword } from '../common/auth/admin-password';
 import type { AuthenticatedUser } from '../common/guards/session-auth.guard';
 import { OkResponseEntity } from '../common/dto/ok-response.entity';
@@ -117,7 +118,13 @@ export class InvoicesService {
       });
       const totalHT = round2(
         claimed.reduce(
-          (sum, t) => sum + (t.priceEur ? Number(t.priceEur) : 0),
+          (sum, t) =>
+            sum +
+            (billedAmount({
+              rate: t.priceEur ? Number(t.priceEur) : null,
+              hours: t.hours,
+              service: t.service,
+            }) ?? 0),
           0,
         ),
       );

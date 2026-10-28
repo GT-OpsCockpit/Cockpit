@@ -1,4 +1,5 @@
 import { Check, Pencil, ReceiptText, X } from 'lucide-react'
+import { billedAmount } from '@cockpit/shared'
 import type { TripEntity } from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -15,6 +16,12 @@ import { PickupTime } from '../bookings/pickup-time'
  * Billing-oriented columns, deliberately not the generic Bookings table —
  * mirrors the legacy's renderPendingTable/buildPendingRowHtml (invoicing.html:332-372).
  */
+/** The amount a booking will be invoiced at — hourly rate × hours for an ASD. */
+function netLabel(trip: TripEntity): string {
+  const net = billedAmount({ rate: trip.priceEur != null ? Number(trip.priceEur) : null, hours: trip.hours, service: trip.service })
+  return net != null ? `${net.toFixed(2)} €` : '–'
+}
+
 export function PendingTripsTable({
   trips,
   onEdit,
@@ -123,7 +130,7 @@ export function PendingTripsTable({
                   <TableCell className="text-xs">
                     <StatusBadge trip={trip} onAdvance={onAdvance} />
                   </TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{trip.priceEur != null ? `${Number(trip.priceEur).toFixed(2)} €` : '–'}</TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">{netLabel(trip)}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" title="Edit" onClick={() => onEdit(trip)}>

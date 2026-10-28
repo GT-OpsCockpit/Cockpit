@@ -42,6 +42,17 @@ export function asdTotal({ rate, hours, service }) {
 }
 
 /**
+ * What a rate comes to once billed: for an ASD booking the hourly rate times
+ * the hours, for any other service the rate itself (a flat price). Falls back
+ * to the bare rate for an ASD booking whose hours are missing, and null when
+ * there is no rate. Used wherever an amount is summed or invoiced.
+ */
+export function billedAmount({ rate, hours, service }) {
+  if (rate == null) return null;
+  return asdTotal({ rate, hours, service }) ?? rate;
+}
+
+/**
  * The currency a Retail net figure is quoted in.
  *
  * What we charge the customer is priced in one of four currencies, whatever

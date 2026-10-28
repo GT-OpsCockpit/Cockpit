@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { clientDisplayName } from '@cockpit/shared'
+import { billedAmount, clientDisplayName } from '@cockpit/shared'
 import type { TripEntity } from '@cockpit/shared/api'
 import type { FinanceBreakdownDimension, FinanceFilters, FinanceScope } from './finance-filters'
 
@@ -77,7 +77,7 @@ function matchesGeography(trip: TripEntity, countryCode: string | null): boolean
  * margin/cost analysis, a different question than "how much revenue did this
  * period generate" — deliberately not netted out here. */
 function revenueOf(trip: TripEntity): number {
-  return trip.priceEur != null ? Number(trip.priceEur) : 0
+  return billedAmount({ rate: trip.priceEur != null ? Number(trip.priceEur) : null, hours: trip.hours, service: trip.service }) ?? 0
 }
 
 function filterTrips(trips: TripEntity[], filters: FinanceFilters): TripEntity[] {

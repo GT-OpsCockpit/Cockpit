@@ -14,5 +14,8 @@ export interface AsdTotalInput {
 
 export function asdTotal(input: AsdTotalInput): number | null;
 
+/** A rate as billed: hourly rate × hours for ASD, the flat rate otherwise; null without a rate. */
+export function billedAmount(input: AsdTotalInput): number | null;
+
 /** The currency a Retail net figure is quoted in — EUR/CHF/GBP, USD everywhere else. */
 export function retailCurrency(countryCurrency?: string | null): string | null;
