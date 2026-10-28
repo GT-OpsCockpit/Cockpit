@@ -6,7 +6,7 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 import { usePermission } from '@/features/auth/use-permission'
 import { CompleteSubcontractDialog } from './complete-subcontract-dialog'
-import { isStatusCompletable } from './trip-status'
+import { isStatusCompletable, isSubcontractEarlyStatus, nextSubcontractLabel } from './trip-status'
 
 export function AdvanceStepConfirmDialog({
   trip,
@@ -22,7 +22,11 @@ export function AdvanceStepConfirmDialog({
     if (!trip) return
     try {
       await advanceStep.mutateAsync({ ref: trip.ref })
-      toast.success(`Trip ${trip.ref} moved to the next step.`)
+      toast.success(
+        isSubcontractEarlyStatus(trip)
+          ? `Trip ${trip.ref} marked ${nextSubcontractLabel(trip)}.`
+          : `Trip ${trip.ref} moved to the next step.`,
+      )
       void queryClient.invalidateQueries({ queryKey: getTripsControllerListQueryKey() })
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Error moving to the next step.'))
@@ -42,7 +46,12 @@ export function AdvanceStepConfirmDialog({
       open={!!trip}
       onOpenChange={onOpenChange}
       title="Valid step?"
-      description={trip && `Trip ${trip.ref} will be moved to its next step.`}
+      description={
+        trip &&
+        (isSubcontractEarlyStatus(trip)
+          ? `Trip ${trip.ref} will be marked ${nextSubcontractLabel(trip)}.`
+          : `Trip ${trip.ref} will be moved to its next step.`)
+      }
       confirmLabel="Valid step"
       pending={advanceStep.isPending}
       onConfirm={confirm}

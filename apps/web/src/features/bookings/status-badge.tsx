@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { usePermission } from '@/features/auth/use-permission'
 import { STEP_ICONS } from './trip-step-icons'
-import { NO_STATUS_LABEL, currentStatus, isStatusAdvanceable, isStatusCompletable, isStatusHighlighted, statusLabel, type TripStatus } from './trip-status'
+import { NO_STATUS_LABEL, currentStatus, isStatusAdvanceable, isStatusCompletable, isStatusHighlighted, isSubcontractEarlyStatus, nextSubcontractLabel, statusLabel, type TripStatus } from './trip-status'
 
 // Pill-outline (tinted background + border and text in the status colour), on
 // theme tokens rather than raw Tailwind palette classes.
@@ -38,27 +38,40 @@ function StatusIcon({ status }: { status: NonNullable<TripStatus> }) {
 export function StatusBadge({ trip, onAdvance }: { trip: TripEntity; onAdvance?: (trip: TripEntity) => void }) {
   const canComplete = usePermission('trip:complete-subcontract')
   const status = currentStatus(trip)
+  const completable = canComplete && isStatusCompletable(trip)
+  const clickable = onAdvance && (completable || isStatusAdvanceable(trip))
+  const clickProps = clickable
+    ? {
+        title: completable
+          ? 'Click to end this trip'
+          : isSubcontractEarlyStatus(trip)
+            ? `Click to mark this trip ${nextSubcontractLabel(trip)}`
+            : 'Click to validate the next step',
+        onClick: () => onAdvance(trip),
+      }
+    : undefined
+
   if (!status) {
-    return (
-      <Badge className="border-destructive/40 bg-destructive/10 text-destructive">
+    const noStatus = (
+      <>
         <Send aria-hidden="true" />
         {NO_STATUS_LABEL}
+      </>
+    )
+    return clickable ? (
+      <Badge asChild className="border-destructive/40 bg-destructive/10 text-destructive cursor-pointer">
+        <button type="button" {...clickProps}>
+          {noStatus}
+        </button>
       </Badge>
+    ) : (
+      <Badge className="border-destructive/40 bg-destructive/10 text-destructive">{noStatus}</Badge>
     )
   }
 
   const label = statusLabel(status)
   const badgeColor =
     status === 'ACCEPTED' && trip.subContractor ? PARTNER_CONFIRMED_COLOR : HIGHLIGHTED_COLORS[status]
-  const completable = canComplete && isStatusCompletable(trip)
-  const clickable = onAdvance && (completable || isStatusAdvanceable(trip))
-  const clickProps = clickable
-    ? {
-        title: completable ? 'Click to end this trip' : 'Click to validate the next step',
-        onClick: () => onAdvance(trip),
-      }
-    : undefined
-
   if (isStatusHighlighted(status)) {
     if (clickable) {
       return (

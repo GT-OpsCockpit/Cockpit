@@ -76,17 +76,14 @@ export function isStatusLocked(trip: TripEntity): boolean {
 }
 
 /**
- * A sub-contracted booking at Sent or Confirmed can be closed by hand by an
- * admin (the partner has no driver link to mark it Done), which is what lets it
- * be invoiced. Mirrors the API's subcontractCompletionBlocker.
+ * A Confirmed sub-contracted booking can be closed by hand by an admin (the
+ * partner has no driver link to mark it Done), which is what lets it be
+ * invoiced. Before that, Sent and Confirmed are recorded step by step — see
+ * isSubcontractEarlyStatus. The API's subcontractCompletionBlocker also accepts
+ * a booking still at Sent.
  */
 export function isStatusCompletable(trip: TripEntity): boolean {
-  const status = currentStatus(trip)
-  return (
-    trip.subContractor &&
-    !trip.invoiced &&
-    (status === TripStepEntityStep.TRANSMITTED || status === TripStepEntityStep.ACCEPTED)
-  )
+  return trip.subContractor && !trip.invoiced && currentStatus(trip) === TripStepEntityStep.ACCEPTED
 }
 
 /**
@@ -115,7 +112,33 @@ export function isStatusHighlighted(status: TripStatus): boolean {
   return !!status && HIGHLIGHTED_STEPS.includes(status)
 }
 
+/**
+ * A sub-contracted booking still in its early statuses, which the dispatcher
+ * records by hand ("Send ?" / "Updated - Send ?" → Sent → Confirmed) — the
+ * partner is often told or confirms outside the app. Not once cancelled,
+ * declined or invoiced.
+ */
+export function isSubcontractEarlyStatus(trip: TripEntity): boolean {
+  if (!trip.subContractor || trip.invoiced) return false
+  const status = currentStatus(trip)
+  return (
+    status === null ||
+    status === 'UPDATE_PENDING' ||
+    status === TripStepEntityStep.TRANSMITTED ||
+    status === TripStepEntityStep.RECEIVED
+  )
+}
+
+/** What a sub-contracted booking reads once its early status is validated: Sent, then Confirmed. */
+export function nextSubcontractLabel(trip: TripEntity): string {
+  const status = currentStatus(trip)
+  return status === TripStepEntityStep.TRANSMITTED || status === TripStepEntityStep.RECEIVED
+    ? STEP_LABELS[TripStepEntityStep.ACCEPTED]
+    : STEP_LABELS[TripStepEntityStep.TRANSMITTED]
+}
+
 export function isStatusAdvanceable(trip: TripEntity): boolean {
+  if (isSubcontractEarlyStatus(trip)) return true
   const status = currentStatus(trip)
   // Stop / Declined / "Updated - Send ?" are not steps: nothing to validate next.
   return (

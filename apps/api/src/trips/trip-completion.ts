@@ -58,3 +58,24 @@ export function isTripCompleted(
     trip.pickupAt.getTime() < now.getTime() - 60_000
   );
 }
+
+/**
+ * The step a dispatcher may record by hand on a sub-contracted booking:
+ * "Send ?" / "Updated - Send ?" → Sent, then Sent → Confirmed — for a partner
+ * told by phone or by their own mail, outside the app. Null when there is
+ * nothing to record (cancelled, declined, invoiced, already Confirmed or
+ * beyond).
+ */
+export function nextSubcontractStep(
+  trip: TripForCompletion & { partnerUpdatePending: boolean },
+): 'TRANSMITTED' | 'ACCEPTED' | null {
+  if (!trip.subContractor) return null;
+  if (trip.assignmentCancelled || trip.partnerDeclinedAt || trip.invoiced) {
+    return null;
+  }
+  if (trip.partnerUpdatePending) return 'TRANSMITTED';
+  const status = currentStep(trip.steps);
+  if (!status) return 'TRANSMITTED';
+  if (status === 'TRANSMITTED' || status === 'RECEIVED') return 'ACCEPTED';
+  return null;
+}

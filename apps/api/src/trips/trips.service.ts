@@ -81,6 +81,7 @@ import { toPublicTrip } from './public-trip.mapper';
 import { tripWindow } from './trip-window';
 import {
   isTripCompleted,
+  nextSubcontractStep,
   subcontractCompletionBlocker,
 } from './trip-completion';
 import { CreateTripDto } from './dto/create-trip.dto';
@@ -812,6 +813,20 @@ export class TripsService {
       throw new BadRequestException(
         'This trip is cancelled (Stop status): reassign a driver before advancing the status.',
       );
+    }
+    // A sub-contracted job's early statuses are recorded by hand: the partner
+    // is often told or confirms outside the app.
+    const subcontractStep = nextSubcontractStep(trip);
+    if (subcontractStep) {
+      if (subcontractStep === TripStepKind.TRANSMITTED) {
+        await this.prisma.trip.update({
+          where: { id: trip.id },
+          data: { dispatched: true, partnerUpdatePending: false },
+        });
+      }
+      await this.stampStep(trip.id, subcontractStep as TripStepKind);
+      this.realtime.emitTripChanged(ref);
+      return { ok: true, trip: await this.findByRefOrThrow(ref) };
     }
     if (trip.subContractor && !trip.partnerId) {
       throw new BadRequestException(

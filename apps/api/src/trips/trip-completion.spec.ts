@@ -1,5 +1,6 @@
 import {
   isTripCompleted,
+  nextSubcontractStep,
   subcontractCompletionBlocker,
   type TripForCompletion,
 } from './trip-completion';
@@ -93,5 +94,43 @@ describe('isTripCompleted', () => {
       pickupAt: new Date('2026-10-26T11:00:00Z'),
     };
     expect(isTripCompleted(declined, NOW)).toBe(false);
+  });
+});
+
+describe('nextSubcontractStep', () => {
+  const job = (over: Partial<TripForCompletion & { partnerUpdatePending: boolean }> = {}) => ({
+    subContractor: true,
+    assignmentCancelled: false,
+    partnerDeclinedAt: null,
+    invoiced: false,
+    partnerUpdatePending: false,
+    steps: [] as { step: string }[],
+    ...over,
+  });
+
+  it('moves "Send ?" to Sent', () => {
+    expect(nextSubcontractStep(job())).toBe('TRANSMITTED');
+  });
+
+  it('moves "Updated - Send ?" to Sent', () => {
+    expect(nextSubcontractStep(job({ partnerUpdatePending: true }))).toBe(
+      'TRANSMITTED',
+    );
+  });
+
+  it('moves Sent to Confirmed', () => {
+    expect(
+      nextSubcontractStep(job({ steps: [{ step: 'TRANSMITTED' }] })),
+    ).toBe('ACCEPTED');
+  });
+
+  it('has nothing to record once Confirmed, nor for a trip that is not sub-contracted, declined or cancelled', () => {
+    const confirmed = [{ step: 'TRANSMITTED' }, { step: 'ACCEPTED' }];
+    expect(nextSubcontractStep(job({ steps: confirmed }))).toBeNull();
+    expect(nextSubcontractStep(job({ subContractor: false }))).toBeNull();
+    expect(
+      nextSubcontractStep(job({ partnerDeclinedAt: new Date() })),
+    ).toBeNull();
+    expect(nextSubcontractStep(job({ assignmentCancelled: true }))).toBeNull();
   });
 });
