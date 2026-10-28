@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Eraser, Plus, Send } from 'lucide-react'
+import { Copy, Eraser, Plus, Send } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -19,6 +19,8 @@ import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-fo
 import { dispatchReadiness } from './booking-draft'
 import { SubcontractEmailDialog, type SubcontractEmailTarget } from './subcontract-email-dialog'
 import { toCreateTripDto } from './trip-form-mapping'
+import { DuplicateReturnDialog, useCreateCopies } from './booking-duplicate-dialog'
+import type { CopyOptions } from './booking-duplicate'
 
 /**
  * A row's already-known client/driver/vehicle, carried into the form as a starting
@@ -167,6 +169,31 @@ export function BookingCreateDialog({
     }
   })
 
+  // Duplicate / Return: the booking being typed is created, then its copies.
+  const { createCopies, pending: copying } = useCreateCopies()
+  const [copySource, setCopySource] = useState<TripFormValues | null>(null)
+  const onDuplicate = async () => {
+    if (await form.trigger()) setCopySource(form.getValues())
+  }
+  const onCreateWithCopies = async (options: CopyOptions) => {
+    if (!copySource) return
+    try {
+      const trip = await createTrip.mutateAsync({ data: toCreateTripDto(copySource, { dispatch: false }) })
+      toast.success(`Trip ${trip.ref} created (account ${trip.client.ref}).`)
+      if (copySource.subContractor) setEmailTarget({ ref: trip.ref, kind: 'assigned' })
+      try {
+        const refs = await createCopies(copySource, options)
+        toast.success(`${refs.length} ${options.kind === 'return' ? 'return' : 'duplicate'} booking${refs.length === 1 ? '' : 's'} created: ${refs.join(', ')}.`)
+      } catch (error) {
+        toast.error(`Trip ${trip.ref} created, but its copies failed: ${getApiErrorMessage(error, 'unknown error')}`)
+      }
+      setCopySource(null)
+      afterCreate()
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Error during creation.'))
+    }
+  }
+
   const submitting = createTrip.isPending || dispatchDriver.isPending
 
   // Wipes both the live form and the localStorage draft (loadDraft would
@@ -193,6 +220,10 @@ export function BookingCreateDialog({
         <>
         <Button type="button" variant="outline" size="icon" title="Clear this booking" disabled={submitting} onClick={onClear}>
           <Eraser />
+        </Button>
+        <Button type="button" variant="outline" disabled={submitting || copying} onClick={() => void onDuplicate()}>
+          <Copy />
+          Duplicate / Return
         </Button>
         <Tooltip>
           {/* A disabled button fires no pointer events, so the trigger has to
@@ -223,6 +254,12 @@ export function BookingCreateDialog({
         regNbrSeedOption={prefill?.fleetRegNbr ? { value: prefill.fleetRegNbr, label: prefill.regNbrLabel ?? prefill.fleetRegNbr } : null}
       />
     </RecordFormDialog>
+    <DuplicateReturnDialog
+      source={copySource}
+      pending={createTrip.isPending}
+      onOpenChange={(open) => !open && setCopySource(null)}
+      onConfirm={onCreateWithCopies}
+    />
     <SubcontractEmailDialog target={emailTarget} onOpenChange={(open) => !open && setEmailTarget(null)} />
     </>
   )

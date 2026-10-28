@@ -1,17 +1,22 @@
 import { useState } from 'react'
 import type { TripEntity, UpdateTripResponseEntity } from '@cockpit/shared/api'
 import { getTripsControllerListQueryKey, useTripsControllerUpdate } from '@cockpit/shared/api'
+import { Copy } from 'lucide-react'
 import { toast } from 'sonner'
+import { queryClient } from '@/lib/query-client'
+import { getApiErrorMessage } from '@/lib/api-error'
 import { useRecordForm } from '@/lib/use-record-form'
 import { RecordFormDialog } from '@/components/record-form-dialog'
 import { usePermission } from '@/features/auth/use-permission'
 import { PermissionWarning } from '@/components/permission-warning'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { TripFormFields } from './trip-form-fields'
 import { isTripCompleted } from './trip-status'
 import { tripFormDefaults, tripFormSchema, type TripFormValues } from './trip-form-schema'
 import { toUpdateTripDto, tripToFormValues } from './trip-form-mapping'
+import { DuplicateReturnDialog, useCreateCopies } from './booking-duplicate-dialog'
 import { SubcontractEmailDialog, type SubcontractEmailTarget } from './subcontract-email-dialog'
 
 /** What the save needs to know about the booking as it was *before* it — see submit(). */
@@ -98,6 +103,10 @@ export function BookingEditDialog({
     disabled: !trip || pastLockout,
   })
 
+  // Duplicate / Return copies the booking as saved, not the unsaved edits in the form.
+  const { createCopies, pending: copying } = useCreateCopies()
+  const [copySource, setCopySource] = useState<TripFormValues | null>(null)
+
   const priceEur = record.form.watch('priceEur')
   const partnerRateEur = record.form.watch('partnerRateEur')
   const priceChanged =
@@ -115,6 +124,12 @@ export function BookingEditDialog({
         record={record}
         submitLabel={hadDriver ? 'Confirm and send' : 'Confirm'}
         submitDisabled={pastLockout || (priceChanged && !adminPassword)}
+        actions={
+          <Button type="button" variant="outline" disabled={!trip || copying} onClick={() => trip && setCopySource(tripToFormValues(trip))}>
+            <Copy />
+            Duplicate / Return
+          </Button>
+        }
         contentClassName="sm:max-w-6xl"
         layout="scroll-body"
       >
@@ -149,6 +164,21 @@ export function BookingEditDialog({
           )}
         </div>
       </RecordFormDialog>
+      <DuplicateReturnDialog
+        source={copySource}
+        pending={copying}
+        onOpenChange={(open) => !open && setCopySource(null)}
+        onConfirm={async (options) => {
+          try {
+            const refs = await createCopies(copySource!, options)
+            toast.success(`${refs.length} ${options.kind === 'return' ? 'return' : 'duplicate'} booking${refs.length === 1 ? '' : 's'} created: ${refs.join(', ')}.`)
+            setCopySource(null)
+            void queryClient.invalidateQueries({ queryKey: getTripsControllerListQueryKey() })
+          } catch (error) {
+            toast.error(getApiErrorMessage(error, 'Error during creation.'))
+          }
+        }}
+      />
       <SubcontractEmailDialog target={emailTarget} onOpenChange={(open) => !open && setEmailTarget(null)} />
     </>
   )
