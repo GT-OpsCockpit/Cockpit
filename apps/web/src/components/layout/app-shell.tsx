@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, type KeyboardEvent } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { LogOut } from 'lucide-react'
 import cockpitLogo from '@/assets/cockpit-logo.png'
+import cockpitPhoto from '@/assets/cockpit-photo.jpg'
 import { useAuthControllerLogout, useAuthControllerMe } from '@cockpit/shared/api'
 import { queryClient } from '@/lib/query-client'
 import { cn } from '@/lib/utils'
@@ -84,8 +85,12 @@ export function AppShell() {
           <div className="mx-auto flex w-full max-w-[1800px] items-center justify-between gap-4 px-4">
             <div className="flex items-center gap-6">
               <span className="flex shrink-0 items-center gap-2">
-                <img src={cockpitLogo} alt="" className="h-12 w-12 rounded-md object-cover" />
-                <span className="text-base font-semibold whitespace-nowrap">Cockpit x GT-Ops</span>
+                <img
+                  src={cockpitPhoto}
+                  alt=""
+                  className="h-12 w-[66px] rounded object-cover"
+                />
+                <img src={cockpitLogo} alt="Cockpit" className="h-[34px] w-auto" />
               </span>
 
               <nav

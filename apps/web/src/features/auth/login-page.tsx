@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import cockpitLogo from '@/assets/cockpit-logo.png'
+import cockpitPhoto from '@/assets/cockpit-photo.jpg'
 import { useNavigate } from 'react-router'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -66,8 +67,12 @@ export function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
-            <img src={cockpitLogo} alt="" className="h-16 w-16 rounded-md object-cover" />
-            <span>Cockpit x GT-Ops</span>
+            <img
+              src={cockpitPhoto}
+              alt=""
+              className="h-[72px] w-24 rounded-md object-cover"
+            />
+            <img src={cockpitLogo} alt="Cockpit" className="h-[54px] w-auto" />
           </CardTitle>
           <CardDescription>
             {step.kind === 'credentials'
