@@ -1,5 +1,5 @@
 import { Check, Pencil, ReceiptText, X } from 'lucide-react'
-import { billedAmount } from '@cockpit/shared'
+import { billedAmount, retailNet } from '@cockpit/shared'
 import type { TripEntity } from '@cockpit/shared/api'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -16,10 +16,10 @@ import { PickupTime } from '../bookings/pickup-time'
  * Billing-oriented columns, deliberately not the generic Bookings table —
  * mirrors the legacy's renderPendingTable/buildPendingRowHtml (invoicing.html:332-372).
  */
-/** The amount a booking will be invoiced at — hourly rate × hours for an ASD. */
+/** The net a booking will be invoiced at: retail is VAT-included (hourly rate × hours for an ASD). */
 function netLabel(trip: TripEntity): string {
   const net = billedAmount({ rate: trip.priceEur != null ? Number(trip.priceEur) : null, hours: trip.hours, service: trip.service })
-  return net != null ? `${net.toFixed(2)} €` : '–'
+  return net != null ? `${retailNet(net).toFixed(2)} €` : '–'
 }
 
 export function PendingTripsTable({

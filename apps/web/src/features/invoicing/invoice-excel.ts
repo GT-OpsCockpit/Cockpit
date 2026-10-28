@@ -1,5 +1,5 @@
 import type { InvoiceEntity, TripEntity } from '@cockpit/shared/api'
-import { billedAmount, clientDisplayName, driverLabel } from '@cockpit/shared'
+import { billedAmount, retailNet, clientDisplayName, driverLabel } from '@cockpit/shared'
 import { currentStatus, statusLabel } from '../bookings/trip-status'
 import { pickupLocalInstant } from '../bookings/trip-display'
 import { invoiceLineRows, round2 } from './invoice-calc'
@@ -11,6 +11,12 @@ function slug(text: string): string {
 
 function sortedByPickup(trips: TripEntity[]): TripEntity[] {
   return trips.slice().sort((a, b) => a.pickupAt.localeCompare(b.pickupAt))
+}
+
+/** A booking's retail net of VAT — retail is quoted VAT-included, ASD as hourly rate × hours. */
+function retailNetOf(t: TripEntity): number | '' {
+  const amount = billedAmount({ rate: t.priceEur != null ? Number(t.priceEur) : null, hours: t.hours, service: t.service })
+  return amount == null ? '' : retailNet(amount)
 }
 
 /** Generic trip export shared by the Customer tab's Pending export — mirrors tripsToExcelRows (invoicing.html:625-648). */
@@ -29,7 +35,7 @@ export function tripsExcelRows(trips: TripEntity[]) {
       'Reg Nbr': t.fleetVehicle?.regNbr ?? '',
       'Driver / Partner': (t.driver && driverLabel(t.driver)) || (t.partner && driverLabel(t.partner)) || '',
       'Sub-C': t.subContractor ? 'Yes' : 'No',
-      'Retail net (€)': billedAmount({ rate: t.priceEur != null ? Number(t.priceEur) : null, hours: t.hours, service: t.service }) ?? '',
+      'Retail net (€)': retailNetOf(t),
       Status: exportedStatus(t),
     }
   })

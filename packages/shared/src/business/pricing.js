@@ -53,6 +53,16 @@ export function billedAmount({ rate, hours, service }) {
 }
 
 /**
+ * The net of a retail amount. What the customer is quoted (Retail) includes
+ * VAT, so an invoice shows it divided by 1 + the VAT rate (1.1 at 10%),
+ * rounded to the cent. `multiplier` defaults to the French 1.1 the margin
+ * formula already strips.
+ */
+export function retailNet(amount, multiplier = FRENCH_VAT_MULTIPLIER) {
+  return Math.round((amount / multiplier) * 100) / 100;
+}
+
+/**
  * The currency a Retail net figure is quoted in.
  *
  * What we charge the customer is priced in one of four currencies, whatever

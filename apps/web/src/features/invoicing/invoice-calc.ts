@@ -1,4 +1,4 @@
-import { asdTotal, billedAmount } from '@cockpit/shared'
+import { asdTotal, billedAmount, retailNet } from '@cockpit/shared'
 import type { InvoiceEntity } from '@cockpit/shared/api'
 import { pickupLocalInstant } from '../bookings/trip-display'
 
@@ -43,8 +43,10 @@ export function invoiceLineRows(invoice: InvoiceEntity): InvoiceLineRow[] {
     .sort((a, b) => a.pickupAt.localeCompare(b.pickupAt))
     .map((trip) => {
       const rate = trip.priceEur != null ? Number(trip.priceEur) : null
-      const net = round2(billedAmount({ rate, hours: trip.hours, service: trip.service }) ?? 0)
-      const unitPrice = round2(rate ?? 0)
+      // Retail is quoted VAT-included: the invoice shows it net of VAT.
+      const multiplier = 1 + vatRate
+      const net = retailNet(billedAmount({ rate, hours: trip.hours, service: trip.service }) ?? 0, multiplier)
+      const unitPrice = retailNet(rate ?? 0, multiplier)
       // An ASD without hours is billed at its bare rate, so its quantity is 1 too.
       const quantity = asdTotal({ rate, hours: trip.hours, service: trip.service }) != null ? Number(trip.hours) : 1
       const vat = round2(net * vatRate)

@@ -89,9 +89,10 @@ describe('Invoices (e2e)', () => {
       .expect(201);
     const invoice = res.body as InvoiceBody;
     expect(invoice.ref).toBe('INV1');
-    expect(Number(invoice.totalHT)).toBeCloseTo(150.5);
+    // Retail is quoted VAT-included: 100 → 90.91 net, 50.5 → 45.91 net.
+    expect(Number(invoice.totalHT)).toBeCloseTo(136.82);
     expect(Number(invoice.vatRate)).toBeCloseTo(0.1);
-    expect(Number(invoice.totalTTC)).toBeCloseTo(165.55);
+    expect(Number(invoice.totalTTC)).toBeCloseTo(150.5);
 
     // period=all: BASE_TRIP's fixed pickupAt is unrelated to "is this trip
     // recent" — the default (period=upcoming) would drop it out of view

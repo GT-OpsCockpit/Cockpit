@@ -14,6 +14,9 @@ export interface AsdTotalInput {
 
 export function asdTotal(input: AsdTotalInput): number | null;
 
+/** A VAT-inclusive retail amount without its VAT: amount / multiplier (1.1 by default), to the cent. */
+export function retailNet(amount: number, multiplier?: number): number;
+
 /** A rate as billed: hourly rate × hours for ASD, the flat rate otherwise; null without a rate. */
 export function billedAmount(input: AsdTotalInput): number | null;
 

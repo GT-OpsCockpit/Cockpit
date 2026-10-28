@@ -27,9 +27,10 @@ describe('invoiceLineRows', () => {
     expect(rows.map((r) => r.ref)).toEqual(['R2', 'R1']) // sorted chronologically
 
     const r1 = rows.find((r) => r.ref === 'R1')!
-    expect(r1.net).toBe(100)
-    expect(r1.vat).toBe(10)
-    expect(r1.gross).toBe(110)
+    // 100 € retail includes the 10% VAT: 90.91 net + 9.09 VAT.
+    expect(r1.net).toBe(90.91)
+    expect(r1.vat).toBe(9.09)
+    expect(r1.gross).toBe(100)
   })
 
   it('details a transfer at quantity 1 and an ASD at its hourly rate times the hours', () => {
@@ -42,8 +43,8 @@ describe('invoiceLineRows', () => {
       ],
     })
     const rows = invoiceLineRows(invoice)
-    expect(rows.find((r) => r.ref === 'R1')).toMatchObject({ unitPrice: 120, quantity: 1, net: 120 })
-    expect(rows.find((r) => r.ref === 'R2')).toMatchObject({ unitPrice: 250, quantity: 4, net: 1000 })
+    expect(rows.find((r) => r.ref === 'R1')).toMatchObject({ unitPrice: 109.09, quantity: 1, net: 109.09 })
+    expect(rows.find((r) => r.ref === 'R2')).toMatchObject({ unitPrice: 227.27, quantity: 4, net: 909.09 })
   })
 
   it('treats a null priceEur as 0', () => {
