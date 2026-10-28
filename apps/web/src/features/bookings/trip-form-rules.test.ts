@@ -186,8 +186,8 @@ describe('price hints', () => {
     const rules = tripFormRules(
       values({ service: TripEntityService.ASD, hours: 4, priceEur: 250, partnerRateEur: 180 }),
     )
-    expect(rules.retailAsdTotal).toBe('Total net: 1000.00 €')
-    expect(rules.partnerAsdTotal).toBe('Total net: 720.00 €')
+    expect(rules.retailAsdTotal).toBe('Total net: 250.00 € × 4 h = 1000.00 €')
+    expect(rules.partnerAsdTotal).toBe('Total net: 180.00 € × 4 h = 720.00 €')
   })
 
   it('shows no total for a non-ASD booking — the rate is already the price', () => {

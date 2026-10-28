@@ -1,0 +1,450 @@
+datasource db {
+  provider = "postgresql"
+}
+
+model Client {
+  id               String          @id
+  ref              String          @unique
+  clientType       ClientType
+  contactFirstName String?
+  contactLastName  String?
+  company          String?
+  acronym          String?
+  refPoOther       String?
+  address          String?
+  postalCode       String?
+  city             String?
+  countryCode      String?
+  vatNumber        String?
+  email            String?         @unique
+  billing          Billing?
+  pocName          String?
+  pocPhone         String?
+  pocEmail         String?
+  eventCountry     String?
+  eventArea        String?
+  eventStartDate   DateTime?
+  eventEndDate     DateTime?
+  active           Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime
+  ClientContact    ClientContact[]
+  Driver           Driver[]
+  FleetVehicle     FleetVehicle[]
+  Invoice          Invoice[]
+  Passenger        Passenger[]
+  Trip             Trip[]
+  PriceList        PriceList[]     @relation("ClientPriceLists")
+}
+
+model ClientContact {
+  id        String   @id
+  clientId  String
+  name      String
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  order     Int      @default(0)
+  Client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model CompanyInfo {
+  id           Int     @id @default(1)
+  name         String?
+  legalName    String?
+  street1      String?
+  zipCode      String?
+  city         String?
+  countryCode  String?
+  vatNbr       String?
+  email        String?
+  website      String?
+  ownerSurname String?
+  ownerName    String?
+  mobile       String?
+  ownerEmail   String?
+  saved        Boolean @default(false)
+}
+
+model Country {
+  code            String  @id
+  name            String
+  dialCode        String?
+  currency        String?
+  defaultTimezone String
+}
+
+model Driver {
+  id                          String                @id
+  ref                         String                @unique
+  countryCode                 String?
+  firstName                   String?
+  lastName                    String?
+  phone                       String?               @unique
+  company                     String?
+  email                       String?
+  area                        String                @default("Local")
+  eventsOnly                  Boolean               @default(false)
+  eventClientId               String?
+  active                      Boolean               @default(true)
+  createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime
+  eventArea                   String?
+  eventCountry                String?
+  partnerId                   String?
+  Client                      Client?               @relation(fields: [eventClientId], references: [id])
+  Partner                     Partner?              @relation(fields: [partnerId], references: [id])
+  DriverUnavailability        DriverUnavailability?
+  FleetVehicle                FleetVehicle?
+  Trip_Trip_driverIdToDriver  Trip[]                @relation("Trip_driverIdToDriver")
+  Trip_Trip_partnerIdToDriver Trip[]                @relation("Trip_partnerIdToDriver")
+}
+
+model DriverUnavailability {
+  id        String            @id
+  driverId  String            @unique
+  type      DriverUnavailKind
+  date      DateTime?
+  startDate DateTime?
+  endDate   DateTime?
+  Driver    Driver            @relation(fields: [driverId], references: [id])
+}
+
+model FleetUnavailability {
+  id             String           @id
+  fleetVehicleId String           @unique
+  type           FleetUnavailKind
+  startDate      DateTime
+  endDate        DateTime
+  FleetVehicle   FleetVehicle     @relation(fields: [fleetVehicleId], references: [id])
+}
+
+model FleetVehicle {
+  id                  String               @id
+  ref                 String               @unique
+  categoryId          String
+  regNbr              String               @unique
+  make                String
+  model               String
+  yearOfBuild         Int
+  fourWD              Boolean
+  nbPax               Int
+  color               String               @default("Metallic Black")
+  acronym             String?
+  isLocal             Boolean              @default(true)
+  countryCode         String?
+  area                String?
+  partnerCompany      String?
+  driverId            String?              @unique
+  eventsOnly          Boolean              @default(false)
+  eventClientId       String?
+  active              Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime
+  eventArea           String?
+  eventCountry        String?
+  partnerId           String?
+  FleetUnavailability FleetUnavailability?
+  VehicleType         VehicleType          @relation(fields: [categoryId], references: [id])
+  Driver              Driver?              @relation(fields: [driverId], references: [id])
+  Client              Client?              @relation(fields: [eventClientId], references: [id])
+  Partner             Partner?             @relation(fields: [partnerId], references: [id])
+  Trip                Trip[]
+}
+
+model FxRateCache {
+  currency   String   @id
+  eurPerUnit Decimal
+  fetchedAt  DateTime
+}
+
+model Invoice {
+  id          String        @id
+  ref         String        @unique
+  clientId    String
+  isEvent     Boolean       @default(false)
+  refPo       String?
+  periodStart DateTime?
+  periodEnd   DateTime?
+  totalHT     Decimal
+  vatRate     Decimal       @default(0.10)
+  totalTTC    Decimal
+  createdAt   DateTime      @default(now())
+  Client      Client        @relation(fields: [clientId], references: [id])
+  InvoiceTrip InvoiceTrip[]
+}
+
+model InvoiceTrip {
+  invoiceId String
+  tripId    String
+  Invoice   Invoice @relation(fields: [invoiceId], references: [id])
+  Trip      Trip    @relation(fields: [tripId], references: [id])
+
+  @@id([invoiceId, tripId])
+}
+
+model OtpCode {
+  id        String   @id
+  userId    String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id])
+}
+
+model Partner {
+  id           String         @id
+  ref          String         @unique
+  individual   Boolean        @default(false)
+  companyName  String?
+  contactName  String
+  phone        String
+  email        String
+  countryCode  String?
+  area         String?
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
+  Driver       Driver[]
+  FleetVehicle FleetVehicle[]
+}
+
+model Passenger {
+  id               String             @id
+  ref              String             @unique
+  firstName        String?
+  lastName         String?
+  phone            String?
+  email            String?
+  notes            String?
+  clientId         String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  Client           Client?            @relation(fields: [clientId], references: [id])
+  PassengerAddress PassengerAddress[]
+  PassengerRoute   PassengerRoute[]
+}
+
+model PassengerAddress {
+  id          String    @id
+  passengerId String
+  title       String
+  address     String
+  info        String?
+  countryCode String?
+  area        String?
+  isAirport   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  postalCode  String?
+  Passenger   Passenger @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+}
+
+model PassengerRoute {
+  id              String       @id
+  passengerId     String
+  pickupLocation  String
+  dropoffLocation String?
+  vehicleTypeId   String?
+  priceEur        Decimal
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime
+  Passenger       Passenger    @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  VehicleType     VehicleType? @relation(fields: [vehicleTypeId], references: [id])
+}
+
+model PriceList {
+  id             String           @id
+  ref            String           @unique
+  name           String
+  active         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  PriceListEntry PriceListEntry[]
+  Client         Client[]         @relation("ClientPriceLists")
+}
+
+model PriceListEntry {
+  id                 String       @id
+  priceListId        String
+  pickupLocation     String?
+  pickupCountryCode  String?
+  dropoffLocation    String?
+  dropoffCountryCode String?
+  vehicleTypeId      String?
+  priceEur           Decimal
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime
+  pickupPostalCodes  String[]     @default([])
+  dropoffPostalCodes String[]     @default([])
+  bidirectional      Boolean      @default(false)
+  PriceList          PriceList    @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  VehicleType        VehicleType? @relation(fields: [vehicleTypeId], references: [id])
+}
+
+model RefCounter {
+  scope     String @id
+  lastValue Int    @default(0)
+}
+
+model ReleasedTripSeq {
+  key String
+  seq Int
+
+  @@id([key, seq])
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id])
+}
+
+model Trip {
+  id                            String           @id
+  ref                           String           @unique
+  countryCode                   String?
+  area                          String?
+  timezone                      String?
+  pickupAt                      DateTime
+  pickupLocation                String
+  dropoffLocation               String?
+  service                       Service
+  hours                         Int?
+  instructions                  String?
+  clientId                      String
+  passengerName                 String
+  pocName                       String?
+  pocPhone                      String?
+  pocEmail                      String?
+  tracking                      Boolean          @default(true)
+  paxCount                      Int?
+  vehicleTypeId                 String?
+  fleetVehicleId                String?
+  priceEur                      Decimal?
+  partnerRateEur                Decimal?
+  driverId                      String?
+  billing                       Billing?
+  flightNumber                  String?
+  bufferTime                    Int?
+  fboAddress                    String?
+  tailNbr                       String?
+  nameboardUrl                  String?
+  pickupIata                    String?
+  dropoffIata                   String?
+  subContractor                 Boolean          @default(false)
+  partnerId                     String?
+  dispatched                    Boolean          @default(false)
+  invoiced                      Boolean          @default(false)
+  assignmentCancelled           Boolean          @default(false)
+  assignmentCancelledAt         DateTime?
+  cancellationFee               CancellationFee?
+  createdAt                     DateTime         @default(now())
+  updatedAt                     DateTime
+  nameboard                     String?
+  trainNumber                   String?
+  trainObservation              String?
+  InvoiceTrip                   InvoiceTrip[]
+  Client                        Client           @relation(fields: [clientId], references: [id])
+  Driver_Trip_driverIdToDriver  Driver?          @relation("Trip_driverIdToDriver", fields: [driverId], references: [id])
+  FleetVehicle                  FleetVehicle?    @relation(fields: [fleetVehicleId], references: [id])
+  Driver_Trip_partnerIdToDriver Driver?          @relation("Trip_partnerIdToDriver", fields: [partnerId], references: [id])
+  VehicleType                   VehicleType?     @relation(fields: [vehicleTypeId], references: [id])
+  TripStep                      TripStep[]
+}
+
+model TripStep {
+  id         String       @id
+  tripId     String
+  step       TripStepKind
+  occurredAt DateTime     @default(now())
+  Trip       Trip         @relation(fields: [tripId], references: [id])
+
+  @@unique([tripId, step])
+}
+
+model User {
+  id            String    @id
+  email         String    @unique
+  passwordHash  String
+  role          Role
+  firstName     String
+  lastName      String
+  phone         String?
+  active        Boolean   @default(true)
+  deactivatedAt DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  ref           String    @unique
+  OtpCode       OtpCode[]
+  Session       Session[]
+}
+
+model VehicleType {
+  id             String           @id
+  ref            String           @unique
+  name           String           @unique
+  maxPax         Int
+  createdAt      DateTime         @default(now())
+  active         Boolean          @default(true)
+  FleetVehicle   FleetVehicle[]
+  PassengerRoute PassengerRoute[]
+  PriceListEntry PriceListEntry[]
+  Trip           Trip[]
+}
+
+enum Billing {
+  ACCOUNT
+  CASH
+  CARD
+}
+
+enum CancellationFee {
+  FREE
+  FIFTY
+  SEVENTYFIVE
+  HUNDRED
+}
+
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+  EVENT
+}
+
+enum DriverUnavailKind {
+  OFF
+  HOLIDAYS
+  SICK
+}
+
+enum FleetUnavailKind {
+  REPAIR
+  SERVICE
+  BODYWORK
+}
+
+enum Role {
+  ADMIN
+  DISPATCHER
+}
+
+enum Service {
+  TSF
+  ASD
+  SPEC
+}
+
+enum TripStepKind {
+  TRANSMITTED
+  RECEIVED
+  ACCEPTED
+  ENROUTE
+  ARRIVED
+  ONBOARD
+  DROPPED
+}

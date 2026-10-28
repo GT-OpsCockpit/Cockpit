@@ -56,6 +56,7 @@ import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 import { applyBookingEdit, type BookingChange, type BookingMeta, type LocatedAddress } from './booking-draft'
 import { clientDisplayName, partnerLabel } from '@cockpit/shared'
 import { partnerServesBooking, type BookingEnd } from './partner-zone'
+import { entryCurrencies, eurFromForeign, foreignFromEur } from './price-currency'
 import { driverOptionLabel } from '@/features/drivers/driver-status'
 
 /**
@@ -1210,7 +1211,7 @@ export function TripFormFields({
           <PriceField
             form={form}
             name="priceEur"
-            label="Retail net"
+            label={service === TripEntityService.ASD ? 'Retail net / hour' : 'Retail net'}
             // What we charge is quoted in one of four currencies whatever the
             // country's own (bookingCurrency, common.js:1193-1201) — unlike the
             // Partner rate below, quoted in the currency of the country the job
@@ -1226,7 +1227,7 @@ export function TripFormFields({
             <PriceField
               form={form}
               name="partnerRateEur"
-              label="Partner rate net"
+              label={service === TripEntityService.ASD ? 'Partner rate net / hour' : 'Partner rate net'}
               currency={selectedCountry?.currency}
               disabled={priceDisabled}
               disabledReason={priceDisabledReason}
@@ -1616,6 +1617,7 @@ function PriceField({
   form: UseFormReturn<TripFormValues>
   name: 'priceEur' | 'partnerRateEur'
   label: string
+  /** The foreign currency this price may be typed in (the euro is always possible). */
   currency?: string
   disabled?: boolean
   disabledReason?: string
@@ -1626,68 +1628,115 @@ function PriceField({
   /** Booking margin, shown under the Partner rate the legacy computed it beside. */
   marginHint?: string
 }) {
-  const [hint, setHint] = useState<string | null>(null)
+  const currencies = entryCurrencies(currency)
+  const [chosen, setChosen] = useState('EUR')
+  // A country change can take the chosen currency away: back to the euro.
+  const entryCurrency = currencies.includes(chosen) ? chosen : 'EUR'
+  const foreign = entryCurrency !== 'EUR'
 
-  const showFxHint = async () => {
-    if (!currency || currency === 'EUR') {
-      setHint(null)
-      return
+  // Today's rate (euros per one unit), fetched when a foreign currency is chosen.
+  const [rate, setRate] = useState<number | null>(null)
+  const [rateFailed, setRateFailed] = useState(false)
+  useEffect(() => {
+    if (!foreign) return
+    let cancelled = false
+    setRate(null)
+    setRateFailed(false)
+    geoControllerFxRate({ currency: entryCurrency })
+      .then((r) => !cancelled && setRate(Number(r.eurPerUnit)))
+      .catch(() => !cancelled && setRateFailed(true))
+    return () => {
+      cancelled = true
     }
-    const amount = form.getValues(name)
-    if (amount === undefined) return
-    try {
-      const rate = await geoControllerFxRate({ currency })
-      const eurPerUnit = Number(rate.eurPerUnit)
-      setHint(`≈ ${(amount / eurPerUnit).toFixed(2)} ${currency}`)
-    } catch {
-      setHint(null)
-    }
-  }
+  }, [foreign, entryCurrency])
+
+  // What is being typed in the foreign currency, kept as text while the field has focus.
+  const [draft, setDraft] = useState<string | null>(null)
 
   return (
     <FormField
       control={form.control}
       name={name}
-      render={({ field }) => (
-        <FormItem className={className}>
-          <FormLabel>{label}</FormLabel>
-          <div className="flex items-center gap-1">
-            <FormControl>
-              <Input
-                type="number"
-                // No `min` attribute on purpose: a native constraint is checked
-                // by the browser *before* the submit event, so a negative price
-                // silently aborted the whole submission — every other field's
-                // message vanished with it and Create looked dead. Validation
-                // belongs to the zod resolver (shouldUseNativeValidation is off,
-                // its default), which reports it as A price cannot be negative.
-                step="0.01"
-                placeholder="150"
-                disabled={disabled}
-                title={disabled ? disabledReason : undefined}
-                {...field}
-                value={field.value ?? ''}
-                onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
-                onBlur={() => {
-                  field.onBlur()
-                  void showFxHint()
-                }}
-              />
-            </FormControl>
-            <span className="text-muted-foreground text-sm">€</span>
-          </div>
-          {disabled && disabledReason ? (
-            <p className="text-muted-foreground text-xs">{disabledReason}</p>
-          ) : (
-            hint && <p className="text-muted-foreground text-xs">{hint}</p>
-          )}
-          {totalHint && <p className="text-muted-foreground text-xs">{totalHint}</p>}
-          {marginHint && <p className="text-xs font-medium">{marginHint}</p>}
-          {/* Without this, "Partner rate net is required to sub-contract a
-              booking." had nowhere to render: Create silently did nothing. */}
-          <FormMessage />
-        </FormItem>
-      )}
+      render={({ field }) => {
+        const eur = field.value as number | undefined
+        const shown =
+          draft ?? (eur !== undefined && rate ? String(foreignFromEur(eur, rate)) : '')
+        return (
+          <FormItem className={className}>
+            <FormLabel>{label}</FormLabel>
+            <div className="flex items-center gap-1">
+              <FormControl>
+                {foreign ? (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="150"
+                    disabled={disabled || !rate}
+                    title={disabled ? disabledReason : undefined}
+                    value={shown}
+                    onChange={(e) => {
+                      setDraft(e.target.value)
+                      const typed = e.target.valueAsNumber
+                      field.onChange(Number.isNaN(typed) || !rate ? undefined : eurFromForeign(typed, rate))
+                    }}
+                    onBlur={() => {
+                      field.onBlur()
+                      setDraft(null)
+                    }}
+                  />
+                ) : (
+                  <Input
+                    type="number"
+                    // No `min` attribute on purpose: a native constraint is checked
+                    // by the browser *before* the submit event, so a negative price
+                    // silently aborted the whole submission — every other field's
+                    // message vanished with it and Create looked dead. Validation
+                    // belongs to the zod resolver (shouldUseNativeValidation is off,
+                    // its default), which reports it as A price cannot be negative.
+                    step="0.01"
+                    placeholder="150"
+                    disabled={disabled}
+                    title={disabled ? disabledReason : undefined}
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
+                  />
+                )}
+              </FormControl>
+              {currencies.length > 1 ? (
+                <Select value={entryCurrency} onValueChange={setChosen} disabled={disabled}>
+                  <SelectTrigger className="w-24" aria-label={`${label} currency`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencies.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c === 'EUR' ? '€ EUR' : c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="text-muted-foreground text-sm">€</span>
+              )}
+            </div>
+            {disabled && disabledReason && <p className="text-muted-foreground text-xs">{disabledReason}</p>}
+            {foreign && rate && eur !== undefined && (
+              <p className="text-muted-foreground text-xs">
+                = {eur.toFixed(2)} € · 1 {entryCurrency} = {rate.toFixed(4)} € (today's rate)
+              </p>
+            )}
+            {foreign && rateFailed && (
+              <p className="text-destructive text-xs">Today's {entryCurrency} rate is unavailable — enter the amount in €.</p>
+            )}
+            {totalHint && <p className="text-muted-foreground text-xs">{totalHint}</p>}
+            {marginHint && <p className="text-xs font-medium">{marginHint}</p>}
+            {/* Without this, "Partner rate net is required to sub-contract a
+                booking." had nowhere to render: Create silently did nothing. */}
+            <FormMessage />
+          </FormItem>
+        )
+      }}
     />
   )
 }

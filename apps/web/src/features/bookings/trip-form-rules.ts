@@ -72,8 +72,11 @@ export interface TripFormRules {
 
 const NO_PARIS_TIME = 'Eq. 🕐 Paris'
 
-function formatTotal(total: number | null): string | undefined {
-  return total === null ? undefined : `Total net: ${total.toFixed(2)} €`
+/** "Total net: 250.00 € × 4 h = 1000.00 €" — the hourly rate, the hours, and what they come to. */
+function formatTotal(rate: number | null | undefined, hours: number | null | undefined, total: number | null): string | undefined {
+  return total === null || rate == null || hours == null
+    ? undefined
+    : `Total net: ${rate.toFixed(2)} € × ${hours} h = ${total.toFixed(2)} €`
 }
 
 /**
@@ -165,8 +168,8 @@ export function tripFormRules(values: TripFormRulesInput, trip?: TripEntity | nu
     // Flagged, not refused: the legacy highlighted a part-typed tail number
     // (refreshTailHighlight, common.js:1649) without blocking anything.
     tailNbrIncomplete: (values.tailNbr?.trim().length ?? 0) > 0 && values.tailNbr!.trim().length < 5,
-    retailAsdTotal: formatTotal(asdTotal({ rate: priceEur, hours, service })),
-    partnerAsdTotal: formatTotal(asdTotal({ rate: partnerRateEur, hours, service })),
+    retailAsdTotal: formatTotal(priceEur, hours, asdTotal({ rate: priceEur, hours, service })),
+    partnerAsdTotal: formatTotal(partnerRateEur, hours, asdTotal({ rate: partnerRateEur, hours, service })),
     marginHint: margin === null ? undefined : `% Margin: ${margin.toFixed(1)} %`,
   }
 }
