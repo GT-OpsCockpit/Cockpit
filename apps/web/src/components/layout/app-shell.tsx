@@ -88,7 +88,7 @@ export function AppShell() {
                 <img
                   src={cockpitPhoto}
                   alt=""
-                  className="h-12 w-[66px] rounded object-cover"
+                  className="h-12 w-12 rounded object-cover"
                 />
                 <img src={cockpitLogo} alt="Cockpit" className="h-[34px] w-auto" />
               </span>

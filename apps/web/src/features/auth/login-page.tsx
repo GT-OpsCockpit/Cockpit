@@ -70,7 +70,7 @@ export function LoginPage() {
             <img
               src={cockpitPhoto}
               alt=""
-              className="h-[72px] w-24 rounded-md object-cover"
+              className="h-[72px] w-[72px] rounded-md object-cover"
             />
             <img src={cockpitLogo} alt="Cockpit" className="h-[54px] w-auto" />
           </CardTitle>
