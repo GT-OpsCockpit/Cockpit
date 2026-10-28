@@ -115,13 +115,18 @@ export function PendingTripsTable({
                   </TableCell>
                   <TableCell className="text-xs font-medium">{trip.ref}</TableCell>
                   <TableCell className="text-xs">
-                    <div>
+                    <div
+                      className="max-w-[14rem] truncate"
+                      title={[account.primary, account.secondary && `(${account.secondary})`].filter(Boolean).join(' ')}
+                    >
                       {account.primary}
                       {account.secondary && <span className="text-muted-foreground text-[10px]"> ({account.secondary})</span>}
                     </div>
-                    <div className="text-muted-foreground text-[10px]">{trip.passengerName}</div>
+                    <div className="text-muted-foreground max-w-[14rem] truncate text-[10px]" title={trip.passengerName}>
+                      {trip.passengerName}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs"><Itinerary trip={trip} /></TableCell>
+                  <TableCell className="text-muted-foreground text-xs"><Itinerary trip={trip} truncate /></TableCell>
                   <TableCell className="text-xs">{trip.vehicleType?.name ?? '—'}</TableCell>
                   <TableCell className="text-xs">{trip.client.refPoOther || '–'}</TableCell>
                   <TableCell className="text-center text-xs">

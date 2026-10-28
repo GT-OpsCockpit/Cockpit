@@ -380,6 +380,21 @@ export function TripFormFields({
   // matching route outright, rather than silently waiting for the *other*
   // end to also be typed before the price above quietly fills in — a
   // popup here says plainly "this is a route this passenger already has".
+  // A saved route or a swap writes addresses as plain text: no country, no
+  // timezone, nothing the cascades (partners offered, price list) key on. Look
+  // both ends up again so the draft is as complete as if they had been picked.
+  const geocodeEnds = async () => {
+    for (const field of ['pickupLocation', 'dropoffLocation'] as const) {
+      const address = form.getValues(field)?.trim()
+      if (!address) continue
+      try {
+        applyEdit({ kind: 'geocode', field, result: await geoControllerGeocodeTz({ q: address }) })
+      } catch {
+        // The address field's own lookup reports a failure when it is edited; here the draft just stays as it was.
+      }
+    }
+  }
+
   const [routeSuggestion, setRouteSuggestion] = useState<PassengerRouteEntity | null>(null)
   const offerRouteFor = (address: string) => {
     if (!selectedPassenger) return
@@ -395,6 +410,7 @@ export function TripFormFields({
     form.setValue('priceEur', Number(routeSuggestion.priceEur), { shouldDirty: true })
     if (routeSuggestion.vehicleType) form.setValue('vehicleType', routeSuggestion.vehicleType.name, { shouldDirty: true })
     setRouteSuggestion(null)
+    void geocodeEnds()
   }
 
   // Assignment rules (who may take this job, who's available today, which
@@ -901,6 +917,7 @@ export function TripFormFields({
                         form.setValue('area', '', { shouldDirty: true })
                       }
                       form.setValue('dropoffCountryCode', pickupCountry, { shouldDirty: true })
+                      void geocodeEnds()
                     }}
                   >
                     <ArrowLeftRight className="size-4" />
