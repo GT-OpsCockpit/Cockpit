@@ -1,4 +1,6 @@
 node_modules
+# pnpm's package cache, which it creates inside the project on some volumes
+.pnpm-store/
 dist
 build
 coverage
