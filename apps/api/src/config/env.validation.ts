@@ -83,6 +83,15 @@ export class EnvironmentVariables {
   PARTNER_MAILER_FROM: string = 'contact@gt-ops.club';
 
   /**
+   * Blind copy of every partner email, so the dispatcher keeps a trace of what
+   * went out: the server sends over SMTP, which leaves nothing in the mailbox's
+   * Sent folder. Defaults to the sender's own mailbox; set it empty to turn the
+   * copy off.
+   */
+  @IsString()
+  PARTNER_MAILER_BCC: string = 'contact@gt-ops.club';
+
+  /**
    * Public origin of this API, used to build the "Confirm booking" link in a
    * sub-contracted partner's email. Defaults to the local dev server, which
    * only the dispatcher's own machine can open.

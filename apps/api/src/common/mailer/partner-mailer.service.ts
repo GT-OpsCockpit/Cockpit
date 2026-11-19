@@ -48,9 +48,12 @@ export class PartnerMailerService implements OnModuleInit {
         'Email sending is not configured on this server (missing SMTP_HOST) — the partner was not notified.',
       );
     }
+    const bcc = this.config.get('PARTNER_MAILER_BCC', { infer: true });
     await this.transporter.sendMail({
       from: this.config.get('PARTNER_MAILER_FROM', { infer: true }),
       to,
+      // The server's own copy of the sent mail — SMTP keeps none (see env.validation.ts).
+      ...(bcc ? { bcc } : {}),
       subject,
       text: body,
       ...(html ? { html } : {}),

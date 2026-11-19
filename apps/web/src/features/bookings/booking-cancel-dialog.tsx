@@ -77,11 +77,15 @@ export function BookingCancelDialog({
     if (!trip || !canCancel) return
     try {
       const result = await cancelAssignment.mutateAsync({ ref: trip.ref, data: { cancellationFee: fee } })
+      // The server emails the partner itself on cancelling; the toast says so, or says why not.
+      const partnerNote = trip.subContractor && !result.notifyWarning ? ' The partner was notified by email.' : ''
       toast.success(
-        result.deleted
+        (result.deleted
           ? `Trip ${trip.ref} cancelled and removed.`
-          : `Trip ${trip.ref} cancelled (${FEE_OPTIONS.find((o) => o.value === fee)?.label} fee) — assignment cleared.`,
+          : `Trip ${trip.ref} cancelled (${FEE_OPTIONS.find((o) => o.value === fee)?.label} fee) — assignment cleared.`) +
+          partnerNote,
       )
+      if (result.notifyWarning) toast.warning(result.notifyWarning)
       void queryClient.invalidateQueries({ queryKey: getTripsControllerListQueryKey() })
       close(false)
     } catch (error) {

@@ -9,8 +9,8 @@ import { Clock } from 'lucide-react'
  *
  * Always shows Paris time first — the ops team runs on it regardless of
  * where an individual viewer happens to be — and, only when the browser's
- * own time zone differs from Paris (someone travelling, or a subcontractor
- * abroad), a second line with their local time underneath.
+ * own time zone shows a different time than Paris (someone travelling, or a
+ * subcontractor abroad), a second line with their local time underneath.
  *
  * The zone abbreviation is pinned to en-GB rather than the browser locale:
  * `offsetNameShort` is locale-derived, and a French browser renders Paris as
@@ -27,8 +27,10 @@ export function LiveClock() {
 
   const paris = now.setZone('Europe/Paris').setLocale('en-GB')
   const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const isParisZone = localZone === 'Europe/Paris'
   const local = now.setLocale('en-GB')
+  // A zone that keeps Paris time right now (Rome, Berlin…) has nothing to add
+  // under the Paris line: two identical clocks would only be noise.
+  const isParisZone = localZone === 'Europe/Paris' || local.offset === paris.offset
   // "Europe/Berlin" -> "Berlin" — good enough for a small hint label; falls
   // back to the raw IANA name for zones without a "/" (e.g. "UTC").
   const localCity = localZone.split('/').at(-1)?.replace(/_/g, ' ') ?? localZone

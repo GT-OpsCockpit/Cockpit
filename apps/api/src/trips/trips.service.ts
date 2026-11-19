@@ -1038,6 +1038,10 @@ export class TripsService {
           `the cancellation email to the partner failed to send: ${(err as Error).message}`,
         );
       }
+    } else {
+      warnings.push(
+        'the partner has no email address on file, so no cancellation email was sent',
+      );
     }
     return warnings.length
       ? `Assignment change saved, but ${warnings.join(' and ')}.`
