@@ -89,10 +89,14 @@ export function BookingEditDialog({
         !!values.directPartnerRef && values.directPartnerRef !== outgoingDirectPartnerRef
       const partnerDriverChanged =
         !values.subContractorNoDriver && !!values.partnerRef && values.partnerRef !== outgoingPartnerRef
+      // The server has already emailed whoever lost the job — an automatic notice, so there
+      // is nothing left to review (a Discard here would only pretend to stop it).
+      const partnerLost =
+        (!!outgoingPartnerRef && (!values.subContractor || values.subContractorNoDriver || partnerDriverChanged)) ||
+        (!!outgoingDirectPartnerRef && (!values.subContractor || !values.subContractorNoDriver || directPartnerChanged))
+      if (partnerLost && !response.notifyWarning) toast.info('The previous partner was notified of the cancellation by email.')
       if (values.subContractor && (!wasFarmedOut || directPartnerChanged || partnerDriverChanged)) {
         setEmailTarget({ ref: trip!.ref, kind: 'assigned' })
-      } else if (wasFarmedOut && !values.subContractor && outgoingPartnerRef) {
-        setEmailTarget({ ref: trip!.ref, kind: 'cancelled', partnerRef: outgoingPartnerRef })
       } else if (response.subcontractUpdateRequired) {
         // Same partner, but the job they were sent has changed: the status went
         // back to Sent and they get the updated recap, with fresh Confirm/Decline

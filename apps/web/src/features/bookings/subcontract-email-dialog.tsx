@@ -81,8 +81,16 @@ export function SubcontractEmailDialog({
     }
   }
 
+  // Closing without sending (Discard, the cross, Escape) saves nothing more and sends
+  // nothing: the booking stays as saved, still waiting to be sent.
+  const discard = () => {
+    if (target?.kind === 'assigned') toast.info('Booking saved. No email sent: it stays on "Send ?" until you send it.')
+    else if (target?.kind === 'updated') toast.info('Booking saved. No email sent: it stays on "Updated - Send ?" until you send it.')
+    onOpenChange(false)
+  }
+
   return (
-    <Dialog open={!!target} onOpenChange={onOpenChange}>
+    <Dialog open={!!target} onOpenChange={(open) => !open && discard()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
@@ -118,7 +126,7 @@ export function SubcontractEmailDialog({
           </div>
         )}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={discard}>
             {to ? 'Discard' : 'Close'}
           </Button>
           {to && (
