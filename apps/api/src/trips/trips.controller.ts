@@ -39,7 +39,10 @@ import {
   type UploadedNameboard,
 } from './nameboard-upload.config';
 import { SubcontractEmailQueryDto } from './dto/subcontract-email-query.dto';
-import { SubcontractEmailEntity } from './dto/subcontract-email.entity';
+import {
+  SubcontractEmailEntity,
+  SubcontractEmailSentEntity,
+} from './dto/subcontract-email.entity';
 import { SendSubcontractEmailDto } from './dto/send-subcontract-email.dto';
 
 @Controller('trips')
@@ -91,7 +94,7 @@ export class TripsController {
   sendSubcontractEmail(
     @Param('ref') ref: string,
     @Body() dto: SendSubcontractEmailDto,
-  ): Promise<{ ok: true; to: string }> {
+  ): Promise<SubcontractEmailSentEntity> {
     return this.tripsService.sendSubcontractEmail(ref, dto);
   }
 

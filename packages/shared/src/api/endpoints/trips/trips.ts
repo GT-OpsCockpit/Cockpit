@@ -35,6 +35,7 @@ import type {
   PublicTripEntity,
   SendSubcontractEmailDto,
   SubcontractEmailEntity,
+  SubcontractEmailSentEntity,
   TripActionResponseEntity,
   TripEntity,
   TripsControllerGetPublicParams,
@@ -537,7 +538,7 @@ export const getTripsControllerSendSubcontractEmailUrl = (ref: string,) => {
 }
 
 export const tripsControllerSendSubcontractEmail = async (ref: string,
-    sendSubcontractEmailDto: SendSubcontractEmailDto, options?: Parameters<typeof fetcher>[1]): Promise<void> => {
+    sendSubcontractEmailDto: SendSubcontractEmailDto, options?: Parameters<typeof fetcher>[1]): Promise<SubcontractEmailSentEntity> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -545,7 +546,7 @@ export const tripsControllerSendSubcontractEmail = async (ref: string,
     if (Array.isArray(h)) return Object.fromEntries(h);
     return h;
   };
-return fetcher<void>(getTripsControllerSendSubcontractEmailUrl(ref),
+return fetcher<SubcontractEmailSentEntity>(getTripsControllerSendSubcontractEmailUrl(ref),
   {
     ...options,
     method: 'POST',

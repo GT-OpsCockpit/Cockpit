@@ -1,7 +1,17 @@
-import { Controller, Get, Header, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
 import { TripsService } from './trips.service';
+import { chauffeurPage } from './chauffeur-page.util';
 import {
   partnerAvailablePage,
   partnerDeclinedPage,
@@ -116,6 +126,57 @@ export class PartnerLinksController {
     const result = await this.tripsService.declineByPartnerLink(ref, token);
     if (!result) return INVALID_PAGE();
     return partnerDeclinedPage({ tripRef: ref, mailto: result.mailto });
+  }
+}
+
+// Chauffeur status page: booking details, the Confirmed → In position →
+// Pax on board → Job completed buttons, Google Maps links and live position.
+// The signed token in the link is the only credential.
+@ApiExcludeController()
+@Controller('partner-links')
+export class ChauffeurTrackingController {
+  constructor(private readonly tripsService: TripsService) {}
+
+  @Public()
+  @Get(':ref/track')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  async page(
+    @Param('ref') ref: string,
+    @Query('t') token = '',
+  ): Promise<string> {
+    const view = await this.tripsService.chauffeurView(ref, token);
+    return view ? chauffeurPage(view, token) : INVALID_PAGE();
+  }
+
+  @Public()
+  @Post(':ref/track/step')
+  async step(
+    @Param('ref') ref: string,
+    @Query('t') token = '',
+    @Body() body: { step?: string },
+  ): Promise<{ ok: true }> {
+    if (!(await this.tripsService.chauffeurStep(ref, token, body?.step ?? '')))
+      throw new NotFoundException('This link is no longer valid');
+    return { ok: true };
+  }
+
+  @Public()
+  @Post(':ref/track/position')
+  async position(
+    @Param('ref') ref: string,
+    @Query('t') token = '',
+    @Body() body: { lat?: number; lng?: number },
+  ): Promise<{ ok: true }> {
+    if (
+      !(await this.tripsService.chauffeurPosition(
+        ref,
+        token,
+        Number(body?.lat),
+        Number(body?.lng),
+      ))
+    )
+      throw new NotFoundException('This link is no longer valid');
+    return { ok: true };
   }
 }
 

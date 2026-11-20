@@ -7,7 +7,10 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { CompanyModule } from '../company/company.module';
 import { StorageModule } from '../common/storage/storage.module';
 import { NameboardController } from './nameboard.controller';
-import { PartnerLinksController } from './partner-links.controller';
+import {
+  ChauffeurTrackingController,
+  PartnerLinksController,
+} from './partner-links.controller';
 import { MailerModule } from '../common/mailer/mailer.module';
 
 @Module({
@@ -18,7 +21,10 @@ import { MailerModule } from '../common/mailer/mailer.module';
     StorageModule,
     MailerModule,
   ],
-  controllers: [TripsController, NameboardController, PartnerLinksController],
+  controllers: [TripsController, NameboardController,
+    PartnerLinksController,
+    ChauffeurTrackingController,
+  ],
   providers: [TripsService, TripRefService],
 })
 export class TripsModule {}

@@ -66,13 +66,15 @@ export function SubcontractEmailDialog({
     if (!target) return
     setSending(true)
     try {
-      await tripsControllerSendSubcontractEmail(target.ref, {
+      const sent = await tripsControllerSendSubcontractEmail(target.ref, {
         kind: target.kind,
         partnerRef: target.partnerRef,
         subject,
         body,
       })
-      toast.success(`Email sent to ${to}.`)
+      toast.success(`Email sent to ${to}${sent.whatsappTo ? ` and WhatsApp to ${sent.whatsappTo}` : ''}.`)
+      if (sent.whatsappWarning) toast.warning(`Email sent, but ${sent.whatsappWarning}.`)
+      else if (!sent.whatsappTo) toast.info('No WhatsApp number on file for this partner: email only.')
       onOpenChange(false)
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Could not send the partner email.'))
@@ -122,6 +124,9 @@ export function SubcontractEmailDialog({
             <div className="grid gap-1.5">
               <Label>Message</Label>
               <Textarea rows={12} value={body} onChange={(e) => setBody(e.target.value)} />
+              <p className="text-muted-foreground text-xs">
+                Sent by email, and by WhatsApp too when the partner has a number on file.
+              </p>
             </div>
           </div>
         )}

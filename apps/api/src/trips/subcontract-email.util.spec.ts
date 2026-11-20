@@ -1,5 +1,6 @@
 import {
   buildCanceledSubcontractEmail,
+  buildPartnerWhatsapp,
   buildSubcontractEmail,
   type TripForSubcontractEmail,
 } from './subcontract-email.util';
@@ -185,5 +186,21 @@ describe('buildCanceledSubcontractEmail', () => {
   it('falls back to a generic sign-off when no company name is on file', () => {
     const draft = buildCanceledSubcontractEmail(trip(), 'x@y.test', null);
     expect(draft.body.trimEnd().endsWith('the dispatch team')).toBe(true);
+  });
+});
+
+describe('buildPartnerWhatsapp', () => {
+  it('puts the subject first, then the message, then the links', () => {
+    expect(
+      buildPartnerWhatsapp('NEW BOOKING', 'Pickup at 14:30', '\n\nConfirm: https://x/c'),
+    ).toBe('NEW BOOKING\n\nPickup at 14:30\n\nConfirm: https://x/c');
+  });
+
+  it('cuts a long message, never the links', () => {
+    const links = '\n\nConfirm: https://x/c';
+    const text = buildPartnerWhatsapp('S', 'a'.repeat(5000), links, 200);
+    expect(text.length).toBeLessThanOrEqual(200);
+    expect(text.endsWith(links)).toBe(true);
+    expect(text).toContain('…');
   });
 });

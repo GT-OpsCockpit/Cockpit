@@ -71,7 +71,7 @@ export function escapeHtml(text: string): string {
  */
 export function buildPartnerEmailHtml(
   body: string,
-  links: { confirmUrl: string; declineUrl: string },
+  links: { confirmUrl: string; declineUrl: string; trackUrl?: string },
 ): string {
   const text = escapeHtml(body)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -86,6 +86,9 @@ export function buildPartnerEmailHtml(
     '&nbsp;&nbsp;',
     `<a href="${escapeHtml(links.declineUrl)}" style="${button}background:#ffffff;color:#b91c1c;border:1px solid #b91c1c;">Decline</a>`,
     '</p>',
+    links.trackUrl
+      ? `<p style="margin:8px 0;"><a href="${escapeHtml(links.trackUrl)}" style="${button}background:#2563eb;color:#ffffff;">Chauffeur booking status tracking</a></p>`
+      : '',
     '</div>',
   ].join('');
 }

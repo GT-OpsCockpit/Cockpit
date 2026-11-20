@@ -7,3 +7,17 @@ export class SubcontractEmailEntity {
 
   body: string;
 }
+
+/** What a partner email's Send did: the email always, and a WhatsApp copy when the partner has a number. */
+export class SubcontractEmailSentEntity {
+  ok: true;
+
+  /** The address the email went to. */
+  to: string;
+
+  /** The number the WhatsApp copy went to, or null when none was sent. */
+  whatsappTo: string | null;
+
+  /** Why the WhatsApp copy failed, or null (also null when the partner has no number). */
+  whatsappWarning: string | null;
+}

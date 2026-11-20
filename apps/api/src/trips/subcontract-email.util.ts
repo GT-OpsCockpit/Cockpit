@@ -196,3 +196,23 @@ export function buildCanceledSubcontractEmail(
     body: lines.join('\n'),
   };
 }
+
+/** WhatsApp (Twilio) refuses a message past 1600 characters; this leaves a margin. */
+export const WHATSAPP_MAX_LENGTH = 1500;
+
+/**
+ * The WhatsApp copy of a partner email: its subject, then its message, then the
+ * Confirm/Decline links. When it is too long the message is cut, never the
+ * links — they are what the partner acts on.
+ */
+export function buildPartnerWhatsapp(
+  subject: string,
+  body: string,
+  linksText = '',
+  max = WHATSAPP_MAX_LENGTH,
+): string {
+  const room = max - subject.length - linksText.length - 2;
+  const message =
+    body.length > room ? `${body.slice(0, Math.max(room - 1, 0))}…` : body;
+  return `${subject}\n\n${message}${linksText}`;
+}

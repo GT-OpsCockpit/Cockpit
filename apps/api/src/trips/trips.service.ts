@@ -34,7 +34,12 @@ import {
   verifyPartnerLink,
 } from './partner-link.util';
 import {
+  CHAUFFEUR_FLOW,
+  type ChauffeurView,
+} from './chauffeur-page.util';
+import {
   buildCanceledSubcontractEmail,
+  buildPartnerWhatsapp,
   buildSubcontractEmail,
   type TripForSubcontractEmail,
 } from './subcontract-email.util';
@@ -42,7 +47,10 @@ import {
   SubcontractEmailKind,
   SubcontractEmailQueryDto,
 } from './dto/subcontract-email-query.dto';
-import { SubcontractEmailEntity } from './dto/subcontract-email.entity';
+import {
+  SubcontractEmailEntity,
+  SubcontractEmailSentEntity,
+} from './dto/subcontract-email.entity';
 import { SendSubcontractEmailDto } from './dto/send-subcontract-email.dto';
 import { compatibleFleetCategories } from '../common/constants/vehicle-compatibility';
 import {
@@ -1236,7 +1244,7 @@ export class TripsService {
   async sendSubcontractEmail(
     ref: string,
     dto: SendSubcontractEmailDto,
-  ): Promise<{ ok: true; to: string }> {
+  ): Promise<SubcontractEmailSentEntity> {
     const trip = await this.findByRefOrThrow(ref);
     const to = await this.resolvePartnerEmail(trip, dto.partnerRef);
     if (!to) {
@@ -1253,7 +1261,8 @@ export class TripsService {
     const secret = this.config.get('PARTNER_LINK_SECRET', { infer: true });
     const partnerKey = this.partnerKeyFor(trip, dto.partnerRef);
     let html: string | undefined;
-    let text = dto.body;
+    let linksText = '';
+    let emailText = '';
     if (
       secret &&
       partnerKey &&
@@ -1271,13 +1280,34 @@ export class TripsService {
       );
       const link = (action: 'confirm' | 'decline') =>
         `${base}/api/partner-links/${encodeURIComponent(trip.ref)}/${action}?t=${token}`;
+      const trackToken = signPartnerLink(
+        secret,
+        trip.ref,
+        `${partnerKey}:track`,
+        '',
+      );
+      const trackUrl = `${base}/api/partner-links/${encodeURIComponent(trip.ref)}/track?t=${trackToken}`;
       html = buildPartnerEmailHtml(dto.body, {
         confirmUrl: link('confirm'),
         declineUrl: link('decline'),
+        trackUrl,
       });
-      text = `${dto.body}\n\nConfirm this booking: ${link('confirm')}\nDecline this booking: ${link('decline')}`;
+      linksText = `\n\nConfirm this booking: ${link('confirm')}\nDecline this booking: ${link('decline')}`;
+      emailText = `${linksText}\nChauffeur booking status tracking: ${trackUrl}`;
     }
-    await this.partnerMailer.send(to, dto.subject, text, html);
+    await this.partnerMailer.send(
+      to,
+      dto.subject,
+      `${dto.body}${emailText || linksText}`,
+      html,
+    );
+    // The same notice goes to the partner's WhatsApp when they have a number.
+    // The email is already out, so a failure here is reported, not thrown.
+    const whatsapp = await this.sendPartnerWhatsapp(
+      trip,
+      dto,
+      linksText,
+    );
     if (dto.kind === SubcontractEmailKind.UPDATED) {
       // The updated recap is out: "Updated - Send ?" becomes "Sent", waiting
       // for the partner's Confirm or Decline.
@@ -1288,7 +1318,58 @@ export class TripsService {
       await this.stampStep(trip.id, TripStepKind.TRANSMITTED);
       this.realtime.emitTripChanged(trip.ref);
     }
-    return { ok: true, to };
+    return { ok: true, to, ...whatsapp };
+  }
+
+  /** The WhatsApp copy of a partner email: who it reached, or why it did not. */
+  private async sendPartnerWhatsapp(
+    trip: Parameters<TripsService['resolvePartnerPhone']>[0],
+    dto: SendSubcontractEmailDto,
+    linksText: string,
+  ): Promise<{ whatsappTo: string | null; whatsappWarning: string | null }> {
+    const phone = await this.resolvePartnerPhone(trip, dto.partnerRef);
+    if (!phone) return { whatsappTo: null, whatsappWarning: null };
+    try {
+      await this.notifications.send(
+        phone,
+        buildPartnerWhatsapp(dto.subject, dto.body, linksText),
+      );
+      return { whatsappTo: phone, whatsappWarning: null };
+    } catch (err) {
+      return {
+        whatsappTo: null,
+        whatsappWarning: `the WhatsApp message to ${phone} failed to send: ${(err as Error).message}`,
+      };
+    }
+  }
+
+  /**
+   * The number a partner is reached on: their driver's own phone, else their
+   * company's mobile, else its landline — the counterpart of resolvePartnerEmail.
+   */
+  private async resolvePartnerPhone(
+    trip: {
+      partner: {
+        phone: string | null;
+        partner: { mobile: string | null; phone: string | null } | null;
+      } | null;
+      directPartner: { mobile: string | null; phone: string | null } | null;
+    },
+    partnerRefOverride?: string,
+  ): Promise<string | null> {
+    const driver = partnerRefOverride
+      ? await this.prisma.driver.findUnique({
+          where: { ref: partnerRefOverride },
+          include: { partner: true },
+        })
+      : trip.partner;
+    const fromDriver =
+      driver?.phone ?? driver?.partner?.mobile ?? driver?.partner?.phone;
+    if (fromDriver) return fromDriver;
+    if (!partnerRefOverride) {
+      return trip.directPartner?.mobile ?? trip.directPartner?.phone ?? null;
+    }
+    return null;
   }
 
   /** Who an assignment email is for, as the signed link names them: the partner driver, else the partner company. */
@@ -1470,6 +1551,82 @@ export class TripsService {
         partnerName: await this.partnerDisplayName(trip),
       }),
     };
+  }
+
+  /** Live positions of chauffeurs behind a tracking link — memory only, lost on restart. */
+  private readonly chauffeurPositions = new Map<
+    string,
+    { lat: number; lng: number; at: Date }
+  >();
+
+  private async chauffeurTrip(ref: string, token: string) {
+    const trip = await this.prisma.trip.findUnique({
+      where: { ref },
+      include: TRIP_INCLUDE,
+    });
+    const secret = this.config.get('PARTNER_LINK_SECRET', { infer: true });
+    const key = trip ? this.partnerKeyFor(trip) : null;
+    if (
+      !trip ||
+      !secret ||
+      !key ||
+      trip.assignmentCancelled ||
+      !verifyPartnerLink(secret, ref, `${key}:track`, '', token)
+    ) {
+      return null;
+    }
+    return trip;
+  }
+
+  /** What the chauffeur tracking page shows; null when the link is not valid (any more). */
+  async chauffeurView(
+    ref: string,
+    token: string,
+  ): Promise<ChauffeurView | null> {
+    const trip = await this.chauffeurTrip(ref, token);
+    if (!trip) return null;
+    const pickup = toPublicTrip(trip, true);
+    return {
+      ref: trip.ref,
+      pickupTime: DateTime.fromJSDate(trip.pickupAt, {
+        zone: trip.timezone ?? 'utc',
+      }).toFormat("dd/MM/yyyy 'at' HH:mm '(local time)'"),
+      passenger: trip.passengerName,
+      paxCount: trip.paxCount ?? null,
+      pickup: trip.pickupLocation,
+      dropoff: trip.dropoffLocation ?? null,
+      vehicle: pickup.vehicleTypeName ?? null,
+      instructions: trip.instructions ?? null,
+      done: pickup.steps.map((s) => s.step),
+    };
+  }
+
+  async chauffeurStep(
+    ref: string,
+    token: string,
+    step: string,
+  ): Promise<boolean> {
+    const trip = await this.chauffeurTrip(ref, token);
+    if (!trip) return false;
+    if (!CHAUFFEUR_FLOW.some((f) => f.step === step)) {
+      throw new BadRequestException('Unknown step');
+    }
+    await this.notify(ref, step as DriverStep);
+    if (step === 'DROPPED') this.chauffeurPositions.delete(ref);
+    return true;
+  }
+
+  async chauffeurPosition(
+    ref: string,
+    token: string,
+    lat: number,
+    lng: number,
+  ): Promise<boolean> {
+    const trip = await this.chauffeurTrip(ref, token);
+    if (!trip) return false;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return true;
+    this.chauffeurPositions.set(ref, { lat, lng, at: new Date() });
+    return true;
   }
 
   private partnerLinkValid(

@@ -129,6 +129,7 @@ export * from './setFleetUnavailabilityDtoType';
 export * from './setPasswordDto';
 export * from './setPriceListClientsDto';
 export * from './subcontractEmailEntity';
+export * from './subcontractEmailSentEntity';
 export * from './tripActionResponseEntity';
 export * from './tripEntity';
 export * from './tripEntityBilling';
