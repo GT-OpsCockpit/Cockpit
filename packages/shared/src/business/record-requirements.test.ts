@@ -198,6 +198,7 @@ describe('missingFields — drivers', () => {
       'First name is required.',
       'Last name is required.',
       'Phone is required.',
+      'Email is required.',
     ])
   })
 })

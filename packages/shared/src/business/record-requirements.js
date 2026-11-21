@@ -152,6 +152,8 @@ function driverGaps(values) {
     if (!has(values.firstName)) gaps.push(gap(['firstName'], 'First name is required.'));
     if (!has(values.lastName)) gaps.push(gap(['lastName'], 'Last name is required.'));
     if (!has(values.phone)) gaps.push(gap(['phone'], 'Phone is required.'));
+    // The chauffeur's own email: the status-tracking link goes to it too.
+    if (!has(values.email)) gaps.push(gap(['email'], 'Email is required.'));
     return gaps;
   }
 

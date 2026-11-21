@@ -97,11 +97,22 @@ describe('Drivers (e2e)', () => {
 
   const server = () => app.getHttpServer() as Parameters<typeof request>[0];
 
-  it('creates an internal driver (no company) with a D-FR-INT-NNN ref, requiring firstName/lastName/phone', async () => {
+  it('creates an internal driver (no company) with a D-FR-INT-NNN ref, requiring firstName/lastName/phone/email', async () => {
     await request(server())
       .post('/api/drivers')
       .set('Cookie', cookie)
       .send({ firstName: 'John' })
+      .expect(400);
+
+    await request(server())
+      .post('/api/drivers')
+      .set('Cookie', cookie)
+      .send({
+        countryCode: 'FR',
+        firstName: 'John',
+        lastName: 'Smith',
+        phone: '+33 6 12 34 56 78',
+      })
       .expect(400);
 
     const res = await request(server())
@@ -112,6 +123,7 @@ describe('Drivers (e2e)', () => {
         firstName: 'John',
         lastName: 'Smith',
         phone: '+33 6 12 34 56 78',
+        email: 'john@smith.test',
       })
       .expect(201);
     const body = res.body as DriverBody;

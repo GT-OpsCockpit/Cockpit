@@ -104,28 +104,10 @@ describe('DriverFormFields', () => {
     })
   })
 
-  // Only a partner is ever emailed — the sub-contracting drafts go to their
-  // address, an in-house chauffeur is reached on WhatsApp. The legacy disabled
-  // and cleared the field for one (drivers.html:385-387).
-  it('locks the Email field for an in-house driver, and opens it once a Company is named', () => {
+  // The email is asked of every driver (the status-tracking link goes to it).
+  it('keeps the Email field open for an in-house driver', () => {
     render(<Harness onValues={() => {}} defaults={{ company: '' }} />)
-    expect(screen.getByLabelText('Email')).toBeDisabled()
-
-    fireEvent.change(screen.getByLabelText('Company'), { target: { value: 'Riviera Cars' } })
     expect(screen.getByLabelText('Email')).toBeEnabled()
-  })
-
-  it('clears an address left over from when the driver was a partner', () => {
-    let latest: DriverFormValues | undefined
-    render(
-      <Harness
-        onValues={(values) => (latest = values)}
-        defaults={{ company: 'Riviera Cars', email: 'paul@riviera.test' }}
-      />,
-    )
-
-    fireEvent.change(screen.getByLabelText('Company'), { target: { value: '  ' } })
-    expect(latest?.email).toBe('')
   })
 
 })
@@ -146,42 +128,8 @@ describe('DriverFormFields — Country', () => {
   })
 })
 
-// Ticking "Events-only" put "Email is required for an Events driver" under a
-// field the operator could not type in: Email only enabled itself once a
-// Company was filled (drivers.html:385). The message was right — the rule does
-// demand an email — so it is the field that had to give.
-describe('DriverFormFields — the Events driver\'s email', () => {
-  const emailField = () => screen.getByLabelText('Email')
-
-  it('stays disabled for an in-house chauffeur, who is reached on WhatsApp', () => {
-    render(<Harness onValues={() => {}} defaults={{ company: '', eventsOnly: false }} />)
-    expect(emailField()).toBeDisabled()
-  })
-
-  it('enables itself as soon as Events-only is ticked, Company or not', () => {
-    render(<Harness onValues={() => {}} defaults={{ company: '', eventsOnly: true }} />)
-    expect(emailField()).toBeEnabled()
-  })
-
-  // Clearing the Company wipes the email, so that an address left over from
-  // when the record was a partner cannot be saved behind a greyed-out field.
-  // For an Events driver the field is not greyed out and the address is
-  // required, so wiping it would destroy what was just typed.
-  it('keeps an Events driver\'s email when the Company is cleared', () => {
-    let latest: DriverFormValues | undefined
-    render(
-      <Harness
-        onValues={(values) => (latest = values)}
-        defaults={{ company: 'Acme', email: 'a@b.test', eventsOnly: true }}
-      />,
-    )
-
-    fireEvent.change(screen.getByLabelText('Company'), { target: { value: '' } })
-
-    expect(latest?.email).toBe('a@b.test')
-  })
-
-  it("still clears a partner's email when the Company is cleared", () => {
+describe('DriverFormFields — the email', () => {
+  it('keeps the email when the Company is cleared', () => {
     let latest: DriverFormValues | undefined
     render(
       <Harness
@@ -192,6 +140,6 @@ describe('DriverFormFields — the Events driver\'s email', () => {
 
     fireEvent.change(screen.getByLabelText('Company'), { target: { value: '' } })
 
-    expect(latest?.email).toBe('')
+    expect(latest?.email).toBe('a@b.test')
   })
 })

@@ -33,7 +33,7 @@ function issues(values: DriverFormValues): { path: string; message: string }[] {
 
 describe('driverFormSchema — the shared rules reach the right fields', () => {
   it('accepts a fully valid own chauffeur', () => {
-    expect(driverFormSchema.safeParse(base({ firstName: 'John', lastName: 'Smith', phone: '+33611111111' })).success).toBe(
+    expect(driverFormSchema.safeParse(base({ firstName: 'John', lastName: 'Smith', phone: '+33611111111', email: 'john@smith.test' })).success).toBe(
       true,
     )
   })
@@ -43,13 +43,14 @@ describe('driverFormSchema — the shared rules reach the right fields', () => {
       { path: 'firstName', message: 'First name is required.' },
       { path: 'lastName', message: 'Last name is required.' },
       { path: 'phone', message: 'Phone is required.' },
+      { path: 'email', message: 'Email is required.' },
     ])
   })
 
   // Country is asked of every kind, so it lands on countryCode whatever the
   // rest of the form says — including on an otherwise complete chauffeur.
   it('marks the Country field when no country is picked', () => {
-    expect(issues(base({ countryCode: '', firstName: 'John', lastName: 'Smith', phone: '+33611111111' }))).toEqual([
+    expect(issues(base({ countryCode: '', firstName: 'John', lastName: 'Smith', phone: '+33611111111', email: 'john@smith.test' }))).toEqual([
       { path: 'countryCode', message: 'Country is required.' },
     ])
   })
