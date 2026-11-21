@@ -132,7 +132,7 @@ describe('missingFields — accounts', () => {
 })
 
 describe('missingFields — drivers', () => {
-  const ownChauffeur = { countryCode: 'FR', firstName: 'Julien', lastName: 'Petit', phone: '+33698765432' }
+  const ownChauffeur = { countryCode: 'FR', firstName: 'Julien', lastName: 'Petit', phone: '+33698765432', email: 'julien@own.test' }
   const partnerChauffeur = { ...ownChauffeur, company: 'Riviera Cars', email: 'j@riviera.test' }
   const partnerCompany = { countryCode: 'FR', company: 'Riviera Cars', email: 'contact@riviera.test' }
   const eventsDriver = {
@@ -156,6 +156,7 @@ describe('missingFields — drivers', () => {
     ['an own chauffeur with no first name', { ...ownChauffeur, firstName: '' }, ['First name is required.']],
     ['an own chauffeur with no last name', { ...ownChauffeur, lastName: '' }, ['Last name is required.']],
     ['an own chauffeur with no phone', { ...ownChauffeur, phone: '' }, ['Phone is required.']],
+    ['an own chauffeur with no email', { ...ownChauffeur, email: '' }, ['Email is required.']],
     [
       'a partner chauffeur with no email',
       { ...partnerChauffeur, email: '' },

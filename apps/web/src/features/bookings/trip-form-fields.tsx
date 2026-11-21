@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ChangeEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { CalendarDays, CircleCheck, Clock, Info, MapPin, Plane, TriangleAlert, User, ArrowLeftRight } from 'lucide-react'
 import { useFormState, type UseFormReturn } from 'react-hook-form'
@@ -54,7 +54,7 @@ import { MAX_FILE_SIZE, NameboardUploadDialog } from './nameboard-upload-dialog'
 import { NameboardPreviewDialog } from './nameboard-preview-dialog'
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog'
 import { applyBookingEdit, type BookingChange, type BookingMeta, type LocatedAddress } from './booking-draft'
-import { clientDisplayName, partnerLabel } from '@cockpit/shared'
+import { clientDisplayName, isLocalTrip, partnerLabel } from '@cockpit/shared'
 import { partnerCarFits, partnerServesBooking, type BookingEnd } from './partner-zone'
 import { entryCurrencies, eurFromForeign, foreignFromEur } from './price-currency'
 import { driverOptionLabel } from '@/features/drivers/driver-status'
@@ -453,6 +453,20 @@ export function TripFormFields({
     }
     return patch
   }
+
+  // A new booking outside the local area (Nice, Cannes, St-Tropez, Monaco) is
+  // not one our own drivers take: it is sub-contracted as soon as an address
+  // makes it non-local. Unticking it by hand sticks (userUnticked).
+  const draftIsLocal = isLocalTrip({ area, countryCode, pickupLocation, dropoffLocation })
+  const hasPlace = !!(pickupLocation?.trim() || dropoffLocation?.trim())
+  const userUnticked = useRef(false)
+  useEffect(() => {
+    if (!trip && hasPlace && !draftIsLocal && !userUnticked.current && !form.getValues('subContractor')) {
+      form.setValue('subContractor', true)
+      applyEdit({ kind: 'subContractor', value: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftIsLocal, hasPlace])
 
   const clientResults = (clients.data?.data ?? [])
     .filter((c) => c.active && c.clientType !== 'EVENT')
@@ -1099,6 +1113,7 @@ export function TripFormFields({
                     checked={field.value}
                     onCheckedChange={(checked) => {
                       field.onChange(checked)
+                      userUnticked.current = checked !== true
                       applyEdit({ kind: 'subContractor', value: checked === true })
                     }}
                   />
