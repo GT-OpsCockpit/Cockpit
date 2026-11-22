@@ -738,12 +738,13 @@ export class TripsService {
   async cancelAssignment(
     ref: string,
     dto: CancelAssignmentDto,
+    user: AuthenticatedUser,
   ): Promise<CancelAssignmentResponseEntity> {
     const trip = await this.findByRefOrThrow(ref);
+    // A completed trip is in the invoicing: cancelling it is behind the
+    // admin's password, on top of the role.
     if (isTripCompleted(trip, new Date())) {
-      throw new BadRequestException(
-        'A completed trip cannot be cancelled: it stays in the invoicing.',
-      );
+      await this.requireAdminPassword(user, dto.adminPassword);
     }
 
     // Automatic, unlike a fresh partner-driver dispatch — there's no "Send"

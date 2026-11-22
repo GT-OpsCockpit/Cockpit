@@ -9,4 +9,6 @@ import type { CancelAssignmentDtoCancellationFee } from './cancelAssignmentDtoCa
 
 export interface CancelAssignmentDto {
   cancellationFee?: CancelAssignmentDtoCancellationFee;
+  /** The signed-in user's own password — required to cancel a completed trip. */
+  adminPassword?: string;
 }

@@ -11,6 +11,8 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { isTripCompleted } from './trip-status'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { usePermission } from '@/features/auth/use-permission'
@@ -54,6 +56,7 @@ export function BookingCancelDialog({
 }) {
   const [fee, setFee] = useState<CancelAssignmentDtoCancellationFee>(CancelAssignmentDtoCancellationFee.FREE)
   const [feeLoadedFor, setFeeLoadedFor] = useState<string | null>(null)
+  const [adminPassword, setAdminPassword] = useState('')
   const cancelAssignment = useTripsControllerCancelAssignment()
 
   // UX-layer mirror of the server-side gate (TripsController.cancelAssignment,
@@ -69,14 +72,17 @@ export function BookingCancelDialog({
   }
 
   const close = (open: boolean) => {
-    if (!open) setFeeLoadedFor(null)
+    if (!open) {
+      setFeeLoadedFor(null)
+      setAdminPassword('')
+    }
     onOpenChange(open)
   }
 
   const confirm = async () => {
     if (!trip || !canCancel) return
     try {
-      const result = await cancelAssignment.mutateAsync({ ref: trip.ref, data: { cancellationFee: fee } })
+      const result = await cancelAssignment.mutateAsync({ ref: trip.ref, data: { cancellationFee: fee, ...(completed && { adminPassword }) } })
       // The server emails the partner itself on cancelling; the toast says so, or says why not.
       const partnerNote = trip.subContractor && !result.notifyWarning ? ' The partner was notified by email.' : ''
       toast.success(
@@ -94,6 +100,7 @@ export function BookingCancelDialog({
   }
 
   const account = trip ? clientAccountLabel(trip) : null
+  const completed = !!trip && isTripCompleted(trip)
 
   return (
     <Dialog open={!!trip} onOpenChange={close}>
@@ -136,6 +143,20 @@ export function BookingCancelDialog({
                 </SelectContent>
               </Select>
             </div>
+            {completed && (
+              <div className="grid gap-2">
+                <Label htmlFor="cancel-admin-password">
+                  Admin code (your login password) — required to cancel a completed trip
+                </Label>
+                <Input
+                  id="cancel-admin-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                />
+              </div>
+            )}
           </div>
         )}
         <DialogFooter>
@@ -145,7 +166,7 @@ export function BookingCancelDialog({
           <Button
             type="button"
             variant="destructive"
-            disabled={cancelAssignment.isPending || !canCancel}
+            disabled={cancelAssignment.isPending || !canCancel || (completed && !adminPassword)}
             onClick={() => void confirm()}
           >
             {cancelAssignment.isPending && <Spinner />}

@@ -115,8 +115,9 @@ export class TripsController {
   cancelAssignment(
     @Param('ref') ref: string,
     @Body() dto: CancelAssignmentDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<CancelAssignmentResponseEntity> {
-    return this.tripsService.cancelAssignment(ref, dto);
+    return this.tripsService.cancelAssignment(ref, dto, user);
   }
 
   @Post(':ref/advance-step')
