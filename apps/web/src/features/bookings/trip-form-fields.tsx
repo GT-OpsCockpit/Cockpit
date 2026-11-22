@@ -556,9 +556,10 @@ export function TripFormFields({
     setChosenPartnerRef(ref)
     const picked = (directPartners.data ?? []).find((p) => p.ref === ref)
     if (picked?.individual) {
-      form.setValue('subContractorNoDriver', false)
-      form.setValue('directPartnerRef', '')
-      form.setValue('partnerRef', picked.drivers[0]?.ref ?? '')
+      const own = picked.drivers[0]?.ref ?? ''
+      form.setValue('subContractorNoDriver', !own)
+      form.setValue('directPartnerRef', own ? '' : ref)
+      form.setValue('partnerRef', own)
     } else {
       form.setValue('subContractorNoDriver', true)
       form.setValue('directPartnerRef', ref)
@@ -569,12 +570,20 @@ export function TripFormFields({
   // it, whatever the booking held before (a company-only assignment, say).
   const individualDriverRef = chosenPartner?.individual ? (chosenPartner.drivers[0]?.ref ?? '') : null
   useEffect(() => {
-    if (individualDriverRef === null || !subContractor) return
-    if (form.getValues('partnerRef') !== individualDriverRef) form.setValue('partnerRef', individualDriverRef)
-    if (form.getValues('directPartnerRef')) form.setValue('directPartnerRef', '')
-    if (form.getValues('subContractorNoDriver')) form.setValue('subContractorNoDriver', false)
+    if (individualDriverRef === null || !subContractor || !chosenPartner) return
+    if (individualDriverRef) {
+      if (form.getValues('partnerRef') !== individualDriverRef) form.setValue('partnerRef', individualDriverRef)
+      if (form.getValues('directPartnerRef')) form.setValue('directPartnerRef', '')
+      if (form.getValues('subContractorNoDriver')) form.setValue('subContractorNoDriver', false)
+    } else {
+      // No driver record yet: the individual is still reachable (email), so the
+      // booking goes to them as the partner itself.
+      if (form.getValues('directPartnerRef') !== chosenPartner.ref) form.setValue('directPartnerRef', chosenPartner.ref)
+      if (form.getValues('partnerRef')) form.setValue('partnerRef', '')
+      if (!form.getValues('subContractorNoDriver')) form.setValue('subContractorNoDriver', true)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [individualDriverRef, subContractor])
+  }, [individualDriverRef, subContractor, chosenPartner?.ref])
   // The registered drivers of the chosen company, when a specific one is wanted.
   const companyDrivers = useDriversControllerList(
     { partnerId: chosenPartner?.id, limit: 100 },
@@ -1212,7 +1221,7 @@ export function TripFormFields({
                   {chosenPartner?.individual
                     ? individualDriverRef
                       ? 'Individual partner — dispatched to their own driver.'
-                      : 'This individual has no driver record yet: open the partner, press Confirm to create it, then come back.'
+                      : 'Individual partner — dispatched to them directly by email.'
                     : "Company — dispatched by email; tick the box to pick one of its drivers."}
                 </p>
               </FormItem>

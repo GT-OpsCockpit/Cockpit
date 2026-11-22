@@ -334,6 +334,35 @@ export class PartnersService {
       }
       return;
     }
+    if (!driver && vehicle) {
+      // A roster left without its driver: the individual is their own driver.
+      const phone = normalizePhone(dto.mobile || dto.phone || partner.mobile || partner.phone);
+      const clash = phone
+        ? await this.prisma.driver.findUnique({ where: { phone } })
+        : null;
+      const [first = '', ...rest] = partner.contactName.split(' ');
+      const prefix = driverRefPrefix(partner.countryCode, partner.area, partner.contactName);
+      const seq = await this.refCounter.next(`driver:${prefix}`);
+      const created = await this.prisma.driver.create({
+        data: {
+          ref: `${prefix}-${String(seq).padStart(3, '0')}`,
+          countryCode: partner.countryCode,
+          firstName: dto.firstName || first || null,
+          lastName: dto.lastName || rest.join(' ') || null,
+          phone: clash ? null : phone,
+          email: partner.email,
+          company: partner.contactName,
+          partnerId: partner.id,
+          area: partner.area?.trim() || 'Local',
+        },
+      });
+      if (!vehicle.driverId) {
+        await this.prisma.fleetVehicle.update({
+          where: { id: vehicle.id },
+          data: { driverId: created.id },
+        });
+      }
+    }
     if (driver) {
       const phone = normalizePhone(dto.mobile || dto.phone || partner.mobile || partner.phone);
       if (phone && phone !== driver.phone) {
