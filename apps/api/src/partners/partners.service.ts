@@ -443,6 +443,35 @@ export class PartnersService {
     return { ok: true };
   }
 
+  /**
+   * An individual partner has exactly the driver and the vehicle created with
+   * them: nothing else may be attached to them (the record being updated, if
+   * any, does not count).
+   */
+  async assertRosterOpen(
+    partnerId: string,
+    kind: 'driver' | 'vehicle',
+    exceptRef?: string,
+  ): Promise<void> {
+    const partner = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+    });
+    if (!partner?.individual) return;
+    const others =
+      kind === 'driver'
+        ? await this.prisma.driver.count({
+            where: { partnerId, ...(exceptRef && { NOT: { ref: exceptRef } }) },
+          })
+        : await this.prisma.fleetVehicle.count({
+            where: { partnerId, ...(exceptRef && { NOT: { ref: exceptRef } }) },
+          });
+    if (others > 0) {
+      throw new BadRequestException(
+        `${partner.contactName} is an individual partner: their one driver and one vehicle are the ones created with them — no other ${kind} can be attached.`,
+      );
+    }
+  }
+
   /** Resolves a Partner by ref, throwing the same way every other module's create/update paths do for a bad ref. */
   async resolveByRefOrThrow(ref: string) {
     const partner = await this.prisma.partner.findUnique({ where: { ref } });

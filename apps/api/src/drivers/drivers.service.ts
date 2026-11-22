@@ -183,6 +183,7 @@ export class DriversService {
     const partnerId = dto.partnerRef
       ? (await this.partners.resolveByRefOrThrow(dto.partnerRef)).id
       : null;
+    if (partnerId) await this.partners.assertRosterOpen(partnerId, 'driver');
 
     const driver = await this.prisma.driver.create({
       data: {
@@ -250,6 +251,7 @@ export class DriversService {
           ? (await this.partners.resolveByRefOrThrow(dto.partnerRef)).id
           : null
         : undefined;
+    if (partnerId) await this.partners.assertRosterOpen(partnerId, 'driver', ref);
 
     const driver = await this.prisma.driver.update({
       where: { ref },

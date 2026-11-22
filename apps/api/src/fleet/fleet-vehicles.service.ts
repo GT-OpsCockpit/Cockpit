@@ -63,9 +63,12 @@ export class FleetVehiclesService {
   private async resolvePartnerId(
     isLocal: boolean,
     partnerRef: string | undefined,
+    exceptRef?: string,
   ): Promise<string | null> {
     if (isLocal || !partnerRef) return null;
-    return (await this.partners.resolveByRefOrThrow(partnerRef)).id;
+    const id = (await this.partners.resolveByRefOrThrow(partnerRef)).id;
+    await this.partners.assertRosterOpen(id, 'vehicle', exceptRef);
+    return id;
   }
 
   async list(
@@ -197,7 +200,7 @@ export class FleetVehiclesService {
     } else {
       driverId = null;
     }
-    const partnerId = await this.resolvePartnerId(isLocal, dto.partnerRef);
+    const partnerId = await this.resolvePartnerId(isLocal, dto.partnerRef, ref);
 
     const vehicle = await this.prisma.fleetVehicle.update({
       where: { ref },
