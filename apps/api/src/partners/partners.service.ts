@@ -25,7 +25,7 @@ import type { Partner, Prisma } from '../../generated/prisma/client';
 
 const PARTNER_INCLUDE = {
   drivers: true,
-  fleetVehicles: true,
+  fleetVehicles: { include: { category: true } },
 } satisfies Prisma.PartnerInclude;
 
 function driverRefPrefix(
@@ -71,6 +71,9 @@ function toEntity(partner: PartnerWithRoster): PartnerEntity {
       make: vehicle.make,
       model: vehicle.model,
       regNbr: vehicle.regNbr,
+      category: vehicle.category?.name ?? null,
+      color: vehicle.color,
+      fourWD: vehicle.fourWD,
     })),
   };
 }
@@ -283,7 +286,128 @@ export class PartnersService {
       },
       include: PARTNER_INCLUDE,
     });
-    return toEntity(partner);
+    if (partner.individual) await this.syncIndividualRoster(partner, dto);
+    return toEntity(
+      await this.prisma.partner.findUniqueOrThrow({
+        where: { ref },
+        include: PARTNER_INCLUDE,
+      }),
+    );
+  }
+
+  /**
+   * An individual partner's own driver and vehicle follow the partner's form:
+   * editing the partner edits them too. Nothing to do when the form sent no
+   * vehicle field; when the partner has no roster yet (it was a company until
+   * now), the same creation as for a new individual is run.
+   */
+  private async syncIndividualRoster(
+    partner: Partner,
+    dto: UpdatePartnerDto,
+  ): Promise<void> {
+    const touchesVehicle = [
+      dto.vehicleCategory,
+      dto.vehicleMake,
+      dto.vehicleModel,
+      dto.vehicleColor,
+      dto.vehicleRegNbr,
+      dto.vehicleFourWD,
+    ].some((v) => v !== undefined);
+    const [driver, vehicle] = await Promise.all([
+      this.prisma.driver.findFirst({ where: { partnerId: partner.id } }),
+      this.prisma.fleetVehicle.findFirst({ where: { partnerId: partner.id } }),
+    ]);
+    if (!driver && !vehicle) {
+      if (touchesVehicle) {
+        await this.createIndividualRoster(partner, {
+          ...dto,
+          email: partner.email,
+        } as CreatePartnerDto);
+      }
+      return;
+    }
+    if (driver) {
+      const phone = normalizePhone(dto.mobile || dto.phone || partner.mobile || partner.phone);
+      if (phone && phone !== driver.phone) {
+        const clash = await this.prisma.driver.findUnique({ where: { phone } });
+        if (clash && clash.id !== driver.id) {
+          throw new ConflictException(
+            `Phone ${phone} is already used by driver ${clash.ref}.`,
+          );
+        }
+      }
+      await this.prisma.driver.update({
+        where: { id: driver.id },
+        data: {
+          ...(dto.firstName !== undefined && { firstName: dto.firstName || null }),
+          ...(dto.lastName !== undefined && { lastName: dto.lastName || null }),
+          ...(phone && { phone }),
+          email: partner.email,
+          countryCode: partner.countryCode ?? driver.countryCode,
+          company: partner.contactName,
+          area: partner.area?.trim() || 'Local',
+        },
+      });
+    }
+    if (vehicle && touchesVehicle) {
+      const data: Prisma.FleetVehicleUncheckedUpdateInput = {
+        countryCode: partner.countryCode,
+        area: partner.area,
+        partnerCompany: partner.contactName,
+      };
+      const make = dto.vehicleMake ?? vehicle.make;
+      const model = dto.vehicleModel ?? vehicle.model;
+      if (dto.vehicleCategory) {
+        const category = await this.prisma.vehicleType.findUnique({
+          where: { name: dto.vehicleCategory },
+        });
+        if (!category) {
+          throw new BadRequestException(
+            'vehicleCategory must match an existing vehicle type',
+          );
+        }
+        const categoryModels = CATEGORY_MODELS[dto.vehicleCategory];
+        if (categoryModels && !categoryModels[make]?.includes(model)) {
+          throw new BadRequestException(
+            `${make} ${model} is not a valid vehicle for the "${dto.vehicleCategory}" Category`,
+          );
+        }
+        data.categoryId = category.id;
+        data.nbPax = category.maxPax;
+      }
+      if (dto.vehicleMake !== undefined) {
+        if (!FLEET_MAKES.includes(make)) {
+          throw new BadRequestException('invalid vehicle make');
+        }
+        data.make = make;
+      }
+      if (dto.vehicleModel !== undefined || dto.vehicleMake !== undefined) {
+        if (!FLEET_MODELS_BY_MAKE[make]?.includes(model)) {
+          throw new BadRequestException('invalid vehicle model for this make');
+        }
+        data.model = model;
+      }
+      if (dto.vehicleColor) {
+        if (!FLEET_COLOR_VALUES.includes(dto.vehicleColor)) {
+          throw new BadRequestException('invalid vehicle color');
+        }
+        data.color = dto.vehicleColor;
+      }
+      if (dto.vehicleFourWD !== undefined) data.fourWD = !!dto.vehicleFourWD;
+      if (dto.vehicleRegNbr?.trim()) {
+        const regNbr = dto.vehicleRegNbr.trim();
+        const clash = await this.prisma.fleetVehicle.findFirst({
+          where: { regNbr: { equals: regNbr, mode: 'insensitive' }, NOT: { id: vehicle.id } },
+        });
+        if (clash) {
+          throw new ConflictException(
+            `A vehicle with registration "${regNbr}" already exists`,
+          );
+        }
+        data.regNbr = regNbr;
+      }
+      await this.prisma.fleetVehicle.update({ where: { id: vehicle.id }, data });
+    }
   }
 
   async setActive(ref: string, active: boolean): Promise<PartnerEntity> {

@@ -71,9 +71,9 @@ export const partnerFormSchema = partnerFormBaseSchema.superRefine((data, ctx) =
   }
 })
 
-// Editing never shows or sends the vehicle block (see above) — same identity
-// checks, no vehicle requirement.
-export const partnerEditFormSchema = partnerFormBaseSchema.superRefine(requireIdentity)
+// Editing shows the same vehicle block as creating: an individual's vehicle is
+// always visible and editable.
+export const partnerEditFormSchema = partnerFormSchema
 
 export type PartnerFormValues = z.infer<typeof partnerFormBaseSchema>
 

@@ -48,14 +48,13 @@ export function partnerToFormValues(partner: PartnerEntity): PartnerFormValues {
     email: partner.email,
     countryCode: partner.countryCode ?? '',
     area: partner.area ?? '',
-    // Not editable here — see PartnerFormFields' `editing` prop and
-    // PartnersService.update(), which never touches the roster.
-    vehicleCategory: '',
-    vehicleMake: '',
-    vehicleModel: '',
-    vehicleColor: '',
-    vehicleRegNbr: '',
-    vehicleFourWD: false,
+    // An individual's own vehicle (their one fleet vehicle), editable here.
+    vehicleCategory: partner.fleetVehicles[0]?.category ?? '',
+    vehicleMake: partner.fleetVehicles[0]?.make ?? '',
+    vehicleModel: partner.fleetVehicles[0]?.model ?? '',
+    vehicleColor: partner.fleetVehicles[0]?.color ?? '',
+    vehicleRegNbr: partner.fleetVehicles[0]?.regNbr ?? '',
+    vehicleFourWD: partner.fleetVehicles[0]?.fourWD ?? false,
   }
 }
 
@@ -71,5 +70,15 @@ export function toUpdatePartnerDto(values: PartnerFormValues): UpdatePartnerDto 
     email: values.email,
     countryCode: values.countryCode || undefined,
     area: values.area || undefined,
+    firstName: values.firstName || undefined,
+    lastName: values.lastName || undefined,
+    ...(values.individual && {
+      vehicleCategory: values.vehicleCategory || undefined,
+      vehicleMake: values.vehicleMake || undefined,
+      vehicleModel: values.vehicleModel || undefined,
+      vehicleColor: values.vehicleColor || undefined,
+      vehicleRegNbr: values.vehicleRegNbr || undefined,
+      vehicleFourWD: values.vehicleFourWD,
+    }),
   }
 }

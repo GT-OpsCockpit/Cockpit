@@ -12,4 +12,7 @@ export interface PartnerRosterVehicleEntity {
   make: string;
   model: string;
   regNbr: string;
+  category: string | null;
+  color: string;
+  fourWD: boolean;
 }

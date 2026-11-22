@@ -422,6 +422,9 @@ export function TripFormFields({
     search: debouncedDriverSearch || undefined,
     limit: PICKER_LIMIT,
     availableOnly: true,
+    // Our own chauffeurs only: a partner's driver (individual or not) is
+    // assigned through the sub-contracting fields, ranked by country and zone.
+    inHouse: true,
     tripClientRef: clientRef || undefined,
     tripArea: area || undefined,
     tripCountryCode: countryCode || undefined,

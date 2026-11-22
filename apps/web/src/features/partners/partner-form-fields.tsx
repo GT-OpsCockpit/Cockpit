@@ -218,7 +218,7 @@ export function PartnerFormFields({
         )}
       />
 
-      {individual && !editing && (
+      {individual && (
         <div className="bg-accent/40 grid grid-cols-1 gap-4 rounded-md border p-3 sm:grid-cols-2">
           <div className="flex items-center gap-1.5 text-sm font-medium sm:col-span-2">
             <Car className="size-4" aria-hidden="true" />
