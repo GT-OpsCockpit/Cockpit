@@ -23,7 +23,11 @@ function validIndividual(overrides: Partial<PartnerFormValues> = {}): PartnerFor
     vehicleCategory: 'Business',
     vehicleMake: 'Mercedes-Benz',
     vehicleModel: 'E-Class',
+    vehicleColor: 'Metallic Black',
     vehicleRegNbr: 'AB-123-CD',
+    mobile: '+33612345679',
+    countryCode: 'FR',
+    area: 'Local',
     ...overrides,
   })
 }
@@ -54,13 +58,16 @@ describe('partnerFormSchema', () => {
     expect(partnerFormSchema.safeParse(validBase({ phone: 'not a phone' })).success).toBe(false)
   })
 
-  it('asks an individual for a phone or a mobile — their own driver record needs one', () => {
-    const none = partnerFormSchema.safeParse(validIndividual({ phone: '', mobile: '' }))
-    expect(none.success).toBe(false)
-    if (!none.success) expect(none.error.issues.map((i) => i.path[0])).toContain('phone')
-
-    expect(partnerFormSchema.safeParse(validIndividual({ phone: '', mobile: '+33612345679' })).success).toBe(true)
-    expect(partnerFormSchema.safeParse(validIndividual({ phone: '+33612345678', mobile: '' })).success).toBe(true)
+  it('asks an individual for every driver and vehicle field, the landline excepted', () => {
+    const paths = (overrides: Partial<PartnerFormValues>) => {
+      const result = partnerFormSchema.safeParse(validIndividual(overrides))
+      return result.success ? [] : result.error.issues.map((i) => i.path[0])
+    }
+    expect(paths({ mobile: '' })).toContain('mobile')
+    expect(paths({ countryCode: '' })).toContain('countryCode')
+    expect(paths({ area: '' })).toContain('area')
+    expect(paths({ vehicleColor: '' })).toContain('vehicleColor')
+    expect(paths({ phone: '' })).toEqual([])
   })
 
   it('rejects a missing email', () => {

@@ -104,10 +104,18 @@ export class PartnersService {
     }
     // The landline is optional, but an Individual partner's own driver record
     // (created below) needs a number to reach them on.
-    if (dto.individual && !dto.phone && !dto.mobile) {
-      throw new BadRequestException(
-        'A phone or a mobile number is required for an individual partner.',
-      );
+    if (dto.individual) {
+      const missing = [
+        !dto.mobile && 'mobile',
+        !dto.countryCode && 'country',
+        !dto.area && 'area',
+        !dto.vehicleColor && 'vehicle color',
+      ].filter(Boolean);
+      if (missing.length) {
+        throw new BadRequestException(
+          `An individual partner needs: ${missing.join(', ')}.`,
+        );
+      }
     }
     const seq = await this.refCounter.next('partner');
     const partner = await this.prisma.partner.create({

@@ -37,13 +37,18 @@ function requireIdentity(data: z.infer<typeof partnerFormBaseSchema>, ctx: z.Ref
       message: 'Company name is required unless this partner is an individual.',
     })
   }
-  // An Individual partner's own driver record needs a number to be reached on.
-  if (data.individual && !data.phone?.trim() && !data.mobile?.trim()) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['phone'],
-      message: 'Enter a phone or a mobile number for an individual partner.',
-    })
+  // An Individual partner is their own driver: everything a driver needs is
+  // required (only the landline stays optional).
+  if (data.individual) {
+    if (!data.mobile?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['mobile'], message: 'Mobile is required for an individual partner.' })
+    }
+    if (!data.countryCode?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['countryCode'], message: 'Country is required for an individual partner.' })
+    }
+    if (!data.area?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['area'], message: 'Area is required for an individual partner.' })
+    }
   }
   if (!data.firstName?.trim()) {
     ctx.addIssue({ code: 'custom', path: ['firstName'], message: 'First name is required.' })
@@ -64,6 +69,9 @@ export const partnerFormSchema = partnerFormBaseSchema.superRefine((data, ctx) =
     }
     if (!data.vehicleModel) {
       ctx.addIssue({ code: 'custom', path: ['vehicleModel'], message: 'Model is required.' })
+    }
+    if (!data.vehicleColor?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['vehicleColor'], message: 'Color is required.' })
     }
     if (!data.vehicleRegNbr?.trim()) {
       ctx.addIssue({ code: 'custom', path: ['vehicleRegNbr'], message: 'Reg Nbr is required.' })
