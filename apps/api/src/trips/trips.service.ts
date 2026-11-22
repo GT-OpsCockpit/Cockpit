@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { DateTime } from 'luxon';
@@ -178,6 +179,8 @@ function toException(refusal: EditRefusal) {
 
 @Injectable()
 export class TripsService {
+  private readonly logger = new Logger(TripsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tripRef: TripRefService,
@@ -1611,7 +1614,18 @@ export class TripsService {
     if (!CHAUFFEUR_FLOW.some((f) => f.step === step)) {
       throw new BadRequestException('Unknown step');
     }
-    await this.notify(ref, step as DriverStep);
+    try {
+      await this.notify(ref, step as DriverStep);
+    } catch (err) {
+      // The chauffeur's tap must count even when the WhatsApp to the booking's
+      // contact cannot go out (no number, messaging not configured): record the
+      // step, and let the dispatcher see it live.
+      this.logger.warn(
+        `Chauffeur step ${step} on ${ref}: contact not notified (${(err as Error).message})`,
+      );
+      await this.stampStep(trip.id, TripStepKind[step as DriverStep]);
+      this.realtime.emitTripChanged(ref);
+    }
     if (step === 'DROPPED') this.chauffeurPositions.delete(ref);
     return true;
   }

@@ -72,7 +72,7 @@ if(D.done.includes('ACCEPTED')&&!D.done.includes('ARRIVED')){const a=document.cr
 if(D.done.includes('ARRIVED')&&!D.done.includes('DROPPED')&&D.dropoffMaps){const a=document.createElement('a');a.className='btn maps';a.target='_blank';a.href=D.dropoffMaps;a.textContent='Open drop-off in Google Maps';box.appendChild(a)}
 if(next){const b=document.createElement('button');b.className='btn';b.textContent=next.label;b.onclick=async()=>{b.disabled=true;document.getElementById('err').textContent='';
 if(next.step==='ACCEPTED'||D.done.includes('ACCEPTED'))startWatch();
-try{const r=await send('/step',{step:next.step});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).message||'Error');D.done.push(next.step);if(next.step==='DROPPED')stopWatch();render()}catch(e){document.getElementById('err').textContent=e.message;b.disabled=false}};box.appendChild(b)}
+try{const r=await send('/step',{step:next.step});if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.message||(j.error&&j.error.message)||('Error '+r.status))}D.done.push(next.step);if(next.step==='DROPPED')stopWatch();render()}catch(e){document.getElementById('err').textContent=e.message;b.disabled=false}};box.appendChild(b)}
 else{const t=document.createElement('div');t.className='thanks';t.textContent='Thank you';box.appendChild(t)}}
 if(D.done.includes('ACCEPTED')&&!D.done.includes('DROPPED'))startWatch();
 render();
