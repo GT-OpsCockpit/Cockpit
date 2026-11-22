@@ -524,6 +524,68 @@ export function TripFormFields({
     ? `${trip.directPartner.companyName || trip.directPartner.contactName} (${trip.directPartner.ref})`
     : undefined
 
+  // One list for sub-contracting: partner companies AND individual partners,
+  // those based at an end of the booking (country + zone). An individual with
+  // a single car of another category than the one asked for is left out.
+  const partnerPickResults = (directPartners.data ?? [])
+    .filter(
+      (p) =>
+        p.active &&
+        partnerServesBooking(p, bookingEnds) &&
+        !(
+          p.individual &&
+          vehicleType &&
+          p.fleetVehicles[0]?.category &&
+          p.fleetVehicles[0].category !== vehicleType
+        ),
+    )
+    .map((p) => ({
+      value: p.ref,
+      label: p.individual
+        ? `${p.contactName} (${p.ref}) · individual`
+        : `${p.companyName || p.contactName} (${p.ref})`,
+    }))
+    .filter((o) => !directPartnerSearchLower || o.label.toLowerCase().includes(directPartnerSearchLower))
+  const [chosenPartnerRef, setChosenPartnerRef] = useState('')
+  const partnerRefValue = form.watch('partnerRef')
+  const directPartnerRefValue = form.watch('directPartnerRef')
+  // Seeds the picker from what the booking already holds (editing, duplicate).
+  useEffect(() => {
+    if (chosenPartnerRef || !directPartners.data) return
+    const held = directPartnerRefValue
+      ? directPartnerRefValue
+      : partnerRefValue
+        ? directPartners.data.find((p) => p.drivers.some((d) => d.ref === partnerRefValue))?.ref
+        : undefined
+    if (held) setChosenPartnerRef(held)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directPartners.data, directPartnerRefValue, partnerRefValue])
+  useEffect(() => {
+    if (!subContractor) setChosenPartnerRef('')
+  }, [subContractor])
+  const chosenPartner = (directPartners.data ?? []).find((p) => p.ref === chosenPartnerRef)
+  const choosePartner = (ref: string) => {
+    setChosenPartnerRef(ref)
+    const picked = (directPartners.data ?? []).find((p) => p.ref === ref)
+    if (picked?.individual) {
+      form.setValue('subContractorNoDriver', false)
+      form.setValue('directPartnerRef', '')
+      form.setValue('partnerRef', picked.drivers[0]?.ref ?? '')
+    } else {
+      form.setValue('subContractorNoDriver', true)
+      form.setValue('directPartnerRef', ref)
+      form.setValue('partnerRef', '')
+    }
+  }
+  // The registered drivers of the chosen company, when a specific one is wanted.
+  const companyDrivers = useDriversControllerList(
+    { partnerId: chosenPartner?.id, limit: 100 },
+    { query: { enabled: !!chosenPartner && !chosenPartner.individual && !subContractorNoDriver } },
+  )
+  const companyDriverOptions = (companyDrivers.data?.data ?? [])
+    .filter((d) => d.active && partnerCarFits(d, requestedVehicleTypeId))
+    .map((d) => ({ value: d.ref, label: partnerLabel(d) }))
+
   const selectedVehicleType = meta.data?.vehicleTypes.find((v) => v.name === vehicleType)
   const paxCount = form.watch('paxCount')
   const overCapacity = !!selectedVehicleType && paxCount > selectedVehicleType.maxPax
@@ -1129,70 +1191,60 @@ export function TripFormFields({
           />
           {subContractor ? (
             <>
-              <FormField
-                control={form.control}
-                name="subContractorNoDriver"
-                render={({ field }) => (
-                  <FormItem className="col-span-6 flex flex-row items-center gap-2 lg:col-span-6">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked === true)
-                          form.setValue('partnerRef', '')
-                          form.setValue('directPartnerRef', '')
-                        }}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal whitespace-nowrap">No specific driver — assign to the company only</FormLabel>
-                  </FormItem>
-                )}
-              />
-              {subContractorNoDriver ? (
-                <FormField
-                  control={form.control}
-                  name="directPartnerRef"
-                  render={({ field }) => (
-                    <FormItem className="col-span-6 lg:col-span-6">
-                      <FormLabel className={REQUIRED_MARK}>Partner company</FormLabel>
-                      <FormControl>
-                        <SearchCombobox
-                          value={field.value ?? ''}
-                          onChange={field.onChange}
-                          options={directPartnerOptions}
-                          placeholder="Partner company…"
-                          searchPlaceholder="Search partner…"
-                          searchValue={directPartnerSearch}
-                          onSearchChange={setDirectPartnerSearch}
-                          loading={directPartners.isFetching}
-                          selectedLabel={directPartnerSelectedLabel}
-                        />
-                      </FormControl>
-                      <p className="text-muted-foreground text-xs">
-                        Dispatched by email only — there's no driver to WhatsApp yet.
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+              <FormItem className="col-span-6 lg:col-span-6">
+                <FormLabel className={REQUIRED_MARK}>Partner</FormLabel>
+                <SearchCombobox
+                  value={chosenPartnerRef}
+                  onChange={choosePartner}
+                  options={partnerPickResults}
+                  placeholder="Partner (company or individual)…"
+                  searchPlaceholder="Search partner…"
+                  searchValue={directPartnerSearch}
+                  onSearchChange={setDirectPartnerSearch}
+                  loading={directPartners.isFetching}
+                  selectedLabel={
+                    trip?.directPartner
+                      ? `${trip.directPartner.companyName || trip.directPartner.contactName} (${trip.directPartner.ref})`
+                      : trip?.partner
+                        ? partnerSelectedLabel
+                        : undefined
+                  }
                 />
-              ) : (
+                <p className="text-muted-foreground text-xs">
+                  {chosenPartner?.individual
+                    ? 'Individual partner — dispatched to their own driver.'
+                    : "Company — dispatched by email; tick the box to pick one of its drivers."}
+                </p>
+              </FormItem>
+              <FormItem className="col-span-6 flex flex-row items-center gap-2 lg:col-span-6">
+                <Checkbox
+                  checked={!subContractorNoDriver}
+                  disabled={!chosenPartner || chosenPartner.individual}
+                  onCheckedChange={(checked) => {
+                    const specific = checked === true
+                    form.setValue('subContractorNoDriver', !specific)
+                    form.setValue('partnerRef', '')
+                    form.setValue('directPartnerRef', specific ? '' : chosenPartnerRef)
+                  }}
+                />
+                <span className="text-sm whitespace-nowrap">Assign to a specific driver</span>
+              </FormItem>
+              {!subContractorNoDriver && chosenPartner && !chosenPartner.individual && (
                 <FormField
                   control={form.control}
                   name="partnerRef"
                   render={({ field }) => (
                     <FormItem className="col-span-6 lg:col-span-6">
-                      <FormLabel className={REQUIRED_MARK}>Partner</FormLabel>
+                      <FormLabel className={REQUIRED_MARK}>Driver of this company</FormLabel>
                       <FormControl>
                         <SearchCombobox
                           value={field.value ?? ''}
                           onChange={field.onChange}
-                          options={partnerOptions}
-                          placeholder="Partner company…"
-                          searchPlaceholder="Search partner…"
-                          searchValue={partnerSearch}
-                          onSearchChange={setPartnerSearch}
-                          loading={partnerSearchPending || partners.isFetching}
-                          selectedLabel={partnerSelectedLabel}
+                          options={companyDriverOptions}
+                          placeholder="Driver…"
+                          searchPlaceholder="Search driver…"
+                          loading={companyDrivers.isFetching}
+                          selectedLabel={trip?.partner ? partnerSelectedLabel : undefined}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1200,6 +1252,11 @@ export function TripFormFields({
                   )}
                 />
               )}
+              <FormField
+                control={form.control}
+                name="directPartnerRef"
+                render={() => <FormMessage className="col-span-6" />}
+              />
             </>
           ) : (
             <>
