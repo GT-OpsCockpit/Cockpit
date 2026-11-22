@@ -144,12 +144,6 @@ export function TripFormFields({
   const [driverSearch, setDriverSearch] = useState('')
   const { debounced: debouncedDriverSearch, pending: driverSearchPending } = useDebouncedSearch(driverSearch, PICKER_DEBOUNCE_MS)
 
-  const [partnerSearch, setPartnerSearch] = useState('')
-  const { debounced: debouncedPartnerSearch, pending: partnerSearchPending } = useDebouncedSearch(partnerSearch, PICKER_DEBOUNCE_MS)
-  // partnersOnly: the list is paginated and newest-first, so without it our own
-  // chauffeurs filled the page and a partner's driver could fall off it.
-  const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT, partnersOnly: true })
-
   // "No specific driver" — farming the job straight out to a Partner
   // *company* (Trip.directPartnerId), with nobody named on file yet. Its own
   // picker, separate from the partner-driver combobox above: a company and
@@ -499,31 +493,11 @@ export function TripFormFields({
 
   // …and, for a partner with a single car, only when that car is of the category asked for.
   const requestedVehicleTypeId = meta.data?.vehicleTypes.find((v) => v.name === vehicleType)?.id
-  const partnerResults = (partners.data?.data ?? [])
-    .filter(
-      (d) =>
-        d.active &&
-        d.partnerId &&
-        d.partner &&
-        partnerServesBooking(d.partner, bookingEnds) &&
-        partnerCarFits(d, requestedVehicleTypeId),
-    )
-    .map((d) => ({ value: d.ref, label: partnerLabel(d) }))
-  const partnerOptions = partnerResults
   const partnerSelectedLabel = trip?.partner
     ? partnerLabel(trip.partner)
     : (partnerSeedOption?.label ?? undefined)
 
   const directPartnerSearchLower = directPartnerSearch.trim().toLowerCase()
-  const directPartnerResults = (directPartners.data ?? [])
-    .filter((p) => p.active && partnerServesBooking(p, bookingEnds))
-    .map((p) => ({ value: p.ref, label: `${p.companyName || p.contactName} (${p.ref})` }))
-    .filter((o) => !directPartnerSearchLower || o.label.toLowerCase().includes(directPartnerSearchLower))
-  const directPartnerOptions = directPartnerResults
-  const directPartnerSelectedLabel = trip?.directPartner
-    ? `${trip.directPartner.companyName || trip.directPartner.contactName} (${trip.directPartner.ref})`
-    : undefined
-
   // One list for sub-contracting: partner companies AND individual partners,
   // those based at an end of the booking (country + zone). An individual with
   // a single car of another category than the one asked for is left out.
