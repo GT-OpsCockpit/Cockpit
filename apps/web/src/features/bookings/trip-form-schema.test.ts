@@ -24,7 +24,7 @@ function validBase(overrides: Partial<TripFormValues> = {}): TripFormValues {
     fleetRegNbr: '',
     subContractor: false,
     partnerRef: '',
-    priceEur: undefined,
+    priceEur: 150,
     partnerRateEur: undefined,
     tracking: true,
     flightNumber: '',
@@ -235,5 +235,19 @@ describe('tripFormSchema — conditional validation', () => {
         expect(message).not.toMatch(/^(Too small|Too big|Invalid input|Invalid option)/)
       }
     })
+  })
+})
+
+describe('tripFormSchema — the client price', () => {
+  it('is required: a booking without a retail price cannot be saved', () => {
+    const result = tripFormSchema.safeParse(validBase({ priceEur: undefined }))
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path[0])).toContain('priceEur')
+    }
+  })
+
+  it('accepts a typed price', () => {
+    expect(tripFormSchema.safeParse(validBase({ priceEur: 90 })).success).toBe(true)
   })
 })

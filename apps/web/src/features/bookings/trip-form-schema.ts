@@ -130,6 +130,15 @@ export const tripFormSchema = z
     // common.js:1046-1054). Saved without one, the booking is farmed out to
     // nobody: the server pins it at "Sent" and never re-arms Send
     // (decideAssignment's `locked`), so it quietly goes nowhere.
+    // The client price must be on the booking: proposed from the route's rate
+    // when there is one, otherwise typed.
+    if (data.priceEur === undefined || Number.isNaN(data.priceEur)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['priceEur'],
+        message: 'Retail net is required.',
+      })
+    }
     if (data.subContractor) {
       const hasDriver = !!data.partnerRef?.trim()
       const hasCompanyOnly = !!data.directPartnerRef?.trim()

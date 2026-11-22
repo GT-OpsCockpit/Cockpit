@@ -343,26 +343,13 @@ export function TripFormFields({
   // reasoning as everywhere else the form defers to a saved record over a
   // manual re-entry. Only ever fills the price in; it never clears a rate
   // the dispatcher typed for a one-off address that matches nothing.
-  useEffect(() => {
-    const passengerMatch = findMatchingRoute(pickupLocation, dropoffLocation, vehicleType)
-    if (passengerMatch) {
-      form.setValue('priceEur', Number(passengerMatch.priceEur), { shouldDirty: true })
-      return
-    }
-    const priceListMatch = findMatchingPriceListEntry(
-      pickupLocation,
-      pickupPostalCode,
-      countryCode,
-      dropoffLocation,
-      dropoffPostalCode,
-      dropoffCountryCode,
-      vehicleType,
-    )
-    if (priceListMatch) form.setValue('priceEur', Number(priceListMatch.priceEur), { shouldDirty: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    selectedPassenger,
-    clientPriceListEntries,
+  // The route's rate is proposed, never imposed: it fills the price in when the
+  // route changes (or while the price is still empty) and stays editable. When
+  // the route changes to one with no rate on file the price is cleared, so a
+  // new one has to be typed. Keyed on what decides the match — not on the
+  // entries array (new every render, which used to overwrite typed prices) —
+  // and an existing booking keeps its saved price when it opens.
+  const routeKey = [
     pickupLocation,
     dropoffLocation,
     pickupPostalCode,
@@ -370,7 +357,34 @@ export function TripFormFields({
     countryCode,
     dropoffCountryCode,
     vehicleType,
-  ])
+  ].join('|')
+  const rateDataKey = [selectedPassenger?.ref, clientPriceListEntries.map((e) => e.id).join(',')].join('|')
+  const seenRouteKey = useRef<string | null>(null)
+  useEffect(() => {
+    const first = seenRouteKey.current === null
+    const routeChanged = !first && seenRouteKey.current !== routeKey
+    seenRouteKey.current = routeKey
+    if (trip && first) return
+    const proposed =
+      findMatchingRoute(pickupLocation, dropoffLocation, vehicleType)?.priceEur ??
+      findMatchingPriceListEntry(
+        pickupLocation,
+        pickupPostalCode,
+        countryCode,
+        dropoffLocation,
+        dropoffPostalCode,
+        dropoffCountryCode,
+        vehicleType,
+      )?.priceEur
+    if (proposed !== undefined) {
+      if (routeChanged || form.getValues('priceEur') === undefined) {
+        form.setValue('priceEur', Number(proposed), { shouldDirty: true })
+      }
+    } else if (routeChanged) {
+      form.setValue('priceEur', undefined, { shouldDirty: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeKey, rateDataKey])
 
   // Picking one of the passenger's saved addresses (either end) offers their
   // matching route outright, rather than silently waiting for the *other*
@@ -1317,6 +1331,7 @@ export function TripFormFields({
             disabled={priceDisabled}
             disabledReason={priceDisabledReason}
             totalHint={rules.retailAsdTotal}
+            required
             className="col-span-3 lg:col-span-4"
           />
           {subContractor && (
@@ -1708,6 +1723,7 @@ function PriceField({
   disabledReason,
   totalHint,
   marginHint,
+  required = false,
   className,
 }: {
   form: UseFormReturn<TripFormValues>
@@ -1717,6 +1733,8 @@ function PriceField({
   currency?: string
   disabled?: boolean
   disabledReason?: string
+  /** Marks the price as one that must be filled before the booking can be saved. */
+  required?: boolean
   /** Column span inside the enclosing FormSection grid. */
   className?: string
   /** ASD grand total (rate × Nb H) — the field holds an hourly rate for that service. */
@@ -1753,13 +1771,13 @@ function PriceField({
     <FormField
       control={form.control}
       name={name}
-      render={({ field }) => {
+      render={({ field, fieldState }) => {
         const eur = field.value as number | undefined
         const shown =
           draft ?? (eur !== undefined && rate ? String(foreignFromEur(eur, rate)) : '')
         return (
           <FormItem className={className}>
-            <FormLabel>{label}</FormLabel>
+            <FormLabel className={required ? REQUIRED_MARK : undefined}>{label}</FormLabel>
             <div className="flex items-center gap-1">
               <FormControl>
                 {foreign ? (
@@ -1768,6 +1786,7 @@ function PriceField({
                     step="0.01"
                     placeholder="150"
                     disabled={disabled || !rate}
+                    aria-invalid={fieldState.error ? true : undefined}
                     title={disabled ? disabledReason : undefined}
                     value={shown}
                     onChange={(e) => {
@@ -1792,6 +1811,7 @@ function PriceField({
                     step="0.01"
                     placeholder="150"
                     disabled={disabled}
+                    aria-invalid={fieldState.error ? true : undefined}
                     title={disabled ? disabledReason : undefined}
                     {...field}
                     value={field.value ?? ''}
