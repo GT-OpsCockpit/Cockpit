@@ -146,7 +146,9 @@ export function TripFormFields({
 
   const [partnerSearch, setPartnerSearch] = useState('')
   const { debounced: debouncedPartnerSearch, pending: partnerSearchPending } = useDebouncedSearch(partnerSearch, PICKER_DEBOUNCE_MS)
-  const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT })
+  // partnersOnly: the list is paginated and newest-first, so without it our own
+  // chauffeurs filled the page and a partner's driver could fall off it.
+  const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT, partnersOnly: true })
 
   // "No specific driver" — farming the job straight out to a Partner
   // *company* (Trip.directPartnerId), with nobody named on file yet. Its own

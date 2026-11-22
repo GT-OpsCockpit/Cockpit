@@ -93,7 +93,7 @@ function PartnerAssignForm({
   const [companySearch, setCompanySearch] = useState('')
   const update = useTripsControllerUpdate()
 
-  const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT })
+  const partners = useDriversControllerList({ search: debouncedPartnerSearch || undefined, limit: PICKER_LIMIT, partnersOnly: true })
   const companies = usePartnersControllerList()
   // Vehicles linked to a driver: offered for the chosen partner driver.
   const vehicles = useFleetVehiclesControllerList({ limit: 100 })
@@ -260,6 +260,7 @@ function AssignForm({ trip, onClose }: { trip: TripEntity; onClose: () => void }
     search: debouncedDriverSearch || undefined,
     limit: PICKER_LIMIT,
     availableOnly: true,
+    inHouse: true,
     tripClientRef: trip.client.ref,
     tripArea: trip.area || undefined,
     tripCountryCode: trip.countryCode || undefined,
