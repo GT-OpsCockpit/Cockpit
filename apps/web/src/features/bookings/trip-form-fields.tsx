@@ -551,6 +551,16 @@ export function TripFormFields({
       form.setValue('partnerRef', '')
     }
   }
+  // An individual partner IS the driver: keep the booking's driver in step with
+  // it, whatever the booking held before (a company-only assignment, say).
+  const individualDriverRef = chosenPartner?.individual ? (chosenPartner.drivers[0]?.ref ?? '') : null
+  useEffect(() => {
+    if (individualDriverRef === null || !subContractor) return
+    if (form.getValues('partnerRef') !== individualDriverRef) form.setValue('partnerRef', individualDriverRef)
+    if (form.getValues('directPartnerRef')) form.setValue('directPartnerRef', '')
+    if (form.getValues('subContractorNoDriver')) form.setValue('subContractorNoDriver', false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [individualDriverRef, subContractor])
   // The registered drivers of the chosen company, when a specific one is wanted.
   const companyDrivers = useDriversControllerList(
     { partnerId: chosenPartner?.id, limit: 100 },
@@ -1186,7 +1196,9 @@ export function TripFormFields({
                 />
                 <p className="text-muted-foreground text-xs">
                   {chosenPartner?.individual
-                    ? 'Individual partner — dispatched to their own driver.'
+                    ? individualDriverRef
+                      ? 'Individual partner — dispatched to their own driver.'
+                      : 'This individual has no driver record yet: open the partner, press Confirm to create it, then come back.'
                     : "Company — dispatched by email; tick the box to pick one of its drivers."}
                 </p>
               </FormItem>
@@ -1231,6 +1243,13 @@ export function TripFormFields({
                 name="directPartnerRef"
                 render={() => <FormMessage className="col-span-6" />}
               />
+              {chosenPartner?.individual && (
+                <FormField
+                  control={form.control}
+                  name="partnerRef"
+                  render={() => <FormMessage className="col-span-6" />}
+                />
+              )}
             </>
           ) : (
             <>
