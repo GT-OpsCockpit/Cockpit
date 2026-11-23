@@ -155,9 +155,14 @@ export function resolveBookingFields<TClient extends BookingClient>(
     return invalid('dropoffLocation is required (except for an ASD service)');
   }
   if (dto.service === Service.ASD) {
-    if (dto.hours === undefined || dto.hours < 2 || dto.hours > 48) {
+    if (
+      dto.hours === undefined ||
+      dto.hours < 2 ||
+      dto.hours > 48 ||
+      !Number.isInteger(dto.hours * 2)
+    ) {
       return invalid(
-        'hours (Nb H) is required for an ASD service, between 2 and 48',
+        'duration is required for an ASD service: between 2h and 48h, in half hours',
       );
     }
   }

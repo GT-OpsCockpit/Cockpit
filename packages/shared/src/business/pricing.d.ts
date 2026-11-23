@@ -22,3 +22,5 @@ export function billedAmount(input: AsdTotalInput): number | null;
 
 /** The currency a Retail net figure is quoted in — EUR/CHF/GBP, USD everywhere else. */
 export function retailCurrency(countryCurrency?: string | null): string | null;
+
+export function formatHours(hours: number | null | undefined): string;

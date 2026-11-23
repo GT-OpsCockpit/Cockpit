@@ -105,6 +105,7 @@ describe('resolveBookingFields', () => {
       ['no Nb H at all', undefined],
       ['under two hours', 1],
       ['over forty-eight hours', 49],
+      ['a duration that is not a half hour', 2.3],
     ])('refuses an ASD booking with %s', (_case, hours) => {
       expect(
         messageOf(
@@ -113,7 +114,7 @@ describe('resolveBookingFields', () => {
             deps(),
           ),
         ),
-      ).toBe('hours (Nb H) is required for an ASD service, between 2 and 48');
+      ).toBe('duration is required for an ASD service: between 2h and 48h, in half hours');
     });
 
     it('refuses a SPEC booking with no instructions', () => {

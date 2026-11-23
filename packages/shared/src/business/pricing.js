@@ -82,3 +82,15 @@ export function retailCurrency(countryCurrency) {
   const code = String(countryCurrency).trim().toUpperCase();
   return RETAIL_CURRENCIES.includes(code) ? code : 'USD';
 }
+
+/**
+ * An ASD duration as a person reads it: 3 → "3h", 2.5 → "2h30". Null/undefined
+ * (not filled in yet) → "?h".
+ */
+export function formatHours(hours) {
+  if (hours == null || !Number.isFinite(Number(hours))) return '?h';
+  const value = Number(hours);
+  const whole = Math.floor(value);
+  const minutes = Math.round((value - whole) * 60);
+  return minutes ? `${whole}h${String(minutes).padStart(2, '0')}` : `${whole}h`;
+}

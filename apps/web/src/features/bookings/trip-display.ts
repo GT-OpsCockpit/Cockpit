@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { clientDisplayName, driverLabel, formatPhoneDisplay } from '@cockpit/shared'
+import { clientDisplayName, driverLabel, formatHours, formatPhoneDisplay } from '@cockpit/shared'
 import { TripEntityCancellationFee, TripEntityService } from '@cockpit/shared/api'
 import type { TripEntity } from '@cockpit/shared/api'
 
@@ -123,7 +123,7 @@ export function itineraryLabel(trip: TripEntity): string {
   const pu = shortPlaceLabel(trip.pickupLocation, trip.pickupIata, trip.timezone)
   const dropoff =
     trip.service === TripEntityService.ASD
-      ? `ASD (${trip.hours ?? '?'}h)`
+      ? `ASD (${formatHours(trip.hours)})`
       : shortPlaceLabel(trip.dropoffLocation, trip.dropoffIata, trip.timezone)
   return `${pu} → ${dropoff}`
 }

@@ -38,7 +38,7 @@ export class CreateTripDto {
   service: Service;
 
   @IsOptional()
-  @IsInt()
+  @IsNumber()
   hours?: number;
 
   @IsOptional()

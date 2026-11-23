@@ -373,7 +373,7 @@ model Trip {
   pickupLocation        String
   dropoffLocation       String?
   service               Service
-  hours                 Int?
+  hours                 Float? // whole or half hours (2, 2.5, 3…)
   instructions          String?
   clientId              String
   client                Client           @relation(fields: [clientId], references: [id])

@@ -940,26 +940,57 @@ export function TripFormFields({
             <FormField
               control={form.control}
               name="hours"
-              render={({ field }) => (
-                <FormItem className="col-span-3 lg:col-span-2">
-                  <FormLabel className={REQUIRED_MARK}>Nb H</FormLabel>
-                  <Select value={field.value?.toString() ?? ''} onValueChange={(v) => field.onChange(Number(v))}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="—" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {HOURS_OPTIONS.map((h) => (
-                        <SelectItem key={h} value={h.toString()}>
-                          {h}h
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                // The duration is stored as hours (2.5 = 2h30), shown as two menus.
+                const total = field.value
+                const wholeHours = total === undefined ? undefined : Math.floor(total)
+                const minutes = total === undefined ? '0' : total % 1 >= 0.5 ? '30' : '0'
+                return (
+                  <FormItem className="col-span-6 lg:col-span-3">
+                    <FormLabel className={REQUIRED_MARK}>Duration</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={wholeHours?.toString() ?? ''}
+                        onValueChange={(v) => {
+                          const h = Number(v)
+                          field.onChange(h >= 48 ? 48 : h + (minutes === '30' ? 0.5 : 0))
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full" aria-label="Hours">
+                            <SelectValue placeholder="Hours" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {HOURS_OPTIONS.map((h) => (
+                            <SelectItem key={h} value={h.toString()}>
+                              {h} h
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={minutes}
+                        disabled={wholeHours === undefined || wholeHours >= 48}
+                        onValueChange={(v) => {
+                          if (wholeHours !== undefined) field.onChange(wholeHours + (v === '30' ? 0.5 : 0))
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full" aria-label="Min">
+                            <SelectValue placeholder="Min" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="0">0 min</SelectItem>
+                          <SelectItem value="30">30 min</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
             />
           )}
           <LocationField

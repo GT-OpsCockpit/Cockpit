@@ -16,7 +16,7 @@ export const tripFormSchema = z
     pickupDate: z.string().min(1, 'Date is required.'),
     pickupTime: z.string().min(1, 'Time is required.'),
     service: z.enum([TripEntityService.TSF, TripEntityService.ASD, TripEntityService.SPEC]),
-    hours: z.number().int().optional(),
+    hours: z.number().optional(),
     vehicleType: z.string().min(1, 'Vehicle is required.'),
     paxCount: z.number().int(PAX_RANGE).min(1, PAX_RANGE).max(50, PAX_RANGE),
     clientRef: z.string().min(1, 'Customer is required.'),
@@ -82,11 +82,11 @@ export const tripFormSchema = z
       })
     }
     if (data.service === TripEntityService.ASD) {
-      if (data.hours === undefined || data.hours < 2 || data.hours > 48) {
+      if (data.hours === undefined || data.hours < 2 || data.hours > 48 || !Number.isInteger(data.hours * 2)) {
         ctx.addIssue({
           code: 'custom',
           path: ['hours'],
-          message: 'Hours is required for an ASD service, between 2 and 48.',
+          message: 'Duration is required for an ASD service, between 2h and 48h (in half hours).',
         })
       }
     }

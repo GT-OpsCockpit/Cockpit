@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { formatHours } from '@cockpit/shared';
 
 /** The trip fields the two drafts read — a subset of the full TripEntity. */
 export interface TripForSubcontractEmail {
@@ -144,7 +145,7 @@ export function buildSubcontractEmail(
     ...airportLines(trip),
     `Job type: ${trip.service || DASH}`,
     isAsd
-      ? `Duration: ${trip.hours ?? '?'}h`
+      ? `Duration: ${formatHours(trip.hours)}`
       : `Drop-off: ${trip.dropoffLocation || DASH}`,
     `Info: ${trip.instructions || DASH}`,
     `Partner rate net: ${rate ? `${rate.toNumber().toFixed(2)}€ Net` : DASH}`,
